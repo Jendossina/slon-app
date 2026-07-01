@@ -4,9 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>🐘 Slon Shisha & Bar</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f0f5; min-height: 100vh; }
+
+/* LOGIN */
+.login-screen {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 24px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #2d2b6b 100%);
+}
+.login-logo { font-size: 56px; margin-bottom: 12px; }
+.login-title { color: #fff; font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+.login-sub { color: rgba(255,255,255,0.6); font-size: 14px; margin-bottom: 36px; }
+.login-card { background: #fff; border-radius: 20px; padding: 24px; width: 100%; max-width: 360px; }
+.login-card h3 { font-size: 18px; font-weight: 600; color: #1a1a2e; margin-bottom: 20px; }
 
 /* NAV */
 .bottom-nav {
@@ -17,7 +30,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nav-btn {
   flex: 1; display: flex; flex-direction: column; align-items: center;
   gap: 3px; padding: 10px 4px 8px; border: none; background: none;
-  color: #999; font-size: 10px; cursor: pointer; transition: color 0.15s;
+  color: #999; font-size: 10px; cursor: pointer;
 }
 .nav-btn.active { color: #6C5CE7; }
 .nav-btn svg { width: 22px; height: 22px; }
@@ -27,46 +40,29 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .screen.active { display: block; }
 
 /* HEADER */
-.header {
-  background: #1a1a2e; color: #fff;
-  padding: 50px 20px 20px;
-}
+.header { background: #1a1a2e; color: #fff; padding: 50px 20px 20px; }
 .header h1 { font-size: 22px; font-weight: 600; }
 .header p { font-size: 13px; opacity: 0.6; margin-top: 4px; }
+.header-row { display: flex; align-items: flex-start; justify-content: space-between; }
+.logout-btn { background: rgba(255,255,255,0.15); border: none; color: #fff; border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; margin-top: 2px; }
 
 /* CONTENT */
 .content { padding: 16px; }
 
 /* CARDS */
-.card {
-  background: #fff; border-radius: 14px;
-  padding: 16px; margin-bottom: 12px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-}
+.card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
 .card-title { font-size: 12px; color: #999; font-weight: 500; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
 .stat-val { font-size: 24px; font-weight: 600; color: #1a1a2e; }
 .stat-sub { font-size: 12px; color: #999; margin-top: 2px; }
 
-/* WELCOME */
-.welcome {
-  background: linear-gradient(135deg, #1a1a2e, #2d2b6b);
-  border-radius: 14px; padding: 18px; margin-bottom: 12px; color: #fff;
-}
+.welcome { background: linear-gradient(135deg, #1a1a2e, #2d2b6b); border-radius: 14px; padding: 18px; margin-bottom: 12px; color: #fff; }
 .welcome h3 { font-size: 16px; font-weight: 600; }
 .welcome p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
 
-/* LIST */
-.list-item {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 0; border-bottom: 1px solid #f5f5f5;
-}
+.list-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f5f5f5; }
 .list-item:last-child { border-bottom: none; }
-.avatar {
-  width: 40px; height: 40px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 600; flex-shrink: 0;
-}
+.avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
 .av-purple { background: #EEEDFE; color: #534AB7; }
 .av-teal   { background: #E1F5EE; color: #0F6E56; }
 .av-coral  { background: #FAECE7; color: #993C1D; }
@@ -75,15 +71,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .item-name { font-size: 14px; font-weight: 500; color: #1a1a2e; }
 .item-sub  { font-size: 12px; color: #999; margin-top: 2px; }
 
-/* BADGES */
 .badge { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 500; white-space: nowrap; }
 .badge-green  { background: #EAF3DE; color: #3B6D11; }
 .badge-red    { background: #FCEBEB; color: #A32D2D; }
 .badge-amber  { background: #FAEEDA; color: #854F0B; }
 .badge-purple { background: #EEEDFE; color: #534AB7; }
 .badge-gray   { background: #f5f5f5; color: #666; }
+.badge-blue   { background: #E8F4FD; color: #1A6FA8; }
 
-/* SECTION LABEL */
 .section-label { font-size: 12px; font-weight: 600; color: #999; margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 0.04em; }
 
 /* FORM */
@@ -92,50 +87,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .form-input, .form-select {
   width: 100%; padding: 12px 14px; border: 1.5px solid #e5e5e5;
   border-radius: 10px; font-size: 14px; color: #1a1a2e;
-  background: #fff; outline: none; appearance: none;
-  transition: border-color 0.15s;
+  background: #fff; outline: none; appearance: none; transition: border-color 0.15s;
 }
 .form-input:focus, .form-select:focus { border-color: #6C5CE7; }
 
-/* BUTTONS */
-.btn {
-  width: 100%; padding: 14px; border: none; border-radius: 12px;
-  font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.15s;
-}
+.btn { width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
 .btn:active { opacity: 0.8; }
 .btn-primary { background: #6C5CE7; color: #fff; }
-.btn-danger  { background: #FCEBEB; color: #A32D2D; }
-.btn-sm {
-  padding: 7px 14px; font-size: 12px; border-radius: 8px;
-  border: none; cursor: pointer; font-weight: 500;
-}
 
 /* MODAL */
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
-  z-index: 200; display: none; align-items: flex-end;
-}
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; display: none; align-items: flex-end; }
 .modal-overlay.open { display: flex; }
-.modal {
-  background: #fff; border-radius: 20px 20px 0 0;
-  width: 100%; padding: 20px 20px 40px; max-height: 90vh; overflow-y: auto;
-}
+.modal { background: #fff; border-radius: 20px 20px 0 0; width: 100%; padding: 20px 20px 40px; max-height: 90vh; overflow-y: auto; }
 .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 18px; color: #1a1a2e; }
-.modal-close {
-  float: right; background: #f5f5f5; border: none; border-radius: 50%;
-  width: 30px; height: 30px; font-size: 16px; cursor: pointer; color: #666;
-}
+.modal-close { float: right; background: #f5f5f5; border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 16px; cursor: pointer; color: #666; }
 
-/* FAB */
-.fab {
-  position: fixed; right: 20px; bottom: 90px;
-  width: 54px; height: 54px; border-radius: 50%;
-  background: #6C5CE7; color: #fff; border: none;
-  font-size: 26px; box-shadow: 0 4px 14px rgba(108,92,231,0.4);
-  cursor: pointer; z-index: 99; display: flex; align-items: center; justify-content: center;
-}
+.fab { position: fixed; right: 20px; bottom: 90px; width: 54px; height: 54px; border-radius: 50%; background: #6C5CE7; color: #fff; border: none; font-size: 26px; box-shadow: 0 4px 14px rgba(108,92,231,0.4); cursor: pointer; z-index: 99; display: flex; align-items: center; justify-content: center; }
 
-/* TASK CHECK */
 .task-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f5f5f5; }
 .task-row:last-child { border-bottom: none; }
 .check { width: 22px; height: 22px; border-radius: 6px; border: 2px solid #ddd; flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
@@ -144,169 +112,186 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .task-text { font-size: 14px; color: #1a1a2e; }
 .task-meta { font-size: 11px; color: #999; margin-top: 3px; }
 
-/* PROGRESS */
 .progress-track { background: #f0f0f5; border-radius: 4px; height: 6px; margin-top: 10px; }
 .progress-fill  { background: #6C5CE7; height: 6px; border-radius: 4px; transition: width 0.3s; }
 
-/* LOADING */
 .loading { text-align: center; padding: 40px; color: #999; font-size: 14px; }
-
-/* EMPTY */
 .empty { text-align: center; padding: 40px 20px; }
 .empty-icon { font-size: 40px; margin-bottom: 10px; }
 .empty-text { color: #999; font-size: 14px; }
 
-/* FINANCE */
 .finance-positive { color: #0F6E56; }
 .finance-negative { color: #993C1D; }
 
-/* TOAST */
-.toast {
-  position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
-  background: #1a1a2e; color: #fff; padding: 10px 20px; border-radius: 20px;
-  font-size: 13px; z-index: 300; opacity: 0; transition: opacity 0.3s; pointer-events: none;
-}
+.toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: #1a1a2e; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 13px; z-index: 300; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
 .toast.show { opacity: 1; }
+
+.role-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
+.role-admin { background: #1a1a2e; color: #fff; }
+.role-manager { background: #EEEDFE; color: #534AB7; }
+.role-employee { background: #f5f5f5; color: #666; }
+
+.my-task { border-left: 3px solid #6C5CE7; padding-left: 10px; }
 </style>
 </head>
 <body>
 
-<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<!-- SCREENS -->
-
-<!-- HOME -->
-<div class="screen active" id="screen-home">
-  <div class="header">
-    <h1>🐘 Slon Shisha & Bar</h1>
-    <p id="home-date"></p>
+<!-- LOGIN -->
+<div id="login-page">
+  <div class="login-screen">
+    <div class="login-logo">🐘</div>
+    <div class="login-title">Slon Shisha & Bar</div>
+    <div class="login-sub">Система управления заведением</div>
+    <div class="login-card">
+      <h3>Войти</h3>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" id="login-email" type="email" placeholder="your@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Пароль</label>
+        <input class="form-input" id="login-password" type="password" placeholder="••••••••">
+      </div>
+      <button class="btn btn-primary" onclick="doLogin()">Войти</button>
+      <div id="login-error" style="color:#A32D2D;font-size:13px;margin-top:12px;text-align:center;"></div>
+    </div>
   </div>
-  <div class="content">
-    <div class="welcome">
-      <h3 id="home-staff-count">Загрузка...</h3>
-      <p>Управляй заведением в одном месте</p>
+</div>
+
+<!-- APP -->
+<div id="app-page" style="display:none">
+
+  <!-- HOME -->
+  <div class="screen active" id="screen-home">
+    <div class="header">
+      <div class="header-row">
+        <div>
+          <h1>🐘 Slon Shisha & Bar</h1>
+          <p id="home-date"></p>
+        </div>
+        <button class="logout-btn" onclick="doLogout()">Выйти</button>
+      </div>
     </div>
-    <div class="grid2">
-      <div class="card">
-        <div class="card-title">Выручка сегодня</div>
-        <div class="stat-val" id="home-revenue">—</div>
-        <div class="stat-sub">сум</div>
+    <div class="content">
+      <div class="welcome">
+        <h3 id="home-welcome-text">Добро пожаловать!</h3>
+        <p id="home-role-text"></p>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">Выручка сегодня</div>
+          <div class="stat-val" id="home-revenue">—</div>
+          <div class="stat-sub">сум</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Брони</div>
+          <div class="stat-val" id="home-bookings">—</div>
+          <div class="stat-sub">на сегодня</div>
+        </div>
       </div>
       <div class="card">
-        <div class="card-title">Брони</div>
-        <div class="stat-val" id="home-bookings">—</div>
-        <div class="stat-sub">на сегодня</div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title">Задачи на сегодня</div>
-      <div id="home-tasks-progress">
+        <div class="card-title">Мои задачи</div>
         <div class="progress-track"><div class="progress-fill" id="home-progress-bar" style="width:0%"></div></div>
         <div class="stat-sub" style="margin-top:8px" id="home-tasks-text">Загрузка...</div>
       </div>
+      <div class="section-label">Мои задачи на сегодня</div>
+      <div class="card" id="home-my-tasks"><div class="loading">Загрузка...</div></div>
     </div>
-    <div class="section-label">Последние брони</div>
-    <div class="card" id="home-bookings-list"><div class="loading">Загрузка...</div></div>
   </div>
-</div>
 
-<!-- HR -->
-<div class="screen" id="screen-hr">
-  <div class="header">
-    <h1>Сотрудники</h1>
-    <p id="hr-count">Загрузка...</p>
+  <!-- HR -->
+  <div class="screen" id="screen-hr">
+    <div class="header">
+      <h1>Сотрудники</h1>
+      <p id="hr-count">Загрузка...</p>
+    </div>
+    <div class="content">
+      <div class="card" id="hr-list"><div class="loading">Загрузка...</div></div>
+    </div>
+    <button class="fab" id="fab-hr" onclick="openModal('modal-add-employee')" style="display:none">+</button>
   </div>
-  <div class="content">
-    <div class="section-label">Все сотрудники</div>
-    <div class="card" id="hr-list"><div class="loading">Загрузка...</div></div>
-  </div>
-  <button class="fab" onclick="openModal('modal-add-employee')">+</button>
-</div>
 
-<!-- TASKS -->
-<div class="screen" id="screen-tasks">
-  <div class="header">
-    <h1>Задачи</h1>
-    <p id="tasks-count">Загрузка...</p>
+  <!-- TASKS -->
+  <div class="screen" id="screen-tasks">
+    <div class="header">
+      <h1>Задачи</h1>
+      <p id="tasks-count">Загрузка...</p>
+    </div>
+    <div class="content">
+      <div class="card" id="tasks-list"><div class="loading">Загрузка...</div></div>
+    </div>
+    <button class="fab" id="fab-tasks" onclick="openModal('modal-add-task')" style="display:none">+</button>
   </div>
-  <div class="content">
-    <div class="section-label">Активные</div>
-    <div class="card" id="tasks-list"><div class="loading">Загрузка...</div></div>
-  </div>
-  <button class="fab" onclick="openModal('modal-add-task')">+</button>
-</div>
 
-<!-- FINANCES -->
-<div class="screen" id="screen-finance">
-  <div class="header">
-    <h1>Финансы</h1>
-    <p id="finance-period"></p>
-  </div>
-  <div class="content">
-    <div class="grid2">
-      <div class="card">
-        <div class="card-title">Доходы</div>
-        <div class="stat-val finance-positive" id="finance-income">—</div>
-        <div class="stat-sub">сум</div>
+  <!-- FINANCES -->
+  <div class="screen" id="screen-finance">
+    <div class="header">
+      <h1>Финансы</h1>
+      <p id="finance-period"></p>
+    </div>
+    <div class="content">
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">Доходы</div>
+          <div class="stat-val finance-positive" id="finance-income">—</div>
+          <div class="stat-sub">сум</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Расходы</div>
+          <div class="stat-val finance-negative" id="finance-expense">—</div>
+          <div class="stat-sub">сум</div>
+        </div>
       </div>
       <div class="card">
-        <div class="card-title">Расходы</div>
-        <div class="stat-val finance-negative" id="finance-expense">—</div>
+        <div class="card-title">Прибыль</div>
+        <div class="stat-val" id="finance-profit" style="font-size:28px">—</div>
         <div class="stat-sub">сум</div>
       </div>
+      <div class="section-label">Последние операции</div>
+      <div class="card" id="finance-list"><div class="loading">Загрузка...</div></div>
     </div>
-    <div class="card">
-      <div class="card-title">Прибыль</div>
-      <div class="stat-val" id="finance-profit" style="font-size:28px">—</div>
-      <div class="stat-sub">сум</div>
+    <button class="fab" id="fab-finance" onclick="openModal('modal-add-finance')" style="display:none">+</button>
+  </div>
+
+  <!-- CRM -->
+  <div class="screen" id="screen-crm">
+    <div class="header">
+      <h1>Брони</h1>
+      <p id="crm-count">Загрузка...</p>
     </div>
-    <div class="section-label">Последние операции</div>
-    <div class="card" id="finance-list"><div class="loading">Загрузка...</div></div>
+    <div class="content">
+      <div class="card" id="crm-list"><div class="loading">Загрузка...</div></div>
+    </div>
+    <button class="fab" id="fab-crm" onclick="openModal('modal-add-booking')" style="display:none">+</button>
   </div>
-  <button class="fab" onclick="openModal('modal-add-finance')">+</button>
-</div>
 
-<!-- CRM -->
-<div class="screen" id="screen-crm">
-  <div class="header">
-    <h1>Брони</h1>
-    <p id="crm-count">Загрузка...</p>
-  </div>
-  <div class="content">
-    <div class="section-label">Все брони</div>
-    <div class="card" id="crm-list"><div class="loading">Загрузка...</div></div>
-  </div>
-  <button class="fab" onclick="openModal('modal-add-booking')">+</button>
+  <nav class="bottom-nav">
+    <button class="nav-btn active" onclick="showScreen('home',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Главная
+    </button>
+    <button class="nav-btn" onclick="showScreen('hr',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      HR
+    </button>
+    <button class="nav-btn" onclick="showScreen('tasks',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Задачи
+    </button>
+    <button class="nav-btn" onclick="showScreen('finance',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      Финансы
+    </button>
+    <button class="nav-btn" onclick="showScreen('crm',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Брони
+    </button>
+  </nav>
 </div>
-
-<!-- BOTTOM NAV -->
-<nav class="bottom-nav">
-  <button class="nav-btn active" onclick="showScreen('home',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-    Главная
-  </button>
-  <button class="nav-btn" onclick="showScreen('hr',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-    HR
-  </button>
-  <button class="nav-btn" onclick="showScreen('tasks',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-    Задачи
-  </button>
-  <button class="nav-btn" onclick="showScreen('finance',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-    Финансы
-  </button>
-  <button class="nav-btn" onclick="showScreen('crm',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-    Брони
-  </button>
-</nav>
 
 <!-- MODALS -->
-
-<!-- Add Employee -->
 <div class="modal-overlay" id="modal-add-employee">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-employee')">✕</button>
@@ -318,13 +303,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="form-group">
       <label class="form-label">Должность</label>
       <select class="form-select" id="emp-role">
-        <option>Бармен</option>
-        <option>Кальянщик</option>
-        <option>Официант</option>
-        <option>Администратор</option>
-        <option>Менеджер</option>
-        <option>Охранник</option>
-        <option>Уборщик</option>
+        <option>Бармен</option><option>Кальянщик</option><option>Официант</option>
+        <option>Администратор</option><option>Менеджер</option><option>Охранник</option><option>Уборщик</option>
       </select>
     </div>
     <div class="form-group">
@@ -335,11 +315,25 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <label class="form-label">Зарплата (сум)</label>
       <input class="form-input" id="emp-salary" placeholder="3000000" type="number">
     </div>
+    <div class="form-group">
+      <label class="form-label">Email для входа в приложение</label>
+      <input class="form-input" id="emp-email" placeholder="alisha@slon.uz" type="email">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Пароль для входа</label>
+      <input class="form-input" id="emp-password" placeholder="минимум 6 символов" type="text">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Роль в системе</label>
+      <select class="form-select" id="emp-system-role">
+        <option value="employee">Сотрудник</option>
+        <option value="manager">Менеджер</option>
+      </select>
+    </div>
     <button class="btn btn-primary" onclick="addEmployee()">Добавить сотрудника</button>
   </div>
 </div>
 
-<!-- Add Task -->
 <div class="modal-overlay" id="modal-add-task">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-task')">✕</button>
@@ -349,8 +343,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <input class="form-input" id="task-title" placeholder="Заказать табак Adalya">
     </div>
     <div class="form-group">
-      <label class="form-label">Ответственный</label>
-      <input class="form-input" id="task-assigned" placeholder="Дилшод">
+      <label class="form-label">Назначить сотруднику</label>
+      <select class="form-select" id="task-assigned-id">
+        <option value="">Загрузка...</option>
+      </select>
     </div>
     <div class="form-group">
       <label class="form-label">Срок</label>
@@ -360,7 +356,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
-<!-- Add Finance -->
 <div class="modal-overlay" id="modal-add-finance">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-finance')">✕</button>
@@ -379,12 +374,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="form-group">
       <label class="form-label">Категория</label>
       <select class="form-select" id="fin-category">
-        <option>Выручка</option>
-        <option>Зарплаты</option>
-        <option>Аренда</option>
-        <option>Товары</option>
-        <option>Коммунальные</option>
-        <option>Прочее</option>
+        <option>Выручка</option><option>Зарплаты</option><option>Аренда</option>
+        <option>Товары</option><option>Коммунальные</option><option>Прочее</option>
       </select>
     </div>
     <div class="form-group">
@@ -395,7 +386,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
-<!-- Add Booking -->
 <div class="modal-overlay" id="modal-add-booking">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-booking')">✕</button>
@@ -423,10 +413,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="form-group">
       <label class="form-label">Зона</label>
       <select class="form-select" id="book-zone">
-        <option>Основной зал</option>
-        <option>VIP-зал</option>
-        <option>Терраса</option>
-        <option>Кальянная зона</option>
+        <option>Основной зал</option><option>VIP-зал</option>
+        <option>Терраса</option><option>Кальянная зона</option>
       </select>
     </div>
     <button class="btn btn-primary" onclick="addBooking()">Добавить бронь</button>
@@ -436,27 +424,78 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <script>
 const SUPABASE_URL = 'https://omeomdkurvtvirhfkffu.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_h7pdCQTKnGIlIR9SaswShw_ur8eauw6';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let currentProfile = null;
 
 const colors = ['av-purple','av-teal','av-coral','av-amber'];
-function getColor(str) { let h=0; for(let c of str) h+=c.charCodeAt(0); return colors[h%4]; }
-function getInitials(name) { return name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+function getColor(str) { if(!str) return colors[0]; let h=0; for(let c of str) h+=c.charCodeAt(0); return colors[h%4]; }
+function getInitials(name) { if(!name) return '?'; return name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
 function formatNum(n) { return Number(n).toLocaleString('ru-RU'); }
 function today() { return new Date().toISOString().split('T')[0]; }
 
-async function api(table, method='GET', body=null, query='') {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, {
-    method,
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json',
-      'Prefer': method==='POST' ? 'return=representation' : ''
-    },
-    body: body ? JSON.stringify(body) : null
-  });
-  if (!res.ok) { const e = await res.text(); throw new Error(e); }
-  if (method==='DELETE' || res.status===204) return null;
-  return res.json();
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(o=>{
+  o.addEventListener('click', e=>{ if(e.target===o) o.classList.remove('open'); });
+});
+
+// AUTH
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if(error) { errEl.textContent = 'Неверный email или пароль'; return; }
+  currentUser = data.user;
+  await loadProfile();
+  showApp();
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  currentUser = null; currentProfile = null;
+  document.getElementById('app-page').style.display = 'none';
+  document.getElementById('login-page').style.display = 'block';
+}
+
+async function loadProfile() {
+  const { data } = await sb.from('profiles').select('*').eq('user_id', currentUser.id).single();
+  if(data) { currentProfile = data; }
+  else {
+    // Auto-create admin profile for first user
+    const { data: newP } = await sb.from('profiles').insert({ user_id: currentUser.id, name: currentUser.email, role: 'admin' }).select().single();
+    currentProfile = newP;
+  }
+}
+
+function showApp() {
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('app-page').style.display = 'block';
+  applyRolePermissions();
+  loadHome();
+}
+
+function applyRolePermissions() {
+  const role = currentProfile?.role;
+  // Show FABs based on role
+  if(role === 'admin') {
+    ['fab-hr','fab-tasks','fab-finance','fab-crm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
+  } else if(role === 'manager') {
+    ['fab-tasks','fab-crm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
+  }
+  // Hide finance for employees
+  const finNav = document.querySelectorAll('.nav-btn')[3];
+  if(role === 'employee') finNav.style.display = 'none';
 }
 
 function showScreen(name, btn) {
@@ -471,67 +510,70 @@ function showScreen(name, btn) {
   if(name==='crm') loadCRM();
 }
 
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 2500);
-}
-
 // HOME
 async function loadHome() {
   const d = new Date();
   document.getElementById('home-date').textContent = d.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
   document.getElementById('finance-period').textContent = d.toLocaleDateString('ru-RU', {month:'long', year:'numeric'});
 
+  const role = currentProfile?.role;
+  const name = currentProfile?.name || currentUser?.email;
+  document.getElementById('home-welcome-text').textContent = `Привет, ${name}!`;
+  const roleLabels = { admin: '👑 Управляющий', manager: '📋 Менеджер', employee: '👤 Сотрудник' };
+  document.getElementById('home-role-text').textContent = roleLabels[role] || '';
+
   try {
-    const emps = await api('employees','GET',null,'?select=id');
-    document.getElementById('home-staff-count').textContent = `${emps.length} сотрудников в штате`;
-
     const todayStr = today();
-    const books = await api('bookings','GET',null,`?date=eq.${todayStr}&order=time.asc`);
-    document.getElementById('home-bookings').textContent = books.length;
+    // My tasks
+    let tasksQuery = sb.from('tasks').select('*').eq('due_date', todayStr);
+    if(role === 'employee') tasksQuery = tasksQuery.eq('assigned_to_id', currentUser.id);
+    else if(role === 'manager') tasksQuery = tasksQuery.or(`assigned_to_id.eq.${currentUser.id},created_by.eq.${currentUser.id}`);
 
-    // bookings list
-    const bl = document.getElementById('home-bookings-list');
-    if(books.length===0) { bl.innerHTML='<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">Броней на сегодня нет</div></div>'; }
-    else {
-      bl.innerHTML = books.slice(0,3).map(b=>`
-        <div class="list-item">
-          <div class="avatar ${getColor(b.guest_name)}">${getInitials(b.guest_name)}</div>
-          <div class="item-info"><div class="item-name">${b.guest_name}</div><div class="item-sub">${b.time||''} · ${b.zone||''} · ${b.guests_count||''} чел.</div></div>
-          <span class="badge ${b.status==='Подтверждена'?'badge-green':b.status==='Отменена'?'badge-red':'badge-amber'}">${b.status||'Ожидание'}</span>
+    const { data: tasks } = await tasksQuery;
+    const done = (tasks||[]).filter(t=>t.status==='done').length;
+    const total = (tasks||[]).length;
+    const pct = total ? Math.round(done/total*100) : 0;
+    document.getElementById('home-progress-bar').style.width = pct+'%';
+    document.getElementById('home-tasks-text').textContent = total ? `${done} из ${total} выполнено` : 'Задач на сегодня нет';
+
+    const myTasksEl = document.getElementById('home-my-tasks');
+    if(!tasks || tasks.length===0) {
+      myTasksEl.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Задач на сегодня нет</div></div>';
+    } else {
+      myTasksEl.innerHTML = tasks.map(t=>`
+        <div class="task-row">
+          <div class="check ${t.status==='done'?'done':''}" onclick="toggleTask(${t.id},'${t.status}')"></div>
+          <div>
+            <div class="task-text ${t.assigned_to_id===currentUser?.id?'my-task':''}" style="${t.status==='done'?'text-decoration:line-through;color:#999':''}">${t.title}</div>
+            <div class="task-meta">${t.assigned_to_name||''} ${t.due_date?'· до '+t.due_date:''}</div>
+          </div>
         </div>`).join('');
     }
 
-    const tasks = await api('tasks','GET',null,`?due_date=eq.${todayStr}`);
-    const done = tasks.filter(t=>t.status==='done').length;
-    const pct = tasks.length ? Math.round(done/tasks.length*100) : 0;
-    document.getElementById('home-progress-bar').style.width = pct+'%';
-    document.getElementById('home-tasks-text').textContent = tasks.length ? `${done} из ${tasks.length} выполнено` : 'Задач на сегодня нет';
-
-    const fins = await api('finances','GET',null,`?date=eq.${todayStr}&type=eq.income`);
-    const rev = fins.reduce((s,f)=>s+Number(f.amount),0);
-    document.getElementById('home-revenue').textContent = formatNum(rev);
+    if(role !== 'employee') {
+      const { data: books } = await sb.from('bookings').select('id').eq('date', todayStr);
+      document.getElementById('home-bookings').textContent = (books||[]).length;
+      const { data: fins } = await sb.from('finances').select('amount').eq('date', todayStr).eq('type','income');
+      const rev = (fins||[]).reduce((s,f)=>s+Number(f.amount),0);
+      document.getElementById('home-revenue').textContent = formatNum(rev);
+    }
   } catch(e) { console.error(e); }
 }
 
 // HR
 async function loadHR() {
   try {
-    const emps = await api('employees','GET',null,'?order=name.asc');
-    document.getElementById('hr-count').textContent = `${emps.length} человек в штате`;
+    const { data: emps } = await sb.from('employees').select('*').order('name');
+    document.getElementById('hr-count').textContent = `${(emps||[]).length} человек в штате`;
     const list = document.getElementById('hr-list');
-    if(emps.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Сотрудников пока нет.<br>Нажми + чтобы добавить</div></div>'; return; }
+    if(!emps || emps.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Сотрудников пока нет</div></div>'; return; }
     list.innerHTML = emps.map(e=>`
       <div class="list-item">
         <div class="avatar ${getColor(e.name)}">${getInitials(e.name)}</div>
         <div class="item-info">
           <div class="item-name">${e.name}</div>
           <div class="item-sub">${e.role||''} · ${e.phone||''}</div>
-          <div class="item-sub">${e.salary ? formatNum(e.salary)+' сум' : ''}</div>
+          <div class="item-sub">${e.salary?formatNum(e.salary)+' сум':''}</div>
         </div>
         <span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}">${e.status||'Активен'}</span>
       </div>`).join('');
@@ -540,16 +582,37 @@ async function loadHR() {
 
 async function addEmployee() {
   const name = document.getElementById('emp-name').value.trim();
+  const email = document.getElementById('emp-email').value.trim();
+  const password = document.getElementById('emp-password').value.trim();
   if(!name) return showToast('Введите имя');
+  if(!email || !password) return showToast('Введите email и пароль для входа');
+  if(password.length < 6) return showToast('Пароль минимум 6 символов');
+
   try {
-    await api('employees','POST',{
+    // 1. Add to employees table
+    const { data: emp } = await sb.from('employees').insert({
       name, role: document.getElementById('emp-role').value,
       phone: document.getElementById('emp-phone').value,
       salary: document.getElementById('emp-salary').value || null,
       status: 'Активен'
-    });
+    }).select().single();
+
+    // 2. Create auth user via admin (using service role would be needed, so we use signUp)
+    const { data: authData, error: authError } = await sb.auth.signUp({ email, password });
+    if(authError) { showToast('Ошибка создания аккаунта: '+authError.message); return; }
+
+    // 3. Create profile
+    if(authData.user) {
+      await sb.from('profiles').insert({
+        user_id: authData.user.id,
+        name: name,
+        role: document.getElementById('emp-system-role').value,
+        employee_id: emp?.id
+      });
+    }
+
     closeModal('modal-add-employee');
-    ['emp-name','emp-phone','emp-salary'].forEach(id=>document.getElementById(id).value='');
+    ['emp-name','emp-phone','emp-salary','emp-email','emp-password'].forEach(id=>document.getElementById(id).value='');
     showToast('✅ Сотрудник добавлен');
     loadHR();
   } catch(e) { showToast('Ошибка: '+e.message); }
@@ -558,18 +621,26 @@ async function addEmployee() {
 // TASKS
 async function loadTasks() {
   try {
-    const tasks = await api('tasks','GET',null,'?order=due_date.asc');
-    const active = tasks.filter(t=>t.status!=='done');
-    const done = tasks.filter(t=>t.status==='done').length;
-    document.getElementById('tasks-count').textContent = `${done} из ${tasks.length} выполнено`;
+    const role = currentProfile?.role;
+    let query = sb.from('tasks').select('*').order('due_date');
+    if(role === 'employee') query = query.eq('assigned_to_id', currentUser.id);
+
+    const { data: tasks } = await query;
+    const done = (tasks||[]).filter(t=>t.status==='done').length;
+    document.getElementById('tasks-count').textContent = `${done} из ${(tasks||[]).length} выполнено`;
+
     const list = document.getElementById('tasks-list');
-    if(tasks.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Задач нет.<br>Нажми + чтобы добавить</div></div>'; return; }
+    if(!tasks || tasks.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Задач нет</div></div>'; return; }
+
     list.innerHTML = tasks.map(t=>`
       <div class="task-row">
         <div class="check ${t.status==='done'?'done':''}" onclick="toggleTask(${t.id},'${t.status}')"></div>
-        <div>
+        <div style="flex:1">
           <div class="task-text" style="${t.status==='done'?'text-decoration:line-through;color:#999':''}">${t.title}</div>
-          <div class="task-meta">${t.assigned_to||''} ${t.due_date?'· до '+t.due_date:''}</div>
+          <div class="task-meta">
+            👤 ${t.assigned_to_name||'—'} ${t.due_date?'· до '+t.due_date:''}
+            ${t.assigned_to_id===currentUser?.id?'<span class="badge badge-purple" style="margin-left:4px">Моя</span>':''}
+          </div>
         </div>
       </div>`).join('');
   } catch(e) { document.getElementById('tasks-list').innerHTML='<div class="loading">Ошибка загрузки</div>'; }
@@ -577,22 +648,39 @@ async function loadTasks() {
 
 async function toggleTask(id, status) {
   const newStatus = status==='done' ? 'pending' : 'done';
-  await api('tasks','PATCH',{status:`${newStatus}`},`?id=eq.${id}`);
+  await sb.from('tasks').update({status: newStatus}).eq('id', id);
   loadTasks(); loadHome();
+}
+
+async function loadTaskEmployees() {
+  const { data: emps } = await sb.from('employees').select('id,name').order('name');
+  const sel = document.getElementById('task-assigned-id');
+  sel.innerHTML = (emps||[]).map(e=>`<option value="${e.id}" data-name="${e.name}">${e.name}</option>`).join('');
 }
 
 async function addTask() {
   const title = document.getElementById('task-title').value.trim();
   if(!title) return showToast('Введите задачу');
+
+  const sel = document.getElementById('task-assigned-id');
+  const empId = sel.value;
+  const empName = sel.options[sel.selectedIndex]?.getAttribute('data-name') || '';
+
+  // Find user_id from profiles by employee_id
+  const { data: profile } = await sb.from('profiles').select('user_id').eq('employee_id', empId).single();
+
   try {
-    await api('tasks','POST',{
-      title, assigned_to: document.getElementById('task-assigned').value,
+    await sb.from('tasks').insert({
+      title,
+      assigned_to_name: empName,
+      assigned_to_id: profile?.user_id || null,
       due_date: document.getElementById('task-due').value || today(),
-      status: 'pending'
+      status: 'pending',
+      created_by: currentUser.id
     });
     closeModal('modal-add-task');
-    ['task-title','task-assigned','task-due'].forEach(id=>document.getElementById(id).value='');
-    showToast('✅ Задача добавлена');
+    ['task-title','task-due'].forEach(id=>document.getElementById(id).value='');
+    showToast('✅ Задача назначена');
     loadTasks();
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
@@ -600,32 +688,32 @@ async function addTask() {
 // FINANCE
 async function loadFinance() {
   try {
-    const fins = await api('finances','GET',null,'?order=date.desc');
-    const income = fins.filter(f=>f.type==='income').reduce((s,f)=>s+Number(f.amount),0);
-    const expense = fins.filter(f=>f.type==='expense').reduce((s,f)=>s+Number(f.amount),0);
+    const { data: fins } = await sb.from('finances').select('*').order('date', {ascending:false});
+    const income = (fins||[]).filter(f=>f.type==='income').reduce((s,f)=>s+Number(f.amount),0);
+    const expense = (fins||[]).filter(f=>f.type==='expense').reduce((s,f)=>s+Number(f.amount),0);
     document.getElementById('finance-income').textContent = formatNum(income);
     document.getElementById('finance-expense').textContent = formatNum(expense);
     const profit = income - expense;
-    const profitEl = document.getElementById('finance-profit');
-    profitEl.textContent = formatNum(profit);
-    profitEl.className = 'stat-val '+(profit>=0?'finance-positive':'finance-negative');
+    const el = document.getElementById('finance-profit');
+    el.textContent = formatNum(profit);
+    el.className = 'stat-val '+(profit>=0?'finance-positive':'finance-negative');
 
     const list = document.getElementById('finance-list');
-    if(fins.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">💰</div><div class="empty-text">Операций пока нет.<br>Нажми + чтобы добавить</div></div>'; return; }
+    if(!fins || fins.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">💰</div><div class="empty-text">Операций пока нет</div></div>'; return; }
     list.innerHTML = fins.slice(0,20).map(f=>`
       <div class="list-item">
         <div class="avatar ${f.type==='income'?'av-teal':'av-coral'}">${f.type==='income'?'↑':'↓'}</div>
         <div class="item-info"><div class="item-name">${f.category||''}</div><div class="item-sub">${f.description||''} · ${f.date||''}</div></div>
         <span style="font-weight:600;font-size:14px" class="${f.type==='income'?'finance-positive':'finance-negative'}">${f.type==='income'?'+':'−'}${formatNum(f.amount)}</span>
       </div>`).join('');
-  } catch(e) { document.getElementById('finance-list').innerHTML='<div class="loading">Ошибка загрузки</div>'; }
+  } catch(e) { console.error(e); }
 }
 
 async function addFinance() {
   const amount = document.getElementById('fin-amount').value;
   if(!amount) return showToast('Введите сумму');
   try {
-    await api('finances','POST',{
+    await sb.from('finances').insert({
       type: document.getElementById('fin-type').value,
       amount: parseFloat(amount),
       category: document.getElementById('fin-category').value,
@@ -642,10 +730,10 @@ async function addFinance() {
 // CRM
 async function loadCRM() {
   try {
-    const books = await api('bookings','GET',null,'?order=date.desc,time.asc');
-    document.getElementById('crm-count').textContent = `${books.length} броней`;
+    const { data: books } = await sb.from('bookings').select('*').order('date', {ascending:false});
+    document.getElementById('crm-count').textContent = `${(books||[]).length} броней`;
     const list = document.getElementById('crm-list');
-    if(books.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Броней пока нет.<br>Нажми + чтобы добавить</div></div>'; return; }
+    if(!books || books.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Броней пока нет</div></div>'; return; }
     list.innerHTML = books.map(b=>`
       <div class="list-item">
         <div class="avatar ${getColor(b.guest_name)}">${getInitials(b.guest_name)}</div>
@@ -656,21 +744,19 @@ async function loadCRM() {
         </div>
         <span class="badge ${b.status==='Подтверждена'?'badge-green':b.status==='Отменена'?'badge-red':'badge-amber'}">${b.status||'Ожидание'}</span>
       </div>`).join('');
-  } catch(e) { document.getElementById('crm-list').innerHTML='<div class="loading">Ошибка загрузки</div>'; }
+  } catch(e) { console.error(e); }
 }
 
 async function addBooking() {
   const name = document.getElementById('book-name').value.trim();
   if(!name) return showToast('Введите имя гостя');
   try {
-    await api('bookings','POST',{
-      guest_name: name,
-      phone: document.getElementById('book-phone').value,
+    await sb.from('bookings').insert({
+      guest_name: name, phone: document.getElementById('book-phone').value,
       date: document.getElementById('book-date').value || today(),
       time: document.getElementById('book-time').value,
       guests_count: parseInt(document.getElementById('book-guests').value)||1,
-      zone: document.getElementById('book-zone').value,
-      status: 'Ожидание'
+      zone: document.getElementById('book-zone').value, status: 'Ожидание'
     });
     closeModal('modal-add-booking');
     ['book-name','book-phone','book-date','book-time','book-guests'].forEach(id=>document.getElementById(id).value='');
@@ -679,13 +765,21 @@ async function addBooking() {
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
 
-// Close modal on overlay click
-document.querySelectorAll('.modal-overlay').forEach(o=>{
-  o.addEventListener('click', e=>{ if(e.target===o) o.classList.remove('open'); });
+// Open task modal — load employees
+document.getElementById('modal-add-task').addEventListener('click', function(e){
+  if(e.target.closest('.modal') && !document.getElementById('task-assigned-id').children.length) {
+    loadTaskEmployees();
+  }
 });
+document.querySelector('[onclick="openModal(\'modal-add-task\')"]')?.addEventListener('click', loadTaskEmployees);
 
-// INIT
-loadHome();
+// Check session on load
+sb.auth.getSession().then(({ data }) => {
+  if(data.session) {
+    currentUser = data.session.user;
+    loadProfile().then(showApp);
+  }
+});
 </script>
 </body>
 </html>
