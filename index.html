@@ -423,10 +423,22 @@ async function doLogout() {
 
 async function loadProfile() {
   const { data } = await sb.from('profiles').select('*').eq('user_id', currentUser.id).single();
-  if(data) { currentProfile = data; }
-  else {
-    const { data: newP } = await sb.from('profiles').insert({ user_id: currentUser.id, name: currentUser.email, role: 'admin' }).select().single();
-    currentProfile = newP;
+  if(data) { 
+    currentProfile = data; 
+  } else {
+    // No profile found - check if this is the first admin
+    const { data: adminCount } = await sb.from('profiles').select('id').eq('role','admin');
+    if(!adminCount || adminCount.length === 0) {
+      // First user ever - make them admin
+      const { data: newP } = await sb.from('profiles').insert({ user_id: currentUser.id, name: currentUser.email, role: 'admin' }).select().single();
+      currentProfile = newP;
+    } else {
+      // Unknown user - deny access
+      await sb.auth.signOut();
+      document.getElementById('login-error').textContent = 'Аккаунт не найден. Обратитесь к управляющему.';
+      document.getElementById('app-page').style.display = 'none';
+      document.getElementById('login-page').style.display = 'block';
+    }
   }
 }
 
