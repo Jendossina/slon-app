@@ -135,8 +135,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="login-card">
       <h3>Войти</h3>
       <div class="form-group">
-        <label class="form-label">Email</label>
-        <input class="form-input" id="login-email" type="email" placeholder="your@email.com">
+        <label class="form-label">Логин</label>
+        <input class="form-input" id="login-email" type="text" placeholder="Ваш логин">
       </div>
       <div class="form-group">
         <label class="form-label">Пароль</label>
@@ -239,7 +239,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
     <div class="form-group"><label class="form-label">Телефон</label><input class="form-input" id="emp-phone" placeholder="+998 90 123 45 67" type="tel"></div>
     <div class="form-group"><label class="form-label">Зарплата (сум)</label><input class="form-input" id="emp-salary" placeholder="3000000" type="number"></div>
-    <div class="form-group"><label class="form-label">Email для входа</label><input class="form-input" id="emp-email" placeholder="alisha@slon.uz" type="email"></div>
+    <div class="form-group"><label class="form-label">Логин (без @slon.uz)</label><input class="form-input" id="emp-email" placeholder="alisha" type="text"></div>
     <div class="form-group"><label class="form-label">Пароль</label><input class="form-input" id="emp-password" placeholder="минимум 6 символов"></div>
     <div class="form-group"><label class="form-label">Роль в системе</label>
       <select class="form-select" id="emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option></select>
@@ -364,11 +364,12 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 });
 
 async function doLogin() {
-  const email = document.getElementById('login-email').value.trim();
+  let login = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-password').value;
   document.getElementById('login-error').textContent = '';
+  const email = login.includes('@') ? login : login + '@slon.uz';
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-  if(error) { document.getElementById('login-error').textContent = 'Неверный email или пароль'; return; }
+  if(error) { document.getElementById('login-error').textContent = 'Неверный логин или пароль'; return; }
   currentUser = data.user;
   await loadProfile();
   showApp();
@@ -495,7 +496,8 @@ async function loadHR() {
 
 async function addEmployee() {
   const name = document.getElementById('emp-name').value.trim();
-  const email = document.getElementById('emp-email').value.trim();
+  const loginVal = document.getElementById('emp-email').value.trim();
+  const email = loginVal.includes('@') ? loginVal : loginVal + '@slon.uz';
   const password = document.getElementById('emp-password').value.trim();
   if(!name) return showToast('Введите имя');
   if(!email||!password) return showToast('Введите email и пароль');
