@@ -504,7 +504,11 @@ async function addEmployee() {
     const { data: emp } = await sb.from('employees').insert({ name, role: document.getElementById('emp-role').value, phone: document.getElementById('emp-phone').value, salary: document.getElementById('emp-salary').value||null, status:'Активен' }).select().single();
     const { data: authData, error: authError } = await sb.auth.signUp({ email, password });
     if(authError) { showToast('Ошибка: '+authError.message); return; }
-    if(authData.user) { await sb.from('profiles').insert({ user_id: authData.user.id, name, role: document.getElementById('emp-system-role').value, employee_id: emp?.id }); }
+    if(authData.user) {
+      const systemRole = document.getElementById('emp-system-role').value;
+      await sb.from('profiles').delete().eq('user_id', authData.user.id);
+      await sb.from('profiles').insert({ user_id: authData.user.id, name, role: systemRole, employee_id: emp?.id });
+    }
     closeModal('modal-add-employee');
     ['emp-name','emp-phone','emp-salary','emp-email','emp-password'].forEach(id=>document.getElementById(id).value='');
     showToast('✅ Сотрудник добавлен');
