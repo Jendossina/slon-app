@@ -209,6 +209,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <button class="fab" id="fab-crm" onclick="openModal('modal-add-booking')" style="display:none">+</button>
   </div>
 
+  <div class="screen" id="screen-admin">
+    <div class="header"><h1>⚙️ Настройки</h1><p>Только для управляющего</p></div>
+    <div class="content">
+      <div class="section-label">СОТРУДНИКИ</div>
+      <div class="card" id="admin-employees-list"><div class="loading">Загрузка...</div></div>
+      <div class="section-label">ЗАДАЧИ</div>
+      <div class="card" id="admin-tasks-list"><div class="loading">Загрузка...</div></div>
+      <div class="section-label">ОПАСНАЯ ЗОНА</div>
+      <div class="card">
+        <div style="font-size:13px;color:#999;margin-bottom:12px">Удалить все выполненные задачи</div>
+        <button class="btn" style="background:#FCEBEB;color:#A32D2D;padding:12px" onclick="deleteCompletedTasks()">🗑 Очистить выполненные задачи</button>
+      </div>
+    </div>
+  </div>
+
   <nav class="bottom-nav">
     <button class="nav-btn active" onclick="showScreen('home',this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Главная
@@ -224,6 +239,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </button>
     <button class="nav-btn" onclick="showScreen('crm',this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Брони
+    </button>
+    <button class="nav-btn" id="nav-admin" onclick="showScreen('admin',this)" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Админ
     </button>
   </nav>
 </div>
@@ -402,6 +420,7 @@ function applyRolePermissions() {
   const role = currentProfile?.role;
   if(role === 'admin') {
     ['fab-hr','fab-tasks','fab-finance','fab-crm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
+    const navAdmin = document.getElementById('nav-admin'); if(navAdmin) navAdmin.style.display='flex';
   } else if(role === 'manager') {
     ['fab-tasks','fab-crm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
   }
@@ -418,6 +437,7 @@ function showScreen(name, btn) {
   if(name==='tasks') loadTasks();
   if(name==='finance') loadFinance();
   if(name==='crm') loadCRM();
+  if(name==='admin') loadAdmin();
 }
 
 async function loadHome() {
@@ -690,6 +710,58 @@ async function addBooking() {
 }
 
 document.querySelector('[onclick="openModal(\'modal-add-task\')"]')?.addEventListener('click', loadTaskEmployees);
+
+
+// ADMIN
+async function loadAdmin() {
+  try {
+    const { data: emps } = await sb.from('employees').select('*').order('name');
+    const empList = document.getElementById('admin-employees-list');
+    if(!emps || emps.length===0) { empList.innerHTML='<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Сотрудников нет</div></div>'; }
+    else {
+      empList.innerHTML = emps.map(e=>`
+        <div class="list-item">
+          <div class="avatar ${getColor(e.name)}">${getInitials(e.name)}</div>
+          <div class="item-info"><div class="item-name">${e.name}</div><div class="item-sub">${e.role||''}</div></div>
+          <button onclick="deleteEmployee(${e.id},'${e.name}')" style="background:#FCEBEB;color:#A32D2D;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">Удалить</button>
+        </div>`).join('');
+    }
+
+    const { data: tasks } = await sb.from('tasks').select('*').order('created_at', {ascending:false});
+    const taskList = document.getElementById('admin-tasks-list');
+    if(!tasks || tasks.length===0) { taskList.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Задач нет</div></div>'; }
+    else {
+      taskList.innerHTML = tasks.map(t=>`
+        <div class="list-item">
+          <div class="item-info">
+            <div class="item-name" style="${t.status==='done'?'text-decoration:line-through;color:#999':''}">${t.title}</div>
+            <div class="item-sub">👤 ${t.assigned_to_name||'—'} · ${t.due_date||''}</div>
+          </div>
+          <button onclick="deleteTask(${t.id})" style="background:#FCEBEB;color:#A32D2D;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">✕</button>
+        </div>`).join('');
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function deleteEmployee(id, name) {
+  if(!confirm('Удалить сотрудника ' + name + '?')) return;
+  await sb.from('employees').delete().eq('id', id);
+  showToast('✅ Сотрудник удалён');
+  loadAdmin();
+}
+
+async function deleteTask(id) {
+  await sb.from('tasks').delete().eq('id', id);
+  showToast('✅ Задача удалена');
+  loadAdmin();
+}
+
+async function deleteCompletedTasks() {
+  if(!confirm('Удалить все выполненные задачи?')) return;
+  await sb.from('tasks').delete().eq('status', 'done');
+  showToast('✅ Выполненные задачи удалены');
+  loadAdmin();
+}
 
 sb.auth.getSession().then(({ data }) => {
   if(data.session) { currentUser = data.session.user; loadProfile().then(showApp); }
