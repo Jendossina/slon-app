@@ -210,16 +210,37 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 
   <div class="screen" id="screen-admin">
-    <div class="header"><h1>⚙️ Настройки</h1><p>Только для управляющего</p></div>
+    <div class="header"><h1>⚙️ Админ-панель</h1><p>Только для управляющего</p></div>
+    <div style="background:#1a1a2e;padding:0 16px 12px;display:flex;gap:8px;overflow-x:auto">
+      <button onclick="switchAdminTab('employees',this)" id="atab-employees" class="atab active-tab" style="background:#6C5CE7;color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">👥 Сотрудники</button>
+      <button onclick="switchAdminTab('tasks',this)" id="atab-tasks" class="atab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">📋 Задачи</button>
+      <button onclick="switchAdminTab('analytics',this)" id="atab-analytics" class="atab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">📊 Аналитика</button>
+      <button onclick="switchAdminTab('activity',this)" id="atab-activity" class="atab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">📜 История</button>
+    </div>
     <div class="content">
-      <div class="section-label">СОТРУДНИКИ</div>
-      <div class="card" id="admin-employees-list"><div class="loading">Загрузка...</div></div>
-      <div class="section-label">ЗАДАЧИ</div>
-      <div class="card" id="admin-tasks-list"><div class="loading">Загрузка...</div></div>
-      <div class="section-label">ОПАСНАЯ ЗОНА</div>
-      <div class="card">
-        <div style="font-size:13px;color:#999;margin-bottom:12px">Удалить все выполненные задачи</div>
-        <button class="btn" style="background:#FCEBEB;color:#A32D2D;padding:12px" onclick="deleteCompletedTasks()">🗑 Очистить выполненные задачи</button>
+      <!-- EMPLOYEES TAB -->
+      <div id="admin-tab-employees">
+        <div class="card" id="admin-employees-list"><div class="loading">Загрузка...</div></div>
+      </div>
+      <!-- TASKS TAB -->
+      <div id="admin-tab-tasks" style="display:none">
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button onclick="openModal('modal-task-filter');loadFilterEmployees()" style="flex:1;background:#EEEDFE;color:#534AB7;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:500;cursor:pointer">🔍 Фильтр</button>
+          <button onclick="deleteCompletedTasks()" style="flex:1;background:#FCEBEB;color:#A32D2D;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:500;cursor:pointer">🗑 Удалить выполненные</button>
+        </div>
+        <div id="admin-tasks-list"><div class="loading">Загрузка...</div></div>
+      </div>
+      <!-- ANALYTICS TAB -->
+      <div id="admin-tab-analytics" style="display:none">
+        <div class="section-label">РЕЙТИНГ СОТРУДНИКОВ</div>
+        <div class="card" id="admin-rating-list"><div class="loading">Загрузка...</div></div>
+        <div class="section-label">ФИНАНСЫ ПО НЕДЕЛЯМ</div>
+        <div class="card" id="admin-finance-weeks"><div class="loading">Загрузка...</div></div>
+      </div>
+      <!-- ACTIVITY TAB -->
+      <div id="admin-tab-activity" style="display:none">
+        <div class="section-label">ЖУРНАЛ АКТИВНОСТИ</div>
+        <div class="card" id="admin-activity-list"><div class="loading">Загрузка...</div></div>
       </div>
     </div>
   </div>
@@ -576,6 +597,7 @@ async function addTask() {
     closeModal('modal-add-task');
     ['task-title','task-due'].forEach(id=>document.getElementById(id).value='');
     showToast('✅ Задача назначена');
+    await logActivity('add_task', title + ' → ' + empName);
     // Notify employee
     if(profile?.user_id) {
       await notifyEmployee(profile.user_id, `🐘 <b>Новая задача от управляющего</b>\n\n📋 ${title}\n📅 Срок: ${document.getElementById('task-due').value||today()}\n\nОткрой приложение: https://slon-app.vercel.app`);
@@ -620,6 +642,7 @@ async function uploadReport() {
     await sb.from('tasks').update({ status:'done', report_url: urlData.publicUrl, report_type: isVideo?'video':'image' }).eq('id', taskId);
     // Get task info and notify admin
     const { data: task } = await sb.from('tasks').select('title,assigned_to_name').eq('id', taskId).single();
+    await logActivity('task_done', task?.title + ' (с фото)');
     await notifyAdmin(`✅ <b>Задача выполнена!</b>\n\n📋 ${task?.title||''}\n👤 Сотрудник: ${task?.assigned_to_name||''}\n${isVideo?'🎥 Прикреплено видео':'📸 Прикреплено фото'}\n\nОткрой приложение: https://slon-app.vercel.app`);
     bar.style.display = 'none';
     closeModal('modal-report');
@@ -712,60 +735,316 @@ async function addBooking() {
 document.querySelector('[onclick="openModal(\'modal-add-task\')"]')?.addEventListener('click', loadTaskEmployees);
 
 
-// ADMIN
+// LOG ACTIVITY
+async function logActivity(action, details) {
+  try {
+    await sb.from('activity_log').insert({
+      user_id: currentUser?.id,
+      user_name: currentProfile?.name || currentUser?.email,
+      action, details
+    });
+  } catch(e) {}
+}
+
+// ADMIN TABS
+function switchAdminTab(tab, btn) {
+  ['employees','tasks','analytics','activity'].forEach(t=>{
+    const el = document.getElementById('admin-tab-'+t);
+    const b = document.getElementById('atab-'+t);
+    if(el) el.style.display = t===tab ? 'block' : 'none';
+    if(b) { b.style.background = t===tab ? '#6C5CE7' : 'rgba(255,255,255,0.15)'; }
+  });
+  if(tab==='employees') loadAdminEmployees();
+  if(tab==='tasks') loadAdminTasks();
+  if(tab==='analytics') loadAnalytics();
+  if(tab==='activity') loadActivityLog();
+}
+
 async function loadAdmin() {
+  loadAdminEmployees();
+}
+
+async function loadAdminEmployees() {
   try {
     const { data: emps } = await sb.from('employees').select('*').order('name');
+    const { data: profiles } = await sb.from('profiles').select('employee_id,role');
+    const profileMap = {};
+    (profiles||[]).forEach(p=>{ if(p.employee_id) profileMap[p.employee_id]=p.role; });
     const empList = document.getElementById('admin-employees-list');
-    if(!emps || emps.length===0) { empList.innerHTML='<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Сотрудников нет</div></div>'; }
-    else {
-      empList.innerHTML = emps.map(e=>`
-        <div class="list-item">
-          <div class="avatar ${getColor(e.name)}">${getInitials(e.name)}</div>
-          <div class="item-info"><div class="item-name">${e.name}</div><div class="item-sub">${e.role||''}</div></div>
-          <button onclick="deleteEmployee(${e.id},'${e.name}')" style="background:#FCEBEB;color:#A32D2D;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">Удалить</button>
-        </div>`).join('');
-    }
-
-    const { data: tasks } = await sb.from('tasks').select('*').order('created_at', {ascending:false});
-    const taskList = document.getElementById('admin-tasks-list');
-    if(!tasks || tasks.length===0) { taskList.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Задач нет</div></div>'; }
-    else {
-      taskList.innerHTML = tasks.map(t=>`
-        <div class="list-item">
-          <div class="item-info">
-            <div class="item-name" style="${t.status==='done'?'text-decoration:line-through;color:#999':''}">${t.title}</div>
-            <div class="item-sub">👤 ${t.assigned_to_name||'—'} · ${t.due_date||''}</div>
-          </div>
-          <button onclick="deleteTask(${t.id})" style="background:#FCEBEB;color:#A32D2D;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">✕</button>
-        </div>`).join('');
-    }
+    if(!emps||emps.length===0) { empList.innerHTML='<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Сотрудников нет</div></div>'; return; }
+    empList.innerHTML = emps.map(e=>`
+      <div class="list-item">
+        <div class="avatar ${getColor(e.name)}">${getInitials(e.name)}</div>
+        <div class="item-info">
+          <div class="item-name">${e.name}</div>
+          <div class="item-sub">${e.role||''} · <span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}" style="font-size:10px">${e.status||'Активен'}</span></div>
+          <div class="item-sub">${e.salary?formatNum(e.salary)+' сум':''}</div>
+        </div>
+        <button onclick="openEditEmployee(${e.id})" style="background:#EEEDFE;color:#534AB7;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">✏️</button>
+      </div>`).join('');
   } catch(e) { console.error(e); }
+}
+
+async function openEditEmployee(id) {
+  const { data: emp } = await sb.from('employees').select('*').eq('id',id).single();
+  const { data: profile } = await sb.from('profiles').select('role,user_id').eq('employee_id',id).single();
+  if(!emp) return;
+  document.getElementById('edit-emp-id').value = id;
+  document.getElementById('edit-emp-name').value = emp.name||'';
+  document.getElementById('edit-emp-phone').value = emp.phone||'';
+  document.getElementById('edit-emp-salary').value = emp.salary||'';
+  document.getElementById('edit-emp-password').value = '';
+  // Set selects
+  const roleEl = document.getElementById('edit-emp-role');
+  for(let o of roleEl.options) if(o.value===emp.role) { o.selected=true; break; }
+  const statusEl = document.getElementById('edit-emp-status');
+  for(let o of statusEl.options) if(o.value===(emp.status||'Активен')) { o.selected=true; break; }
+  const sysRoleEl = document.getElementById('edit-emp-system-role');
+  const sysRole = profile?.role||'employee';
+  for(let o of sysRoleEl.options) if(o.value===sysRole) { o.selected=true; break; }
+  openModal('modal-edit-employee');
+}
+
+async function saveEmployee() {
+  const id = document.getElementById('edit-emp-id').value;
+  const name = document.getElementById('edit-emp-name').value.trim();
+  const role = document.getElementById('edit-emp-role').value;
+  const phone = document.getElementById('edit-emp-phone').value;
+  const salary = document.getElementById('edit-emp-salary').value;
+  const status = document.getElementById('edit-emp-status').value;
+  const sysRole = document.getElementById('edit-emp-system-role').value;
+  try {
+    await sb.from('employees').update({name,role,phone,salary:salary||null,status}).eq('id',id);
+    await sb.from('profiles').update({role:sysRole,name}).eq('employee_id',id);
+    await logActivity('edit_employee', name + ' → ' + role + ', ' + status);
+    closeModal('modal-edit-employee');
+    showToast('✅ Сохранено');
+    loadAdminEmployees();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+async function changePassword() {
+  const pass = document.getElementById('edit-emp-password').value.trim();
+  if(!pass || pass.length<6) return showToast('Пароль минимум 6 символов');
+  const id = document.getElementById('edit-emp-id').value;
+  const { data: profile } = await sb.from('profiles').select('user_id').eq('employee_id',id).single();
+  if(!profile?.user_id) return showToast('Аккаунт не найден');
+  showToast('⏳ Меняем пароль...');
+  // Use admin API via edge function would be needed for real password change
+  // For now update via signUp workaround
+  showToast('Функция в разработке');
 }
 
 async function deleteEmployee(id, name) {
   if(!confirm('Удалить сотрудника ' + name + '?')) return;
+  await sb.from('profiles').delete().eq('employee_id', id);
   await sb.from('employees').delete().eq('id', id);
+  await logActivity('delete_employee', name);
   showToast('✅ Сотрудник удалён');
-  loadAdmin();
+  loadAdminEmployees();
+}
+
+// TASKS ADMIN
+let taskFilters = {};
+async function loadAdminTasks(filters={}) {
+  try {
+    let query = sb.from('tasks').select('*').order('created_at',{ascending:false});
+    if(filters.employee) query = query.eq('assigned_to_name', filters.employee);
+    if(filters.status) query = query.eq('status', filters.status);
+    if(filters.dateFrom) query = query.gte('due_date', filters.dateFrom);
+    if(filters.dateTo) query = query.lte('due_date', filters.dateTo);
+    const { data: tasks } = await query;
+    const taskList = document.getElementById('admin-tasks-list');
+    if(!tasks||tasks.length===0) { taskList.innerHTML='<div class="card"><div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Задач нет</div></div></div>'; return; }
+    taskList.innerHTML = '<div class="card">'+tasks.map(t=>`
+      <div class="list-item">
+        <div class="item-info">
+          <div class="item-name" style="${t.status==='done'?'text-decoration:line-through;color:#999':''}">${t.title}</div>
+          <div class="item-sub">👤 ${t.assigned_to_name||'—'} · ${t.due_date||''} · <span class="${t.status==='done'?'badge badge-green':'badge badge-amber'}">${t.status==='done'?'Выполнено':'Активна'}</span></div>
+        </div>
+        <button onclick="deleteTask(${t.id})" style="background:#FCEBEB;color:#A32D2D;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer">✕</button>
+      </div>`).join('')+'</div>';
+  } catch(e) { console.error(e); }
+}
+
+async function loadFilterEmployees() {
+  const { data: emps } = await sb.from('employees').select('name').order('name');
+  const sel = document.getElementById('filter-employee');
+  sel.innerHTML = '<option value="">Все сотрудники</option>' + (emps||[]).map(e=>`<option value="${e.name}">${e.name}</option>`).join('');
+}
+
+function applyTaskFilter() {
+  taskFilters = {
+    employee: document.getElementById('filter-employee').value,
+    status: document.getElementById('filter-status').value,
+    dateFrom: document.getElementById('filter-date-from').value,
+    dateTo: document.getElementById('filter-date-to').value
+  };
+  closeModal('modal-task-filter');
+  loadAdminTasks(taskFilters);
+}
+
+function clearTaskFilter() {
+  taskFilters = {};
+  ['filter-employee','filter-status','filter-date-from','filter-date-to'].forEach(id=>document.getElementById(id).value='');
+  closeModal('modal-task-filter');
+  loadAdminTasks();
 }
 
 async function deleteTask(id) {
   await sb.from('tasks').delete().eq('id', id);
   showToast('✅ Задача удалена');
-  loadAdmin();
+  loadAdminTasks(taskFilters);
 }
 
 async function deleteCompletedTasks() {
   if(!confirm('Удалить все выполненные задачи?')) return;
-  await sb.from('tasks').delete().eq('status', 'done');
+  await sb.from('tasks').delete().eq('status','done');
+  await logActivity('delete_tasks', 'Удалены все выполненные задачи');
   showToast('✅ Выполненные задачи удалены');
-  loadAdmin();
+  loadAdminTasks(taskFilters);
+}
+
+// ANALYTICS
+async function loadAnalytics() {
+  try {
+    // Employee rating
+    const { data: tasks } = await sb.from('tasks').select('assigned_to_name,status,due_date');
+    const stats = {};
+    (tasks||[]).forEach(t=>{
+      if(!t.assigned_to_name) return;
+      if(!stats[t.assigned_to_name]) stats[t.assigned_to_name]={total:0,done:0,late:0};
+      stats[t.assigned_to_name].total++;
+      if(t.status==='done') stats[t.assigned_to_name].done++;
+    });
+    const sorted = Object.entries(stats).sort((a,b)=>{
+      const pctA = a[1].total ? a[1].done/a[1].total : 0;
+      const pctB = b[1].total ? b[1].done/b[1].total : 0;
+      return pctB - pctA;
+    });
+    const ratingEl = document.getElementById('admin-rating-list');
+    if(sorted.length===0) { ratingEl.innerHTML='<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Данных пока нет</div></div>'; }
+    else {
+      ratingEl.innerHTML = sorted.map(([name,s],i)=>{
+        const pct = s.total ? Math.round(s.done/s.total*100) : 0;
+        const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+        return `<div class="list-item">
+          <div class="avatar ${getColor(name)}">${medal||getInitials(name)}</div>
+          <div class="item-info">
+            <div class="item-name">${name}</div>
+            <div class="item-sub">${s.done} из ${s.total} задач выполнено</div>
+            <div class="progress-track" style="margin-top:4px"><div class="progress-fill" style="width:${pct}%"></div></div>
+          </div>
+          <span style="font-size:16px;font-weight:700;color:${pct>=80?'#3B6D11':pct>=50?'#854F0B':'#A32D2D'}">${pct}%</span>
+        </div>`;
+      }).join('');
+    }
+
+    // Finance by weeks
+    const { data: fins } = await sb.from('finances').select('amount,type,date').order('date');
+    const weeks = {};
+    (fins||[]).forEach(f=>{
+      if(!f.date) return;
+      const d = new Date(f.date);
+      const week = 'Нед. ' + getWeekNumber(d) + ' (' + d.toLocaleDateString('ru-RU',{month:'short'}) + ')';
+      if(!weeks[week]) weeks[week]={income:0,expense:0};
+      if(f.type==='income') weeks[week].income+=Number(f.amount);
+      else weeks[week].expense+=Number(f.amount);
+    });
+    const weeksEl = document.getElementById('admin-finance-weeks');
+    const weekEntries = Object.entries(weeks).slice(-6);
+    if(weekEntries.length===0) { weeksEl.innerHTML='<div class="empty"><div class="empty-icon">💰</div><div class="empty-text">Данных пока нет</div></div>'; }
+    else {
+      weeksEl.innerHTML = weekEntries.map(([week,w])=>`
+        <div class="list-item">
+          <div class="item-info">
+            <div class="item-name">${week}</div>
+            <div class="item-sub"><span style="color:#0F6E56">+${formatNum(w.income)}</span> / <span style="color:#993C1D">−${formatNum(w.expense)}</span></div>
+            <div class="item-sub" style="font-weight:600;color:${w.income-w.expense>=0?'#0F6E56':'#993C1D'}">Прибыль: ${formatNum(w.income-w.expense)} сум</div>
+          </div>
+        </div>`).join('');
+    }
+  } catch(e) { console.error(e); }
+}
+
+function getWeekNumber(d) {
+  const onejan = new Date(d.getFullYear(),0,1);
+  return Math.ceil((((d-onejan)/86400000)+onejan.getDay()+1)/7);
+}
+
+// ACTIVITY LOG
+async function loadActivityLog() {
+  try {
+    const { data: logs } = await sb.from('activity_log').select('*').order('created_at',{ascending:false}).limit(50);
+    const el = document.getElementById('admin-activity-list');
+    if(!logs||logs.length===0) { el.innerHTML='<div class="empty"><div class="empty-icon">📜</div><div class="empty-text">Активности пока нет</div></div>'; return; }
+    const actionLabels = {
+      'add_task':'➕ Задача назначена','edit_employee':'✏️ Сотрудник изменён',
+      'delete_employee':'🗑 Сотрудник удалён','delete_tasks':'🗑 Задачи очищены',
+      'task_done':'✅ Задача выполнена'
+    };
+    el.innerHTML = logs.map(l=>`
+      <div class="list-item">
+        <div class="item-info">
+          <div class="item-name">${actionLabels[l.action]||l.action}</div>
+          <div class="item-sub">👤 ${l.user_name||'—'} · ${l.details||''}</div>
+          <div class="item-sub">${new Date(l.created_at).toLocaleString('ru-RU')}</div>
+        </div>
+      </div>`).join('');
+  } catch(e) { console.error(e); }
 }
 
 sb.auth.getSession().then(({ data }) => {
   if(data.session) { currentUser = data.session.user; loadProfile().then(showApp); }
 });
 </script>
+
+<!-- EDIT EMPLOYEE MODAL -->
+<div class="modal-overlay" id="modal-edit-employee">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-edit-employee')">✕</button>
+    <div class="modal-title">✏️ Редактировать сотрудника</div>
+    <input type="hidden" id="edit-emp-id">
+    <div class="form-group"><label class="form-label">Имя и фамилия</label><input class="form-input" id="edit-emp-name" placeholder="Алиша Каримова"></div>
+    <div class="form-group"><label class="form-label">Должность</label>
+      <select class="form-select" id="edit-emp-role"><option>Бармен</option><option>Кальянщик</option><option>Официант</option><option>Администратор</option><option>Менеджер</option><option>Охранник</option><option>Уборщик</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">Телефон</label><input class="form-input" id="edit-emp-phone" placeholder="+998 90 123 45 67"></div>
+    <div class="form-group"><label class="form-label">Зарплата (сум)</label><input class="form-input" id="edit-emp-salary" type="number"></div>
+    <div class="form-group"><label class="form-label">Статус</label>
+      <select class="form-select" id="edit-emp-status"><option>Активен</option><option>Отпуск</option><option>Уволен</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">Роль в системе</label>
+      <select class="form-select" id="edit-emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option><option value="admin">Управляющий</option></select>
+    </div>
+    <button class="btn btn-primary" onclick="saveEmployee()">Сохранить</button>
+    <div class="form-group" style="margin-top:16px;padding-top:16px;border-top:1px solid #f0f0f5">
+      <label class="form-label">Новый пароль (оставь пустым если не меняешь)</label>
+      <input class="form-input" id="edit-emp-password" placeholder="минимум 6 символов">
+    </div>
+    <button class="btn btn-secondary" onclick="changePassword()">Сменить пароль</button>
+  </div>
+</div>
+
+<!-- TASK FILTER MODAL -->
+<div class="modal-overlay" id="modal-task-filter">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-task-filter')">✕</button>
+    <div class="modal-title">🔍 Фильтр задач</div>
+    <div class="form-group"><label class="form-label">Сотрудник</label>
+      <select class="form-select" id="filter-employee"><option value="">Все сотрудники</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">Статус</label>
+      <select class="form-select" id="filter-status">
+        <option value="">Все</option><option value="pending">Активные</option><option value="done">Выполненные</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Дата от</label><input class="form-input" id="filter-date-from" type="date"></div>
+    <div class="form-group"><label class="form-label">Дата до</label><input class="form-input" id="filter-date-to" type="date"></div>
+    <button class="btn btn-primary" onclick="applyTaskFilter()">Применить фильтр</button>
+    <button class="btn btn-secondary" onclick="clearTaskFilter()">Сбросить</button>
+  </div>
+</div>
+
 </body>
 </html>
