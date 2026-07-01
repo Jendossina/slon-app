@@ -316,6 +316,29 @@ const SUPABASE_URL = 'https://omeomdkurvtvirhfkffu.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_h7pdCQTKnGIlIR9SaswShw_ur8eauw6';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const TG_TOKEN = '8675217218:AAGZ6LDhRIiMuyPJITgbjp-qkPVxuPJawEg';
+const TG_ADMIN_ID = '5872954642';
+
+async function sendTelegram(chatId, text) {
+  try {
+    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' })
+    });
+  } catch(e) { console.error('TG error:', e); }
+}
+
+async function notifyAdmin(text) {
+  await sendTelegram(TG_ADMIN_ID, text);
+}
+
+async function notifyEmployee(userId, text) {
+  // Get employee's telegram_id from profiles
+  const { data } = await sb.from('profiles').select('telegram_id').eq('user_id', userId).single();
+  if(data?.telegram_id) await sendTelegram(data.telegram_id, text);
+}
+
 let currentUser = null;
 let currentProfile = null;
 let reportFile = null;
@@ -524,6 +547,10 @@ async function addTask() {
     closeModal('modal-add-task');
     ['task-title','task-due'].forEach(id=>document.getElementById(id).value='');
     showToast('✅ Задача назначена');
+    // Notify employee
+    if(profile?.user_id) {
+      await notifyEmployee(profile.user_id, `🐘 <b>Новая задача от управляющего</b>\n\n📋 ${title}\n📅 Срок: ${document.getElementById('task-due').value||today()}\n\nОткрой приложение: https://slon-app.vercel.app`);
+    }
     loadTasks();
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
@@ -562,6 +589,9 @@ async function uploadReport() {
     const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
     const isVideo = reportFile.type.startsWith('video');
     await sb.from('tasks').update({ status:'done', report_url: urlData.publicUrl, report_type: isVideo?'video':'image' }).eq('id', taskId);
+    // Get task info and notify admin
+    const { data: task } = await sb.from('tasks').select('title,assigned_to_name').eq('id', taskId).single();
+    await notifyAdmin(`✅ <b>Задача выполнена!</b>\n\n📋 ${task?.title||''}\n👤 Сотрудник: ${task?.assigned_to_name||''}\n${isVideo?'🎥 Прикреплено видео':'📸 Прикреплено фото'}\n\nОткрой приложение: https://slon-app.vercel.app`);
     bar.style.display = 'none';
     closeModal('modal-report');
     showToast('✅ Отчёт отправлен!');
@@ -572,6 +602,8 @@ async function uploadReport() {
 async function markDoneNoReport() {
   const taskId = document.getElementById('report-task-id').value;
   await sb.from('tasks').update({status:'done'}).eq('id',taskId);
+  const { data: task } = await sb.from('tasks').select('title,assigned_to_name').eq('id', taskId).single();
+  await notifyAdmin(`✅ <b>Задача выполнена!</b>\n\n📋 ${task?.title||''}\n👤 Сотрудник: ${task?.assigned_to_name||''}\n📝 Без фотоотчёта\n\nОткрой приложение: https://slon-app.vercel.app`);
   closeModal('modal-report');
   showToast('✅ Задача выполнена');
   loadTasks(); loadHome();
