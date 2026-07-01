@@ -321,13 +321,14 @@ const TG_ADMIN_ID = '5872954642';
 
 async function sendTelegram(chatId, text) {
   try {
+    const body = JSON.stringify({ chat_id: String(chatId), text: String(text) });
     await fetch('https://omeomdkurvtvirhfkffu.supabase.co/functions/v1/send-telegram', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_KEY}`
+        'apikey': SUPABASE_KEY
       },
-      body: JSON.stringify({ chat_id: chatId, text })
+      body
     });
   } catch(e) { console.error('TG error:', e); }
 }
