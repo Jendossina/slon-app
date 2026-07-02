@@ -643,7 +643,7 @@ function openMoreMenu() {
   ];
   const menu = document.getElementById('more-menu-items');
   menu.innerHTML = items.filter(i=>i.show).map(i=>`
-    <button onclick="showScreen('${i.id}', null)" style="width:100%;text-align:left;background:#f5f5f5;border:none;border-radius:12px;padding:14px 16px;font-size:15px;color:var(--text-primary);margin-bottom:8px;cursor:pointer;display:block">${i.label}</button>
+    <button onclick="showScreen('${i.id}', null)" style="width:100%;text-align:left;background:var(--surface-2);border:none;border-radius:12px;padding:14px 16px;font-size:15px;color:var(--text-primary);margin-bottom:8px;cursor:pointer;display:block">${i.label}</button>
   `).join('');
   openModal('modal-more-menu');
 }
@@ -830,7 +830,7 @@ async function loadTaskEmployees() {
   const list = document.getElementById('task-assigned-list');
   if(!emps || emps.length===0) { list.innerHTML='<div style="padding:10px;color:#999;font-size:13px">Нет сотрудников</div>'; return; }
   list.innerHTML = emps.map(e=>`
-    <label style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid #f5f5f5;cursor:pointer">
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer">
       <input type="checkbox" class="task-emp-checkbox" value="${e.id}" data-name="${e.name}" style="width:18px;height:18px">
       <span style="font-size:14px;color:var(--text-primary)">${e.name}</span>
       <span style="font-size:11px;color:#999;margin-left:auto">${e.department||''}</span>
@@ -1418,10 +1418,10 @@ async function loadScheduleGrid() {
 
     let html = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <div style="display:flex;gap:6px;margin-bottom:8px">
-        <button onclick="shiftWeek(-1)" style="background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer">← Пред. неделя</button>
-        <button onclick="shiftWeek(1)" style="background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer">След. неделя →</button>
+        <button onclick="shiftWeek(-1)" style="background:var(--surface);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer">← Пред. неделя</button>
+        <button onclick="shiftWeek(1)" style="background:var(--surface);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer">След. неделя →</button>
       </div>
-      <table style="border-collapse:collapse;width:100%;min-width:${100 + emps.length*90}px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06)">
+      <table style="border-collapse:collapse;width:100%;min-width:${100 + emps.length*90}px;background:var(--surface);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06)">
         <thead>
           <tr>
             <th style="background:#1a1a2e;color:#fff;padding:10px 8px;font-size:12px;text-align:left;min-width:70px;position:sticky;left:0;z-index:2">День</th>
@@ -1434,23 +1434,23 @@ async function loadScheduleGrid() {
       const dateStr = dateStrs[di];
       const isToday = dateStr === today();
       html += `<tr style="${isToday?'background:#F5F3FF':''}">
-        <td style="padding:8px;font-size:12px;font-weight:600;color:var(--text-primary);border-top:1px solid #f0f0f5;position:sticky;left:0;background:${isToday?'var(--surface-2)':'var(--surface)'};z-index:1">${dayNames[di]}<br><span style="font-weight:400;color:#999;font-size:11px">${d.getDate()}.${d.getMonth()+1}</span></td>`;
+        <td style="padding:8px;font-size:12px;font-weight:600;color:var(--text-primary);border-top:1px solid var(--border);position:sticky;left:0;background:${isToday?'var(--surface-2)':'var(--surface)'};z-index:1">${dayNames[di]}<br><span style="font-weight:400;color:#999;font-size:11px">${d.getDate()}.${d.getMonth()+1}</span></td>`;
       
       emps.forEach(e => {
         const sched = schedMap[dateStr+'_'+e.id];
         let cellContent = '<span style="color:#ccc;font-size:11px">—</span>';
-        let cellBg = '#fff';
+        let cellBg = 'var(--surface)';
         if(sched) {
           if(sched.is_day_off) {
             cellContent = '<span style="color:#A32D2D;font-weight:600;font-size:12px">Вых</span>';
-            cellBg = '#f5f5f5';
+            cellBg = 'var(--surface-2)';
           } else {
             cellContent = `<span style="font-weight:600;font-size:12px;color:var(--text-primary)">${sched.shift_start||''}</span>`;
-            cellBg = '#f0e6d2';
+            cellBg = 'var(--gold-light)';
           }
         }
         const clickHandler = isAdmin ? `onclick="quickEditSchedule(${e.id},'${e.name}','${dateStr}')"` : '';
-        html += `<td ${clickHandler} style="padding:8px;text-align:center;border-top:1px solid #f0f0f5;background:${cellBg};cursor:${isAdmin?'pointer':'default'}">${cellContent}</td>`;
+        html += `<td ${clickHandler} style="padding:8px;text-align:center;border-top:1px solid var(--border);background:${cellBg};cursor:${isAdmin?'pointer':'default'}">${cellContent}</td>`;
       });
       html += '</tr>';
     });
@@ -1549,7 +1549,7 @@ async function renderWeekFillDays() {
     const isOff = ex?.is_day_off || false;
     const startVal = ex?.shift_start || '11:00';
     const endVal = ex?.shift_end || '23:00';
-    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f5f5f5">
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="width:90px;font-size:13px;color:var(--text-primary);font-weight:500">${dayNames[i]}<div style="font-size:11px;color:#999">${d.getDate()}.${d.getMonth()+1}</div></div>
       <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#999">
         <input type="checkbox" class="wf-dayoff" data-idx="${i}" ${isOff?'checked':''} onchange="toggleWfDayOff(${i})"> Вых
@@ -1878,7 +1878,7 @@ sb.auth.getSession().then(({ data }) => {
       <select class="form-select" id="edit-emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option><option value="admin">Управляющий</option></select>
     </div>
     <button class="btn btn-primary" onclick="saveEmployee()">Сохранить</button>
-    <div class="form-group" style="margin-top:16px;padding-top:16px;border-top:1px solid #f0f0f5">
+    <div class="form-group" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
       <label class="form-label">Новый пароль (оставь пустым если не меняешь)</label>
       <input class="form-input" id="edit-emp-password" placeholder="минимум 6 символов">
     </div>
@@ -1936,7 +1936,7 @@ sb.auth.getSession().then(({ data }) => {
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-schedule')">✕</button>
     <div class="modal-title">📅 Назначить смену</div>
-    <div class="card" style="background:#f5f5f5;margin-bottom:16px">
+    <div class="card" style="background:var(--surface-2);margin-bottom:16px">
       <div style="font-size:15px;font-weight:600;color:var(--text-primary)" id="sch-employee-display">—</div>
       <div style="font-size:13px;color:#999;margin-top:2px" id="sch-date-display">—</div>
     </div>
