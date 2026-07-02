@@ -245,7 +245,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
   </div>
 
-  <nav class="bottom-nav">
+  <!-- CHECKLIST SCREEN -->
+  <div class="screen" id="screen-checklist">
+    <div class="header">
+      <h1>☑️ Чек-листы</h1>
+      <p id="checklist-date"></p>
+    </div>
+    <div style="background:#1a1a2e;padding:0 16px 12px;display:flex;gap:8px;overflow-x:auto">
+      <button onclick="switchChecklistTab('open',this)" id="ctab-open" class="ctab" style="background:#6C5CE7;color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">🌅 Открытие</button>
+      <button onclick="switchChecklistTab('second',this)" id="ctab-second" class="ctab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">👤 2-й официант</button>
+      <button onclick="switchChecklistTab('close',this)" id="ctab-close" class="ctab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">🌙 Закрытие</button>
+    </div>
+    <div class="content" id="checklist-content">
+      <div class="loading">Загрузка...</div>
+    </div>
+  </div>
+
+    <nav class="bottom-nav">
     <button class="nav-btn active" onclick="showScreen('home',this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Главная
     </button>
@@ -260,6 +276,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </button>
     <button class="nav-btn" onclick="showScreen('crm',this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Брони
+    </button>
+    <button class="nav-btn" onclick="showScreen('checklist',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Смена
     </button>
     <button class="nav-btn" id="nav-admin" onclick="showScreen('admin',this)" style="display:none">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Админ
@@ -471,6 +490,7 @@ function showScreen(name, btn) {
   if(name==='finance') loadFinance();
   if(name==='crm') loadCRM();
   if(name==='admin') loadAdmin();
+  if(name==='checklist') { loadChecklist(currentChecklistType||'open'); }
 }
 
 async function loadHome() {
@@ -1003,6 +1023,123 @@ async function loadActivityLog() {
           <div class="item-sub">${new Date(l.created_at).toLocaleString('ru-RU')}</div>
         </div>
       </div>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+// CHECKLISTS
+let currentChecklistType = 'open';
+let currentChecklistLog = null;
+
+async function switchChecklistTab(type, btn) {
+  currentChecklistType = type;
+  document.querySelectorAll('.ctab').forEach(b=>{
+    b.style.background = 'rgba(255,255,255,0.15)';
+  });
+  if(btn) btn.style.background = '#6C5CE7';
+  await loadChecklist(type);
+}
+
+async function loadChecklist(type) {
+  const content = document.getElementById('checklist-content');
+  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  document.getElementById('checklist-date').textContent = new Date().toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
+
+  try {
+    // Get template
+    const { data: templates } = await sb.from('checklist_templates').select('*').eq('type', type).eq('is_active', true);
+    if(!templates || templates.length===0) { content.innerHTML='<div class="empty"><div class="empty-icon">☑️</div><div class="empty-text">Чек-лист не найден</div></div>'; return; }
+    const template = templates[0];
+    const items = template.items;
+
+    // Get today log
+    const todayStr = today();
+    const { data: logs } = await sb.from('checklist_logs')
+      .select('*')
+      .eq('template_id', template.id)
+      .eq('date', todayStr)
+      .eq('user_id', currentUser.id);
+    
+    currentChecklistLog = logs && logs.length > 0 ? logs[0] : null;
+    const donItems = currentChecklistLog?.items_done || [];
+
+    // Group by section
+    const sections = {};
+    items.forEach(item => {
+      if(!sections[item.section]) sections[item.section] = [];
+      sections[item.section].push(item);
+    });
+
+    const doneCount = donItems.length;
+    const totalCount = items.length;
+    const pct = totalCount ? Math.round(doneCount/totalCount*100) : 0;
+
+    let html = '';
+    
+    // Progress
+    html += `<div class="card">
+      <div class="card-title">${template.name}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:13px;color:#999">${doneCount} из ${totalCount} выполнено</span>
+        <span style="font-size:18px;font-weight:700;color:${pct===100?'#3B6D11':'#6C5CE7'}">${pct}%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+      ${pct===100?'<div style="text-align:center;margin-top:10px;font-size:13px;color:#3B6D11;font-weight:500">✅ Чек-лист выполнен!</div>':''}
+    </div>`;
+
+    // Sections
+    Object.entries(sections).forEach(([section, sItems]) => {
+      html += `<div class="section-label">${section}</div><div class="card" style="padding:10px 14px">`;
+      sItems.forEach(item => {
+        const isDone = donItems.includes(item.id);
+        html += `<div class="task-row" onclick="toggleChecklistItem(${item.id}, ${template.id}, '${todayStr}')">
+          <div class="check ${isDone?'done':''}"></div>
+          <div class="task-body">
+            <div class="task-text" style="${isDone?'text-decoration:line-through;color:#999':''}">${item.text}</div>
+          </div>
+        </div>`;
+      });
+      html += '</div>';
+    });
+
+    content.innerHTML = html;
+  } catch(e) { console.error(e); content.innerHTML='<div class="loading">Ошибка загрузки</div>'; }
+}
+
+async function toggleChecklistItem(itemId, templateId, date) {
+  try {
+    let donItems = currentChecklistLog?.items_done || [];
+    const idx = donItems.indexOf(itemId);
+    if(idx > -1) donItems.splice(idx, 1);
+    else donItems.push(itemId);
+
+    // Get total items count
+    const { data: template } = await sb.from('checklist_templates').select('items').eq('id', templateId).single();
+    const totalCount = template?.items?.length || 0;
+    const completed = donItems.length === totalCount;
+
+    if(currentChecklistLog) {
+      await sb.from('checklist_logs').update({items_done: donItems, completed}).eq('id', currentChecklistLog.id);
+      currentChecklistLog.items_done = donItems;
+      currentChecklistLog.completed = completed;
+    } else {
+      const { data: newLog } = await sb.from('checklist_logs').insert({
+        template_id: templateId,
+        date,
+        user_id: currentUser.id,
+        user_name: currentProfile?.name || currentUser?.email,
+        items_done: donItems,
+        completed
+      }).select().single();
+      currentChecklistLog = newLog;
+    }
+
+    // Notify admin if completed
+    if(completed) {
+      const typeLabels = {open:'Открытие смены', second:'2-й официант', close:'Закрытие смены'};
+      await notifyAdmin(`☑️ <b>Чек-лист выполнен!</b>\n\n📋 ${typeLabels[currentChecklistType]||''}\n👤 ${currentProfile?.name||''}\n📅 ${date}\n\nОткрой приложение: https://slon-app.vercel.app`);
+    }
+
+    await loadChecklist(currentChecklistType);
   } catch(e) { console.error(e); }
 }
 
