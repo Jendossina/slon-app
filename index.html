@@ -245,6 +245,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
   </div>
 
+  <!-- SCHEDULE SCREEN -->
+  <div class="screen" id="screen-schedule">
+    <div class="header">
+      <div class="header-row">
+        <div><h1>📅 Расписание</h1><p id="schedule-week"></p></div>
+        <button id="fab-schedule-btn" onclick="loadScheduleEmployees();openModal('modal-add-schedule')" style="display:none;background:#6C5CE7;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Добавить</button>
+      </div>
+    </div>
+    <div style="background:#1a1a2e;padding:0 16px 12px;display:flex;gap:6px;overflow-x:auto" id="schedule-days-nav"></div>
+    <div class="content" id="schedule-content">
+      <div class="loading">Загрузка...</div>
+    </div>
+  </div>
+
   <!-- CHECKLIST SCREEN -->
   <div class="screen" id="screen-checklist">
     <div class="header">
@@ -277,8 +291,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <button class="nav-btn" onclick="showScreen('crm',this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Брони
     </button>
+    <button class="nav-btn" onclick="showScreen('schedule',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/></svg>График
+    </button>
     <button class="nav-btn" onclick="showScreen('checklist',this)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Смена
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h011"/></svg>Смена
     </button>
     <button class="nav-btn" id="nav-admin" onclick="showScreen('admin',this)" style="display:none">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Админ
@@ -491,6 +508,7 @@ function showScreen(name, btn) {
   if(name==='crm') loadCRM();
   if(name==='admin') loadAdmin();
   if(name==='checklist') { loadChecklist(currentChecklistType||'open'); }
+  if(name==='schedule') loadSchedule();
 }
 
 async function loadHome() {
@@ -767,6 +785,7 @@ async function addBooking() {
 document.querySelector('[onclick="openModal(\'modal-add-task\')"]')?.addEventListener('click', loadTaskEmployees);
 
 
+
 // LOG ACTIVITY
 async function logActivity(action, details) {
   try {
@@ -1026,6 +1045,167 @@ async function loadActivityLog() {
   } catch(e) { console.error(e); }
 }
 
+// SCHEDULE
+let selectedScheduleDate = today();
+
+async function loadSchedule() {
+  // Show add button for admin/manager
+  const role = currentProfile?.role;
+  const fabBtn = document.getElementById('fab-schedule-btn');
+  if(fabBtn && (role==='admin'||role==='manager')) fabBtn.style.display='block';
+
+  // Build week nav
+  const nav = document.getElementById('schedule-days-nav');
+  const days = [];
+  const now = new Date();
+  // Show 7 days starting from today-1
+  for(let i=-1; i<13; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate()+i);
+    days.push(d);
+  }
+  nav.innerHTML = days.map(d=>{
+    const ds = d.toISOString().split('T')[0];
+    const isSelected = ds===selectedScheduleDate;
+    const isToday = ds===today();
+    const dayName = d.toLocaleDateString('ru-RU',{weekday:'short'});
+    const dayNum = d.getDate();
+    return `<button onclick="selectScheduleDate('${ds}')" style="background:${isSelected?'#6C5CE7':'rgba(255,255,255,0.1)'};color:#fff;border:none;border-radius:10px;padding:6px 10px;font-size:12px;white-space:nowrap;cursor:pointer;min-width:46px;text-align:center">
+      <div style="font-size:10px;opacity:0.8">${dayName}</div>
+      <div style="font-size:15px;font-weight:${isToday?'700':'400'}">${dayNum}</div>
+    </button>`;
+  }).join('');
+
+  document.getElementById('schedule-week').textContent = new Date(selectedScheduleDate).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
+  await loadScheduleForDate(selectedScheduleDate);
+}
+
+async function selectScheduleDate(date) {
+  selectedScheduleDate = date;
+  await loadSchedule();
+}
+
+async function loadScheduleForDate(date) {
+  const content = document.getElementById('schedule-content');
+  const role = currentProfile?.role;
+  try {
+    let query = sb.from('schedules').select('*').eq('date', date).order('shift_start');
+    const { data: schedules } = await query;
+
+    if(!schedules||schedules.length===0) {
+      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📅</div><div class="empty-text">Смен не назначено</div></div></div>';
+      return;
+    }
+
+    // My shift highlight
+    const mySchedule = schedules.find(s=>s.employee_id===currentProfile?.employee_id);
+
+    let html = '';
+
+    // My shift card
+    if(mySchedule) {
+      if(mySchedule.is_day_off) {
+        html += `<div class="card" style="background:linear-gradient(135deg,#EAF3DE,#d4edda);border:none">
+          <div style="text-align:center;padding:10px">
+            <div style="font-size:32px">🌴</div>
+            <div style="font-size:16px;font-weight:600;color:#3B6D11;margin-top:6px">Твой выходной</div>
+          </div>
+        </div>`;
+      } else {
+        html += `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2b6b);border:none;color:#fff">
+          <div style="font-size:12px;opacity:0.7;margin-bottom:4px">ТВОЯ СМЕНА СЕГОДНЯ</div>
+          <div style="font-size:22px;font-weight:700">${mySchedule.shift_start||''} — ${mySchedule.shift_end||''}</div>
+          ${mySchedule.note?`<div style="font-size:12px;opacity:0.7;margin-top:4px">${mySchedule.note}</div>`:''}
+        </div>`;
+      }
+    } else if(date===today()) {
+      html += `<div class="card" style="background:#f5f5f5">
+        <div style="text-align:center;padding:8px">
+          <div style="font-size:13px;color:#999">Твоя смена не назначена</div>
+        </div>
+      </div>`;
+    }
+
+    // All shifts
+    html += '<div class="section-label">ВСЕ СОТРУДНИКИ</div><div class="card" style="padding:10px 14px">';
+    schedules.forEach(s=>{
+      const isMe = s.employee_id===currentProfile?.employee_id;
+      html += `<div class="list-item">
+        <div class="avatar ${getColor(s.employee_name)}">${getInitials(s.employee_name)}</div>
+        <div class="item-info">
+          <div class="item-name" style="${isMe?'color:#6C5CE7;font-weight:600':''}">${s.employee_name}${isMe?' (ты)':''}</div>
+          <div class="item-sub">${s.is_day_off?'🌴 Выходной':`🕐 ${s.shift_start||''}–${s.shift_end||''}`}${s.note?' · '+s.note:''}</div>
+        </div>
+        ${role==='admin'?`<button onclick="deleteSchedule(${s.id})" style="background:#FCEBEB;color:#A32D2D;border:none;border-radius:8px;padding:5px 8px;font-size:11px;cursor:pointer">✕</button>`:''}
+      </div>`;
+    });
+    html += '</div>';
+
+    content.innerHTML = html;
+  } catch(e) { console.error(e); }
+}
+
+function toggleDayOff(cb) {
+  document.getElementById('sch-time-fields').style.display = cb.checked ? 'none' : 'block';
+}
+
+async function loadScheduleEmployees() {
+  const { data: emps } = await sb.from('employees').select('id,name').order('name');
+  const sel = document.getElementById('sch-employee');
+  sel.innerHTML = (emps||[]).map(e=>`<option value="${e.id}" data-name="${e.name}">${e.name}</option>`).join('');
+}
+
+async function addSchedule() {
+  const sel = document.getElementById('sch-employee');
+  const empId = sel.value;
+  const empName = sel.options[sel.selectedIndex]?.getAttribute('data-name')||'';
+  const date = document.getElementById('sch-date').value || selectedScheduleDate;
+  const isDayOff = document.getElementById('sch-dayoff').checked;
+  const start = document.getElementById('sch-start').value;
+  const end = document.getElementById('sch-end').value;
+  const note = document.getElementById('sch-note').value;
+
+  if(!empId) return showToast('Выберите сотрудника');
+
+  try {
+    // Check if schedule already exists for this employee on this date
+    await sb.from('schedules').delete().eq('employee_id', empId).eq('date', date);
+    
+    await sb.from('schedules').insert({
+      employee_id: parseInt(empId),
+      employee_name: empName,
+      date,
+      shift_start: isDayOff ? null : start,
+      shift_end: isDayOff ? null : end,
+      is_day_off: isDayOff,
+      note
+    });
+
+    // Notify employee
+    const { data: profile } = await sb.from('profiles').select('telegram_id').eq('employee_id', empId).single();
+    if(profile?.telegram_id) {
+      const msg = isDayOff 
+        ? `📅 <b>Расписание обновлено</b>\n\n🌴 ${date} — выходной день`
+        : `📅 <b>Расписание обновлено</b>\n\n🕐 ${date}: смена ${start}–${end}${note?' ('+note+')':''}`;
+      await sendTelegram(profile.telegram_id, msg);
+    }
+
+    closeModal('modal-add-schedule');
+    document.getElementById('sch-note').value='';
+    document.getElementById('sch-dayoff').checked=false;
+    document.getElementById('sch-time-fields').style.display='block';
+    showToast('✅ Смена добавлена');
+    selectedScheduleDate = date;
+    loadSchedule();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+async function deleteSchedule(id) {
+  await sb.from('schedules').delete().eq('id', id);
+  showToast('✅ Удалено');
+  loadScheduleForDate(selectedScheduleDate);
+}
+
 // CHECKLISTS
 let currentChecklistType = 'open';
 let currentChecklistLog = null;
@@ -1143,6 +1323,12 @@ async function toggleChecklistItem(itemId, templateId, date) {
   } catch(e) { console.error(e); }
 }
 
+// Set today as default date
+document.addEventListener('DOMContentLoaded',()=>{
+  const schDate = document.getElementById('sch-date');
+  if(schDate) schDate.value = today();
+});
+
 sb.auth.getSession().then(({ data }) => {
   if(data.session) { currentUser = data.session.user; loadProfile().then(showApp); }
 });
@@ -1192,6 +1378,39 @@ sb.auth.getSession().then(({ data }) => {
     <div class="form-group"><label class="form-label">Дата до</label><input class="form-input" id="filter-date-to" type="date"></div>
     <button class="btn btn-primary" onclick="applyTaskFilter()">Применить фильтр</button>
     <button class="btn btn-secondary" onclick="clearTaskFilter()">Сбросить</button>
+  </div>
+</div>
+
+
+<!-- ADD SCHEDULE MODAL -->
+<div class="modal-overlay" id="modal-add-schedule">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-add-schedule')">✕</button>
+    <div class="modal-title">📅 Добавить смену</div>
+    <div class="form-group"><label class="form-label">Сотрудник</label>
+      <select class="form-select" id="sch-employee"></select>
+    </div>
+    <div class="form-group"><label class="form-label">Дата</label>
+      <input class="form-input" id="sch-date" type="date">
+    </div>
+    <div class="form-group">
+      <label class="form-label">
+        <input type="checkbox" id="sch-dayoff" onchange="toggleDayOff(this)" style="margin-right:6px">
+        Выходной день
+      </label>
+    </div>
+    <div id="sch-time-fields">
+      <div class="form-group"><label class="form-label">Начало смены</label>
+        <input class="form-input" id="sch-start" type="time" value="17:00">
+      </div>
+      <div class="form-group"><label class="form-label">Конец смены</label>
+        <input class="form-input" id="sch-end" type="time" value="01:00">
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Заметка (необязательно)</label>
+      <input class="form-input" id="sch-note" placeholder="Например: двойная смена">
+    </div>
+    <button class="btn btn-primary" onclick="addSchedule()">Добавить</button>
   </div>
 </div>
 
