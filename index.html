@@ -164,6 +164,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <p id="home-role-text"></p>
       </div>
       <div id="home-shift-card"></div>
+      <div id="telegram-link-card"></div>
       <div class="grid2" id="home-stats-grid">
         <div class="card"><div class="card-title">Выручка сегодня</div><div class="stat-val" id="home-revenue">—</div><div class="stat-sub">сум</div></div>
         <div class="card"><div class="card-title">Брони</div><div class="stat-val" id="home-bookings">—</div><div class="stat-sub">на сегодня</div></div>
@@ -424,6 +425,18 @@ async function notifyEmployee(userId, text) {
   if(data?.telegram_id) await sendTelegram(data.telegram_id, text);
 }
 
+async function saveTelegramId() {
+  const tgId = document.getElementById('tg-id-input').value.trim();
+  if(!tgId || !/^\d+$/.test(tgId)) return showToast('Введите корректный числовой ID');
+  try {
+    await sb.from('profiles').update({telegram_id: tgId}).eq('user_id', currentUser.id);
+    currentProfile.telegram_id = tgId;
+    showToast('✅ Telegram подключен!');
+    await sendTelegram(tgId, '🐘 <b>Отлично!</b>\n\nТеперь ты будешь получать уведомления о новых задачах прямо здесь.');
+    loadHome();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
 let currentUser = null;
 let currentProfile = null;
 let reportFile = null;
@@ -558,6 +571,29 @@ async function loadHome() {
             shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2b6b);border:none;color:#fff;margin-bottom:12px"><div style="font-size:11px;opacity:0.7;margin-bottom:4px">ТВОЯ СМЕНА СЕГОДНЯ</div><div style="font-size:24px;font-weight:700">🕐 ${myShift.shift_start||''} — ${myShift.shift_end||''}</div>${myShift.note?`<div style="font-size:12px;opacity:0.7;margin-top:4px">${myShift.note}</div>`:''}</div>`;
           }
         } else { shiftEl.innerHTML = ''; }
+      }
+    }
+
+    // Telegram link card
+    const tgCard = document.getElementById('telegram-link-card');
+    if(tgCard) {
+      if(!currentProfile?.telegram_id) {
+        tgCard.innerHTML = `<div class="card" style="background:#E8F4FD;border:1px solid #b3d9f2;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:600;color:#1A6FA8;margin-bottom:6px">🔔 Подключи Telegram-уведомления</div>
+          <div style="font-size:12px;color:#666;margin-bottom:10px">Получай уведомления о новых задачах прямо в Telegram</div>
+          <ol style="font-size:12px;color:#666;margin:0 0 10px 16px;padding:0;line-height:1.6">
+            <li>Открой бота <b>@SlonShishaBot</b> в Telegram</li>
+            <li>Напиши ему <b>/start</b></li>
+            <li>Найди бота <b>@userinfobot</b>, напиши <b>/start</b> — он покажет твой ID</li>
+            <li>Введи этот ID ниже</li>
+          </ol>
+          <div style="display:flex;gap:8px">
+            <input class="form-input" id="tg-id-input" placeholder="Например: 123456789" style="flex:1;padding:10px">
+            <button onclick="saveTelegramId()" style="background:#6C5CE7;color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:600;cursor:pointer">Сохранить</button>
+          </div>
+        </div>`;
+      } else {
+        tgCard.innerHTML = '';
       }
     }
 
