@@ -163,7 +163,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <h3 id="home-welcome-text">Добро пожаловать!</h3>
         <p id="home-role-text"></p>
       </div>
-      <div class="grid2">
+      <div id="home-shift-card"></div>
+      <div class="grid2" id="home-stats-grid">
         <div class="card"><div class="card-title">Выручка сегодня</div><div class="stat-val" id="home-revenue">—</div><div class="stat-sub">сум</div></div>
         <div class="card"><div class="card-title">Брони</div><div class="stat-val" id="home-bookings">—</div><div class="stat-sub">на сегодня</div></div>
       </div>
@@ -493,7 +494,11 @@ function applyRolePermissions() {
   } else if(role === 'manager') {
     ['fab-tasks','fab-crm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
   }
-  if(role === 'employee') document.querySelectorAll('.nav-btn')[3].style.display='none';
+  if(role === 'employee') {
+    document.querySelectorAll('.nav-btn')[3].style.display='none';
+    const statsGrid = document.getElementById('home-stats-grid');
+    if(statsGrid) statsGrid.style.display='none';
+  }
 }
 
 function showScreen(name, btn) {
