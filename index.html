@@ -369,6 +369,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-checklist-media">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-checklist-media')">✕</button>
+    <div class="modal-title">📎 Фото/видео к пункту</div>
+    <input type="hidden" id="cl-media-item-id">
+    <input type="hidden" id="cl-media-template-id">
+    <div class="upload-area" onclick="document.getElementById('cl-media-file').click()">
+      <input type="file" id="cl-media-file" accept="image/*,video/*" onchange="previewChecklistMedia(this)">
+      <div class="upload-icon">📷</div>
+      <p>Нажми чтобы прикрепить фото или видео</p>
+    </div>
+    <div class="upload-preview" id="cl-media-preview"></div>
+    <div class="uploading-bar" id="cl-media-uploading-bar">⏳ Загружаю файл...</div>
+    <button class="btn btn-primary" style="margin-top:14px" onclick="uploadChecklistMedia()">Прикрепить</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-view-report">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-view-report')">✕</button>
@@ -1519,6 +1536,7 @@ async function loadChecklist(type) {
     
     currentChecklistLog = logs && logs.length > 0 ? logs[0] : null;
     const donItems = currentChecklistLog?.items_done || [];
+    const itemsMedia = currentChecklistLog?.items_media || {};
 
     // Group by section
     const sections = {};
@@ -1549,10 +1567,19 @@ async function loadChecklist(type) {
       html += `<div class="section-label">${section}</div><div class="card" style="padding:10px 14px">`;
       sItems.forEach(item => {
         const isDone = donItems.includes(item.id);
+        const media = itemsMedia[item.id];
+        let mediaSection = '';
+        if(media) {
+          const isVideo = media.type === 'video';
+          mediaSection = `<button class="report-btn done-report" onclick="event.stopPropagation();viewReport('${media.url}','${media.type}')">${isVideo?'🎥':'📸'} Смотреть</button>`;
+        } else {
+          mediaSection = `<button class="report-btn" onclick="event.stopPropagation();openChecklistMediaModal(${item.id},${template.id})">📎 Прикрепить фото</button>`;
+        }
         html += `<div class="task-row" onclick="toggleChecklistItem(${item.id}, ${template.id}, '${todayStr}')">
           <div class="check ${isDone?'done':''}"></div>
           <div class="task-body">
             <div class="task-text" style="${isDone?'text-decoration:line-through;color:#999':''}">${item.text}</div>
+            ${mediaSection}
           </div>
         </div>`;
       });
@@ -1561,6 +1588,70 @@ async function loadChecklist(type) {
 
     content.innerHTML = html;
   } catch(e) { console.error(e); content.innerHTML='<div class="loading">Ошибка загрузки</div>'; }
+}
+
+// CHECKLIST MEDIA ATTACHMENTS
+let clMediaFile = null;
+
+function openChecklistMediaModal(itemId, templateId) {
+  document.getElementById('cl-media-item-id').value = itemId;
+  document.getElementById('cl-media-template-id').value = templateId;
+  document.getElementById('cl-media-preview').innerHTML = '';
+  document.getElementById('cl-media-file').value = '';
+  clMediaFile = null;
+  openModal('modal-checklist-media');
+}
+
+function previewChecklistMedia(input) {
+  clMediaFile = input.files[0];
+  if(!clMediaFile) return;
+  const preview = document.getElementById('cl-media-preview');
+  const url = URL.createObjectURL(clMediaFile);
+  if(clMediaFile.type.startsWith('video')) {
+    preview.innerHTML = `<video src="${url}" controls style="max-width:100%;border-radius:10px;max-height:200px"></video>`;
+  } else {
+    preview.innerHTML = `<img src="${url}" style="max-width:100%;border-radius:10px;max-height:200px;object-fit:cover">`;
+  }
+}
+
+async function uploadChecklistMedia() {
+  const itemId = document.getElementById('cl-media-item-id').value;
+  const templateId = document.getElementById('cl-media-template-id').value;
+  if(!clMediaFile) return showToast('Выберите файл');
+
+  const bar = document.getElementById('cl-media-uploading-bar');
+  bar.style.display = 'block';
+
+  try {
+    const ext = clMediaFile.name.split('.').pop();
+    const path = `checklist-${templateId}-${itemId}-${Date.now()}.${ext}`;
+    const { error: upErr } = await sb.storage.from('task-reports').upload(path, clMediaFile);
+    if(upErr) { showToast('Ошибка загрузки: '+upErr.message); bar.style.display='none'; return; }
+    const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
+    const isVideo = clMediaFile.type.startsWith('video');
+
+    // Save to items_media in checklist_logs
+    let itemsMedia = currentChecklistLog?.items_media || {};
+    itemsMedia[itemId] = { url: urlData.publicUrl, type: isVideo?'video':'image' };
+
+    if(currentChecklistLog) {
+      await sb.from('checklist_logs').update({items_media: itemsMedia}).eq('id', currentChecklistLog.id);
+      currentChecklistLog.items_media = itemsMedia;
+    } else {
+      const dateStr = today();
+      const { data: newLog } = await sb.from('checklist_logs').insert({
+        template_id: templateId, date: dateStr, user_id: currentUser.id,
+        user_name: currentProfile?.name || currentUser?.email,
+        items_done: [], items_media: itemsMedia
+      }).select().single();
+      currentChecklistLog = newLog;
+    }
+
+    bar.style.display = 'none';
+    closeModal('modal-checklist-media');
+    showToast('✅ Фото прикреплено');
+    loadChecklist(currentChecklistType);
+  } catch(e) { bar.style.display='none'; showToast('Ошибка: '+e.message); }
 }
 
 async function toggleChecklistItem(itemId, templateId, date) {
