@@ -251,7 +251,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="header">
       <div class="header-row">
         <div><h1>📅 Расписание</h1><p id="schedule-week"></p></div>
-        <button id="fab-schedule-btn" onclick="pickEmployeeForSchedule()" style="display:none;background:#6C5CE7;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Смена</button>
+        <div style="display:flex;gap:6px">
+          <button id="fab-week-btn" onclick="openWeekFillPicker()" style="display:none;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer">📆 На неделю</button>
+          <button id="fab-schedule-btn" onclick="pickEmployeeForSchedule()" style="display:none;background:#6C5CE7;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Смена</button>
+        </div>
       </div>
     </div>
     <div style="background:#1a1a2e;padding:0 16px 12px;display:flex;gap:6px;overflow-x:auto" id="schedule-dept-nav"></div>
@@ -1090,7 +1093,10 @@ function fmtDate(d) { return d.toISOString().split('T')[0]; }
 async function loadSchedule() {
   const role = currentProfile?.role;
   const fabBtn = document.getElementById('fab-schedule-btn');
-  if(fabBtn) fabBtn.style.display = (role==='admin'||role==='manager') ? 'block' : 'none';
+  const fabWeekBtn = document.getElementById('fab-week-btn');
+  const canEdit = (role==='admin'||role==='manager');
+  if(fabBtn) fabBtn.style.display = canEdit ? 'block' : 'none';
+  if(fabWeekBtn) fabWeekBtn.style.display = canEdit ? 'block' : 'none';
 
   // If employee, jump to their department automatically
   if(role === 'employee' && currentProfile?.employee_id) {
@@ -1251,6 +1257,106 @@ async function pickEmployeeForSchedule() {
   if(idx < 0 || idx >= emps.length || isNaN(idx)) return;
   const emp = emps[idx];
   quickEditSchedule(emp.id, emp.name, today());
+}
+
+// WEEK FILL
+let weekFillDates = [];
+async function openWeekFillPicker() {
+  const { data: emps } = await sb.from('employees').select('id,name').eq('department', currentDept).order('name');
+  if(!emps || emps.length===0) return showToast('В этом отделе нет сотрудников');
+  const sel = document.getElementById('week-employee');
+  sel.innerHTML = emps.map(e=>`<option value="${e.id}" data-name="${e.name}">${e.name}</option>`).join('');
+  await renderWeekFillDays();
+  openModal('modal-week-fill');
+}
+
+async function renderWeekFillDays() {
+  const sel = document.getElementById('week-employee');
+  const empId = sel.value;
+  weekFillDates = [];
+  for(let i=0;i<7;i++) {
+    const d = new Date(scheduleWeekStart);
+    d.setDate(d.getDate()+i);
+    weekFillDates.push(d);
+  }
+  const dayNames = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
+
+  // Load existing schedule for this employee this week
+  const dateStrs = weekFillDates.map(fmtDate);
+  const { data: existing } = await sb.from('schedules').select('*').eq('employee_id', empId).in('date', dateStrs);
+  const existingMap = {};
+  (existing||[]).forEach(s => { existingMap[s.date] = s; });
+
+  const container = document.getElementById('week-fill-days');
+  container.innerHTML = weekFillDates.map((d,i) => {
+    const dateStr = dateStrs[i];
+    const ex = existingMap[dateStr];
+    const isOff = ex?.is_day_off || false;
+    const startVal = ex?.shift_start || '11:00';
+    const endVal = ex?.shift_end || '23:00';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f5f5f5">
+      <div style="width:90px;font-size:13px;color:#1a1a2e;font-weight:500">${dayNames[i]}<div style="font-size:11px;color:#999">${d.getDate()}.${d.getMonth()+1}</div></div>
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#999">
+        <input type="checkbox" class="wf-dayoff" data-idx="${i}" ${isOff?'checked':''} onchange="toggleWfDayOff(${i})"> Вых
+      </label>
+      <input type="time" class="wf-start form-input" data-idx="${i}" value="${startVal}" style="padding:6px 8px;font-size:12px;${isOff?'display:none':''}">
+      <span style="font-size:12px;color:#999;${isOff?'display:none':''}" class="wf-dash-${i}">—</span>
+      <input type="time" class="wf-end form-input" data-idx="${i}" value="${endVal}" style="padding:6px 8px;font-size:12px;${isOff?'display:none':''}">
+    </div>`;
+  }).join('');
+}
+
+function toggleWfDayOff(idx) {
+  const cb = document.querySelector(`.wf-dayoff[data-idx="${idx}"]`);
+  const start = document.querySelector(`.wf-start[data-idx="${idx}"]`);
+  const end = document.querySelector(`.wf-end[data-idx="${idx}"]`);
+  const dash = document.querySelector(`.wf-dash-${idx}`);
+  const show = !cb.checked;
+  start.style.display = show ? 'inline-block' : 'none';
+  end.style.display = show ? 'inline-block' : 'none';
+  if(dash) dash.style.display = show ? 'inline' : 'none';
+}
+
+function applyToAllDays() {
+  const start = document.getElementById('week-default-start').value;
+  const end = document.getElementById('week-default-end').value;
+  document.querySelectorAll('.wf-start').forEach(el => el.value = start);
+  document.querySelectorAll('.wf-end').forEach(el => el.value = end);
+  document.querySelectorAll('.wf-dayoff').forEach(cb => { cb.checked = false; });
+  document.querySelectorAll('.wf-start, .wf-end').forEach(el => el.style.display = 'inline-block');
+  document.querySelectorAll('[class^="wf-dash-"]').forEach(el => el.style.display = 'inline');
+}
+
+async function saveWeekFill() {
+  const sel = document.getElementById('week-employee');
+  const empId = sel.value;
+  const empName = sel.options[sel.selectedIndex]?.getAttribute('data-name') || '';
+  if(!empId) return showToast('Выберите сотрудника');
+
+  try {
+    for(let i=0; i<7; i++) {
+      const dateStr = fmtDate(weekFillDates[i]);
+      const isOff = document.querySelector(`.wf-dayoff[data-idx="${i}"]`).checked;
+      const start = document.querySelector(`.wf-start[data-idx="${i}"]`).value;
+      const end = document.querySelector(`.wf-end[data-idx="${i}"]`).value;
+
+      await sb.from('schedules').delete().eq('employee_id', empId).eq('date', dateStr);
+      await sb.from('schedules').insert({
+        employee_id: parseInt(empId), employee_name: empName, date: dateStr,
+        shift_start: isOff ? null : start, shift_end: isOff ? null : end,
+        is_day_off: isOff
+      });
+    }
+
+    const { data: profile } = await sb.from('profiles').select('telegram_id').eq('employee_id', empId).single();
+    if(profile?.telegram_id) {
+      await sendTelegram(profile.telegram_id, `📅 <b>Твоё расписание на неделю обновлено!</b>\n\nОткрой приложение чтобы посмотреть: https://slon-app.vercel.app`);
+    }
+
+    closeModal('modal-week-fill');
+    showToast('✅ Неделя заполнена');
+    loadScheduleGrid();
+  } catch(e) { showToast('Ошибка: '+e.message); }
 }
 
 async function addSchedule() {
@@ -1473,6 +1579,30 @@ sb.auth.getSession().then(({ data }) => {
 
 
 <!-- ADD SCHEDULE MODAL -->
+<!-- WEEK FILL MODAL -->
+<div class="modal-overlay" id="modal-week-fill">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-week-fill')">✕</button>
+    <div class="modal-title">📆 Заполнить неделю</div>
+    <div class="form-group"><label class="form-label">Сотрудник</label>
+      <select class="form-select" id="week-employee" onchange="renderWeekFillDays()"></select>
+    </div>
+    <div class="form-group" style="display:flex;gap:8px;align-items:flex-end">
+      <div style="flex:1">
+        <label class="form-label">Начало</label>
+        <input class="form-input" id="week-default-start" type="time" value="11:00">
+      </div>
+      <div style="flex:1">
+        <label class="form-label">Конец</label>
+        <input class="form-input" id="week-default-end" type="time" value="23:00">
+      </div>
+      <button onclick="applyToAllDays()" style="background:#EEEDFE;color:#534AB7;border:none;border-radius:10px;padding:12px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Всем дням</button>
+    </div>
+    <div id="week-fill-days" style="margin-top:12px"></div>
+    <button class="btn btn-primary" style="margin-top:14px" onclick="saveWeekFill()">Сохранить неделю</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-add-schedule">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-schedule')">✕</button>
