@@ -1901,19 +1901,40 @@ async function openTaskComments(taskId, taskTitle) {
   document.getElementById('task-comments-title').textContent = '💬 ' + taskTitle;
   await loadTaskComments();
   openModal('modal-task-comments');
+  startCommentsPolling();
 }
 
-async function loadTaskComments() {
+let commentsPollInterval = null;
+function startCommentsPolling() {
+  stopCommentsPolling();
+  commentsPollInterval = setInterval(() => {
+    if(document.getElementById('modal-task-comments').classList.contains('open')) {
+      loadTaskComments(true);
+    } else {
+      stopCommentsPolling();
+    }
+  }, 3000);
+}
+function stopCommentsPolling() {
+  if(commentsPollInterval) { clearInterval(commentsPollInterval); commentsPollInterval = null; }
+}
+
+let lastCommentsCount = 0;
+async function loadTaskComments(isPoll) {
   const list = document.getElementById('task-comments-list');
-  list.innerHTML = '<div class="loading">Загрузка...</div>';
+  if(!isPoll) list.innerHTML = '<div class="loading">Загрузка...</div>';
   try {
     const { data: comments } = await sb.from('task_comments').select('*').eq('task_id', currentCommentsTaskId).order('created_at');
     if(!comments || comments.length===0) {
-      list.innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div class="empty-text">Пока нет сообщений.<br>Начни обсуждение первым!</div></div>';
+      if(!isPoll || lastCommentsCount!==0) list.innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div class="empty-text">Пока нет сообщений.<br>Начни обсуждение первым!</div></div>';
+      lastCommentsCount = 0;
       return;
     }
+    if(isPoll && comments.length === lastCommentsCount) return; // no change, skip re-render
+    lastCommentsCount = comments.length;
+    const wasAtBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 30;
     list.innerHTML = comments.map(c => chatBubbleHTML(c, c.user_id === currentUser?.id)).join('');
-    list.scrollTop = list.scrollHeight;
+    if(!isPoll || wasAtBottom) list.scrollTop = list.scrollHeight;
   } catch(e) { console.error(e); }
 }
 
@@ -1946,18 +1967,39 @@ async function sendTaskComment() {
 }
 
 // TEAM CHAT
-async function loadTeamChat() {
+let teamChatPollInterval = null;
+let lastTeamChatCount = 0;
+function startTeamChatPolling() {
+  stopTeamChatPolling();
+  teamChatPollInterval = setInterval(() => {
+    if(document.getElementById('screen-teamchat').classList.contains('active')) {
+      loadTeamChat(true);
+    } else {
+      stopTeamChatPolling();
+    }
+  }, 3000);
+}
+function stopTeamChatPolling() {
+  if(teamChatPollInterval) { clearInterval(teamChatPollInterval); teamChatPollInterval = null; }
+}
+
+async function loadTeamChat(isPoll) {
   const list = document.getElementById('teamchat-list');
-  list.innerHTML = '<div class="loading">Загрузка...</div>';
+  if(!isPoll) list.innerHTML = '<div class="loading">Загрузка...</div>';
   try {
     const { data: messages } = await sb.from('team_chat').select('*').order('created_at').limit(100);
     if(!messages || messages.length===0) {
-      list.innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div class="empty-text">Пока нет сообщений.<br>Начни общение первым!</div></div>';
+      if(!isPoll || lastTeamChatCount!==0) list.innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div class="empty-text">Пока нет сообщений.<br>Начни общение первым!</div></div>';
+      lastTeamChatCount = 0;
       return;
     }
+    if(isPoll && messages.length === lastTeamChatCount) return;
+    lastTeamChatCount = messages.length;
+    const wasAtBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 30;
     list.innerHTML = messages.map(m => chatBubbleHTML(m, m.user_id === currentUser?.id)).join('');
-    list.scrollTop = list.scrollHeight;
+    if(!isPoll || wasAtBottom) list.scrollTop = list.scrollHeight;
   } catch(e) { console.error(e); }
+  if(!isPoll) startTeamChatPolling();
 }
 
 async function sendTeamChat() {
