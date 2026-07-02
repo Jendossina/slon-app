@@ -315,6 +315,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
   </div>
 
+  <!-- TEAM CHAT SCREEN -->
+  <div class="screen" id="screen-teamchat">
+    <div class="header">
+      <h1>💬 Общий чат</h1>
+      <p>Обсуждение команды</p>
+    </div>
+    <div style="display:flex;flex-direction:column;height:calc(100vh - 150px)">
+      <div id="teamchat-list" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px"></div>
+      <div style="display:flex;gap:8px;padding:12px 16px calc(env(safe-area-inset-bottom) + 80px);border-top:1px solid var(--border);background:var(--surface)">
+        <input class="form-input" id="teamchat-input" placeholder="Написать сообщение..." style="flex:1" onkeypress="if(event.key==='Enter')sendTeamChat()">
+        <button onclick="sendTeamChat()" style="background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:18px;cursor:pointer">➤</button>
+      </div>
+    </div>
+  </div>
+
   <!-- SCHEDULE SCREEN -->
   <div class="screen" id="screen-schedule">
     <div class="header">
@@ -451,6 +466,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="upload-preview" id="cl-media-preview"></div>
     <div class="uploading-bar" id="cl-media-uploading-bar">⏳ Загружаю файл...</div>
     <button class="btn btn-primary" style="margin-top:14px" onclick="uploadChecklistMedia()">Прикрепить</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-task-comments">
+  <div class="modal" style="display:flex;flex-direction:column;height:80vh">
+    <button class="modal-close" onclick="closeModal('modal-task-comments')">✕</button>
+    <div class="modal-title" id="task-comments-title">💬 Обсуждение</div>
+    <div id="task-comments-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 0"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+      <input class="form-input" id="task-comment-input" placeholder="Написать комментарий..." style="flex:1" onkeypress="if(event.key==='Enter')sendTaskComment()">
+      <button onclick="sendTaskComment()" style="background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:18px;cursor:pointer">➤</button>
+    </div>
   </div>
 </div>
 
@@ -637,6 +664,7 @@ function openMoreMenu() {
   const role = currentProfile?.role;
   const items = [
     {id:'hr', label:'👥 Сотрудники', show: true},
+    {id:'teamchat', label:'💬 Общий чат', show: true},
     {id:'finance', label:'💰 Финансы', show: role!=='employee'},
     {id:'crm', label:'📋 Брони', show: true},
     {id:'admin', label:'⚙️ Админ-панель', show: role==='admin'}
@@ -662,6 +690,7 @@ function showScreen(name, btn) {
   if(name==='admin') loadAdmin();
   if(name==='checklist') { loadChecklist(currentChecklistType||'open'); }
   if(name==='schedule') loadSchedule();
+  if(name==='teamchat') loadTeamChat();
 }
 
 async function loadHome() {
@@ -759,7 +788,10 @@ function taskHTML(t) {
       <div class="task-text" style="${isDone?'text-decoration:line-through;color:#999':''}">${t.title}</div>
       ${t.description?`<div style="font-size:12px;color:#666;margin-top:2px">${t.description}</div>`:''}
       <div class="task-meta">👤 ${t.assigned_to_name||'—'} ${t.due_date?'· до '+t.due_date:''}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">Моя</span>':''}</div>
-      ${reportSection}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+        ${reportSection}
+        <button class="report-btn" onclick="event.stopPropagation();openTaskComments(${t.id},'${(t.title||'').replace(/'/g,"\\'")}')">💬 Обсудить</button>
+      </div>
     </div>
   </div>`;
 }
@@ -1850,6 +1882,96 @@ document.addEventListener('DOMContentLoaded',()=>{
   const schDate = document.getElementById('sch-date');
   if(schDate) schDate.value = today();
 });
+
+// TASK COMMENTS
+let currentCommentsTaskId = null;
+function chatBubbleHTML(c, isMine) {
+  const time = new Date(c.created_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+  return `<div style="align-self:${isMine?'flex-end':'flex-start'};max-width:80%">
+    <div style="background:${isMine?'var(--gold-dark)':'var(--surface-2)'};color:${isMine?'#fff':'var(--text-primary)'};border-radius:14px;padding:10px 14px;font-size:14px;${isMine?'border-bottom-right-radius:4px':'border-bottom-left-radius:4px'}">
+      ${!isMine?`<div style="font-size:11px;font-weight:600;opacity:0.7;margin-bottom:3px">${c.user_name||''}</div>`:''}
+      ${c.text}
+    </div>
+    <div style="font-size:10px;color:var(--text-muted);margin-top:2px;text-align:${isMine?'right':'left'}">${time}</div>
+  </div>`;
+}
+
+async function openTaskComments(taskId, taskTitle) {
+  currentCommentsTaskId = taskId;
+  document.getElementById('task-comments-title').textContent = '💬 ' + taskTitle;
+  await loadTaskComments();
+  openModal('modal-task-comments');
+}
+
+async function loadTaskComments() {
+  const list = document.getElementById('task-comments-list');
+  list.innerHTML = '<div class="loading">Загрузка...</div>';
+  try {
+    const { data: comments } = await sb.from('task_comments').select('*').eq('task_id', currentCommentsTaskId).order('created_at');
+    if(!comments || comments.length===0) {
+      list.innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div class="empty-text">Пока нет сообщений.<br>Начни обсуждение первым!</div></div>';
+      return;
+    }
+    list.innerHTML = comments.map(c => chatBubbleHTML(c, c.user_id === currentUser?.id)).join('');
+    list.scrollTop = list.scrollHeight;
+  } catch(e) { console.error(e); }
+}
+
+async function sendTaskComment() {
+  const input = document.getElementById('task-comment-input');
+  const text = input.value.trim();
+  if(!text || !currentCommentsTaskId) return;
+  try {
+    await sb.from('task_comments').insert({
+      task_id: currentCommentsTaskId, user_id: currentUser.id,
+      user_name: currentProfile?.name || currentUser?.email, text
+    });
+    input.value = '';
+    await loadTaskComments();
+
+    // Notify other participants (task assignee + creator)
+    const { data: task } = await sb.from('tasks').select('assigned_to_id,created_by,title').eq('id', currentCommentsTaskId).single();
+    if(task) {
+      const notifyIds = new Set();
+      if(task.assigned_to_id && task.assigned_to_id !== currentUser.id) notifyIds.add(task.assigned_to_id);
+      if(task.created_by && task.created_by !== currentUser.id) notifyIds.add(task.created_by);
+      for(const uid of notifyIds) {
+        await notifyEmployee(uid, `💬 <b>Новый комментарий к задаче</b>\n\n📋 ${task.title}\n👤 ${currentProfile?.name||''}: ${text}\n\nОткрой приложение: https://slon-app.vercel.app`);
+      }
+      if(notifyIds.size===0 && currentProfile?.role !== 'admin') {
+        await notifyAdmin(`💬 <b>Новый комментарий к задаче</b>\n\n📋 ${task.title}\n👤 ${currentProfile?.name||''}: ${text}`);
+      }
+    }
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+// TEAM CHAT
+async function loadTeamChat() {
+  const list = document.getElementById('teamchat-list');
+  list.innerHTML = '<div class="loading">Загрузка...</div>';
+  try {
+    const { data: messages } = await sb.from('team_chat').select('*').order('created_at').limit(100);
+    if(!messages || messages.length===0) {
+      list.innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div class="empty-text">Пока нет сообщений.<br>Начни общение первым!</div></div>';
+      return;
+    }
+    list.innerHTML = messages.map(m => chatBubbleHTML(m, m.user_id === currentUser?.id)).join('');
+    list.scrollTop = list.scrollHeight;
+  } catch(e) { console.error(e); }
+}
+
+async function sendTeamChat() {
+  const input = document.getElementById('teamchat-input');
+  const text = input.value.trim();
+  if(!text) return;
+  try {
+    await sb.from('team_chat').insert({
+      user_id: currentUser.id, user_name: currentProfile?.name || currentUser?.email, text
+    });
+    input.value = '';
+    await loadTeamChat();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
 
 sb.auth.getSession().then(({ data }) => {
   if(data.session) { currentUser = data.session.user; loadProfile().then(showApp); }
