@@ -538,6 +538,23 @@ async function loadHome() {
     const myEl = document.getElementById('home-my-tasks');
     if(!tasks||tasks.length===0) { myEl.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Задач на сегодня нет</div></div>'; }
     else { myEl.innerHTML = tasks.map(t=>taskHTML(t)).join(''); }
+
+    // Show my shift on home screen
+    if(currentProfile?.employee_id) {
+      const { data: myShifts } = await sb.from('schedules').select('*').eq('date', todayStr).eq('employee_id', currentProfile.employee_id);
+      const myShift = myShifts && myShifts.length > 0 ? myShifts[0] : null;
+      const shiftEl = document.getElementById('home-shift-card');
+      if(shiftEl) {
+        if(myShift) {
+          if(myShift.is_day_off) {
+            shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#EAF3DE,#d4edda);border:none;margin-bottom:12px"><div style="text-align:center;padding:8px"><div style="font-size:28px">🌴</div><div style="font-size:15px;font-weight:600;color:#3B6D11;margin-top:4px">Сегодня выходной</div></div></div>`;
+          } else {
+            shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2b6b);border:none;color:#fff;margin-bottom:12px"><div style="font-size:11px;opacity:0.7;margin-bottom:4px">ТВОЯ СМЕНА СЕГОДНЯ</div><div style="font-size:24px;font-weight:700">🕐 ${myShift.shift_start||''} — ${myShift.shift_end||''}</div>${myShift.note?`<div style="font-size:12px;opacity:0.7;margin-top:4px">${myShift.note}</div>`:''}</div>`;
+          }
+        } else { shiftEl.innerHTML = ''; }
+      }
+    }
+
     if(role !== 'employee') {
       const { data: books } = await sb.from('bookings').select('id').eq('date', todayStr);
       document.getElementById('home-bookings').textContent = (books||[]).length;
