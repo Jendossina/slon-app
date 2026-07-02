@@ -558,7 +558,7 @@ function applyRolePermissions() {
 function openMoreMenu() {
   const role = currentProfile?.role;
   const items = [
-    {id:'hr', label:'👥 Сотрудники (HR)', show: role!=='employee'},
+    {id:'hr', label:'👥 Сотрудники', show: true},
     {id:'finance', label:'💰 Финансы', show: role!=='employee'},
     {id:'crm', label:'📋 Брони', show: true},
     {id:'admin', label:'⚙️ Админ-панель', show: role==='admin'}
@@ -688,6 +688,8 @@ function taskHTML(t) {
 
 async function loadHR() {
   try {
+    const role = currentProfile?.role;
+    const canSeeSalary = role === 'admin' || role === 'manager';
     const { data: emps } = await sb.from('employees').select('*').order('name');
     document.getElementById('hr-count').textContent = `${(emps||[]).length} человек в штате`;
     const list = document.getElementById('hr-list');
@@ -695,8 +697,8 @@ async function loadHR() {
     list.innerHTML = emps.map(e=>`
       <div class="list-item">
         <div class="avatar ${getColor(e.name)}">${getInitials(e.name)}</div>
-        <div class="item-info"><div class="item-name">${e.name}</div><div class="item-sub">${e.role||''} · ${e.phone||''}</div><div class="item-sub">${e.salary?formatNum(e.salary)+' сум':''}</div></div>
-        <span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}">${e.status||'Активен'}</span>
+        <div class="item-info"><div class="item-name">${e.name}</div><div class="item-sub">${e.role||''} · ${e.phone||''}</div>${canSeeSalary&&e.salary?`<div class="item-sub">${formatNum(e.salary)} сум</div>`:''}</div>
+        ${canSeeSalary?`<span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}">${e.status||'Активен'}</span>`:''}
       </div>`).join('');
   } catch(e) { document.getElementById('hr-list').innerHTML='<div class="loading">Ошибка</div>'; }
 }
