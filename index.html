@@ -1445,12 +1445,12 @@ async function loadScheduleGrid() {
             cellContent = '<span style="color:#A32D2D;font-weight:600;font-size:12px">Вых</span>';
             cellBg = 'var(--surface-2)';
           } else {
-            cellContent = `<span style="font-weight:600;font-size:12px;color:var(--text-primary)">${sched.shift_start||''}</span>`;
+            cellContent = `<span style="font-weight:700;font-size:12px;color:#1a1611">${sched.shift_start||''}</span>`;
             cellBg = 'var(--gold-light)';
           }
         }
         const clickHandler = isAdmin ? `onclick="quickEditSchedule(${e.id},'${e.name}','${dateStr}')"` : '';
-        html += `<td ${clickHandler} style="padding:8px;text-align:center;border-top:1px solid var(--border);background:${cellBg};cursor:${isAdmin?'pointer':'default'}">${cellContent}</td>`;
+        html += `<td ${clickHandler} style="padding:8px;text-align:center;border-top:1px solid var(--border);border-left:1px solid var(--border);background:${cellBg};cursor:${isAdmin?'pointer':'default'}">${cellContent}</td>`;
       });
       html += '</tr>';
     });
