@@ -336,10 +336,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <button class="modal-close" onclick="closeModal('modal-add-task')">✕</button>
     <div class="modal-title">Новая задача</div>
     <div class="form-group"><label class="form-label">Задача</label><input class="form-input" id="task-title" placeholder="Заказать табак Adalya"></div>
-    <div class="form-group"><label class="form-label">Назначить сотруднику</label><select class="form-select" id="task-assigned-id"><option value="">Загрузка...</option></select></div>
+    <div class="form-group"><label class="form-label">Описание (необязательно)</label>
+      <textarea class="form-input" id="task-description" placeholder="Подробности задачи..." style="min-height:70px;resize:vertical;font-family:inherit"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Назначить сотрудникам</label>
+      <div id="task-assigned-list" style="border:1.5px solid #e5e5e5;border-radius:10px;padding:8px;max-height:200px;overflow-y:auto">
+        <div class="loading" style="padding:10px">Загрузка...</div>
+      </div>
+    </div>
     <div class="form-group"><label class="form-label">Срок</label><input class="form-input" id="task-due" type="date"></div>
     <button class="btn btn-primary" onclick="addTask()">Добавить задачу</button>
   </div>
+
 </div>
 
 <!-- REPORT MODAL -->
@@ -628,6 +637,7 @@ function taskHTML(t) {
     <div class="check ${isDone?'done':''}" onclick="toggleTask(${t.id},'${t.status}')"></div>
     <div class="task-body">
       <div class="task-text" style="${isDone?'text-decoration:line-through;color:#999':''}">${t.title}</div>
+      ${t.description?`<div style="font-size:12px;color:#666;margin-top:2px">${t.description}</div>`:''}
       <div class="task-meta">👤 ${t.assigned_to_name||'—'} ${t.due_date?'· до '+t.due_date:''}${isMyTask?' <span style="background:#EEEDFE;color:#534AB7;border-radius:4px;padding:1px 5px;font-size:10px">Моя</span>':''}</div>
       ${reportSection}
     </div>
@@ -694,28 +704,52 @@ async function toggleTask(id, status) {
 }
 
 async function loadTaskEmployees() {
-  const { data: emps } = await sb.from('employees').select('id,name').order('name');
-  const sel = document.getElementById('task-assigned-id');
-  sel.innerHTML = (emps||[]).map(e=>`<option value="${e.id}" data-name="${e.name}">${e.name}</option>`).join('');
+  const { data: emps } = await sb.from('employees').select('id,name,department').order('name');
+  const list = document.getElementById('task-assigned-list');
+  if(!emps || emps.length===0) { list.innerHTML='<div style="padding:10px;color:#999;font-size:13px">Нет сотрудников</div>'; return; }
+  list.innerHTML = emps.map(e=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid #f5f5f5;cursor:pointer">
+      <input type="checkbox" class="task-emp-checkbox" value="${e.id}" data-name="${e.name}" style="width:18px;height:18px">
+      <span style="font-size:14px;color:#1a1a2e">${e.name}</span>
+      <span style="font-size:11px;color:#999;margin-left:auto">${e.department||''}</span>
+    </label>`).join('');
 }
 
 async function addTask() {
   const title = document.getElementById('task-title').value.trim();
+  const description = document.getElementById('task-description').value.trim();
   if(!title) return showToast('Введите задачу');
-  const sel = document.getElementById('task-assigned-id');
-  const empId = sel.value;
-  const empName = sel.options[sel.selectedIndex]?.getAttribute('data-name')||'';
-  const { data: profile } = await sb.from('profiles').select('user_id').eq('employee_id', empId).single();
+
+  const checked = Array.from(document.querySelectorAll('.task-emp-checkbox:checked'));
+  if(checked.length===0) return showToast('Выберите хотя бы одного сотрудника');
+
+  const dueDate = document.getElementById('task-due').value || today();
+  let successCount = 0;
+
   try {
-    await sb.from('tasks').insert({ title, assigned_to_name: empName, assigned_to_id: profile?.user_id||null, due_date: document.getElementById('task-due').value||today(), status:'pending', created_by: currentUser.id });
-    closeModal('modal-add-task');
-    ['task-title','task-due'].forEach(id=>document.getElementById(id).value='');
-    showToast('✅ Задача назначена');
-    await logActivity('add_task', title + ' → ' + empName);
-    // Notify employee
-    if(profile?.user_id) {
-      await notifyEmployee(profile.user_id, `🐘 <b>Новая задача от управляющего</b>\n\n📋 ${title}\n📅 Срок: ${document.getElementById('task-due').value||today()}\n\nОткрой приложение: https://slon-app.vercel.app`);
+    for(const cb of checked) {
+      const empId = cb.value;
+      const empName = cb.getAttribute('data-name');
+      const { data: profile } = await sb.from('profiles').select('user_id').eq('employee_id', empId).single();
+
+      await sb.from('tasks').insert({
+        title, description, assigned_to_name: empName,
+        assigned_to_id: profile?.user_id||null,
+        due_date: dueDate, status:'pending', created_by: currentUser.id
+      });
+
+      await logActivity('add_task', title + ' → ' + empName);
+
+      if(profile?.user_id) {
+        await notifyEmployee(profile.user_id, `🐘 <b>Новая задача от управляющего</b>\n\n📋 ${title}${description?'\n📝 '+description:''}\n📅 Срок: ${dueDate}\n\nОткрой приложение: https://slon-app.vercel.app`);
+      }
+      successCount++;
     }
+
+    closeModal('modal-add-task');
+    ['task-title','task-description','task-due'].forEach(id=>document.getElementById(id).value='');
+    document.querySelectorAll('.task-emp-checkbox').forEach(cb=>cb.checked=false);
+    showToast(`✅ Задача назначена ${successCount} сотрудник${successCount>1?'ам':'у'}`);
     loadTasks();
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
