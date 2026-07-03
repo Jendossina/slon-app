@@ -57,6 +57,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .theme-toggle { position: fixed; top: 14px; right: 16px; z-index: 150; background: rgba(255,255,255,0.12); border: none; border-radius: 20px; padding: 6px 12px; font-size: 12px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 5px; backdrop-filter: blur(6px); }
 
 .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--nav-bg); border-top: 1px solid var(--border); display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+.filial-switcher { position: sticky; top: 0; left: 0; right: 0; display: flex; background: var(--nav-bg); border-bottom: 1px solid var(--border); z-index: 95; }
+.filial-tab { flex: 1; text-align: center; padding: 11px 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; background: none; border-left: none; border-right: none; border-top: none; }
+.filial-tab.active { color: var(--gold-dark); border-bottom-color: var(--gold-dark); }
+[data-theme="dark"] .filial-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+.filial-checkbox-group { display: flex; gap: 16px; padding: 8px 4px; }
+.filial-checkbox-group label { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text-primary); cursor: pointer; }
+.filial-checkbox-group input { width: 18px; height: 18px; }
 .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px 8px; border: none; background: none; color: var(--text-muted); font-size: 10px; cursor: pointer; }
 .nav-btn.active { color: var(--gold-dark); }
 [data-theme="dark"] .nav-btn.active { color: var(--gold); }
@@ -209,6 +216,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 <!-- APP -->
 <div id="app-page" style="display:none">
+
+  <div class="filial-switcher" id="filial-switcher"></div>
 
   <div class="screen active" id="screen-home">
     <div class="header">
@@ -429,6 +438,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="form-group"><label class="form-label">Роль в системе</label>
       <select class="form-select" id="emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option></select>
     </div>
+    <div class="form-group"><label class="form-label">На каких филиалах может работать</label>
+      <div class="filial-checkbox-group" id="emp-filials-group">
+        <label><input type="checkbox" class="emp-filial-checkbox" value="istikbol" checked> Истикбол</label>
+        <label><input type="checkbox" class="emp-filial-checkbox" value="chekhov" checked> Чехов</label>
+      </div>
+    </div>
     <button class="btn btn-primary" onclick="addEmployee()">Добавить сотрудника</button>
   </div>
 </div>
@@ -581,6 +596,32 @@ let currentUser = null;
 let currentProfile = null;
 let reportFile = null;
 
+// ФИЛИАЛЫ
+const FILIALS = [
+  { id: 'istikbol', name: 'Истикбол' },
+  { id: 'chekhov', name: 'Чехов' }
+];
+let currentFilial = localStorage.getItem('slon-filial') || FILIALS[0].id;
+
+function getFilialName(id) { return FILIALS.find(f=>f.id===id)?.name || id; }
+
+function renderFilialSwitcher() {
+  const el = document.getElementById('filial-switcher');
+  if(!el) return;
+  el.innerHTML = FILIALS.map(f=>`<button class="filial-tab ${f.id===currentFilial?'active':''}" onclick="switchFilial('${f.id}')">${f.name}</button>`).join('');
+}
+
+function switchFilial(id) {
+  if(id === currentFilial) return;
+  currentFilial = id;
+  localStorage.setItem('slon-filial', id);
+  renderFilialSwitcher();
+  showToast('📍 Филиал: ' + getFilialName(id));
+  // Обновим текущий экран под новый филиал (пока действует только визуально,
+  // фильтрация данных по филиалу подключается на следующих этапах)
+  if(typeof loadHome === 'function' && document.getElementById('screen-home')?.classList.contains('active')) loadHome();
+}
+
 const colors = ['av-purple','av-teal','av-coral','av-amber'];
 function getColor(s) { if(!s) return colors[0]; let h=0; for(let c of s) h+=c.charCodeAt(0); return colors[h%4]; }
 function getInitials(n) { if(!n) return '?'; return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
@@ -662,6 +703,7 @@ function showApp() {
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app-page').style.display = 'block';
   applyRolePermissions();
+  renderFilialSwitcher();
   loadHome();
   checkUnreadMessages();
 }
@@ -986,7 +1028,7 @@ async function loadHR() {
     list.innerHTML = emps.map(e=>`
       <div class="list-item">
         <div class="avatar ${getColor(e.name)}">${getInitials(e.name)}</div>
-        <div class="item-info"><div class="item-name">${e.name}</div><div class="item-sub">${e.role||''} · ${e.phone||''}</div>${canSeeSalary&&e.salary?`<div class="item-sub">${formatNum(e.salary)} сум</div>`:''}</div>
+        <div class="item-info"><div class="item-name">${e.name}</div><div class="item-sub">${e.role||''} · ${e.phone||''}</div><div class="item-sub">${(e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).map(getFilialName).join(', ')}</div>${canSeeSalary&&e.salary?`<div class="item-sub">${formatNum(e.salary)} сум</div>`:''}</div>
         ${canSeeSalary?`<span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}">${e.status||'Активен'}</span>`:''}
       </div>`).join('');
   } catch(e) { document.getElementById('hr-list').innerHTML='<div class="loading">Ошибка</div>'; }
@@ -1001,7 +1043,8 @@ async function addEmployee() {
   if(!email||!password) return showToast('Введите email и пароль');
   if(password.length<6) return showToast('Пароль минимум 6 символов');
   try {
-    const { data: emp } = await sb.from('employees').insert({ name, role: document.getElementById('emp-role').value, department: document.getElementById('emp-department').value, phone: document.getElementById('emp-phone').value, salary: document.getElementById('emp-salary').value||null, status:'Активен' }).select().single();
+    const empFilials = Array.from(document.querySelectorAll('.emp-filial-checkbox:checked')).map(c=>c.value);
+    const { data: emp } = await sb.from('employees').insert({ name, role: document.getElementById('emp-role').value, department: document.getElementById('emp-department').value, phone: document.getElementById('emp-phone').value, salary: document.getElementById('emp-salary').value||null, status:'Активен', filials: empFilials.length?empFilials:['istikbol','chekhov'] }).select().single();
     const { data: authData, error: authError } = await sb.auth.signUp({ email, password });
     if(authError) { showToast('Ошибка: '+authError.message); return; }
     if(authData.user) {
@@ -1011,6 +1054,7 @@ async function addEmployee() {
     }
     closeModal('modal-add-employee');
     ['emp-name','emp-phone','emp-salary','emp-email','emp-password'].forEach(id=>document.getElementById(id).value='');
+    document.querySelectorAll('.emp-filial-checkbox').forEach(c=>c.checked=true);
     showToast('✅ Сотрудник добавлен');
     loadHR();
   } catch(e) { showToast('Ошибка: '+e.message); }
@@ -1349,6 +1393,8 @@ async function openEditEmployee(id) {
   const sysRoleEl = document.getElementById('edit-emp-system-role');
   const sysRole = profile?.role||'employee';
   for(let o of sysRoleEl.options) if(o.value===sysRole) { o.selected=true; break; }
+  const empFilials = emp.filials && emp.filials.length ? emp.filials : ['istikbol','chekhov'];
+  document.querySelectorAll('.edit-emp-filial-checkbox').forEach(c=>{ c.checked = empFilials.includes(c.value); });
   openModal('modal-edit-employee');
 }
 
@@ -1361,8 +1407,9 @@ async function saveEmployee() {
   const salary = document.getElementById('edit-emp-salary').value;
   const status = document.getElementById('edit-emp-status').value;
   const sysRole = document.getElementById('edit-emp-system-role').value;
+  const empFilials = Array.from(document.querySelectorAll('.edit-emp-filial-checkbox:checked')).map(c=>c.value);
   try {
-    await sb.from('employees').update({name,role,department,phone,salary:salary||null,status}).eq('id',id);
+    await sb.from('employees').update({name,role,department,phone,salary:salary||null,status,filials:empFilials.length?empFilials:['istikbol','chekhov']}).eq('id',id);
     await sb.from('profiles').update({role:sysRole,name}).eq('employee_id',id);
     await logActivity('edit_employee', name + ' → ' + role + ', ' + status);
     closeModal('modal-edit-employee');
@@ -2385,6 +2432,12 @@ sb.auth.getSession().then(({ data }) => {
     </div>
     <div class="form-group"><label class="form-label">Роль в системе</label>
       <select class="form-select" id="edit-emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option><option value="admin">Управляющий</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">На каких филиалах может работать</label>
+      <div class="filial-checkbox-group" id="edit-emp-filials-group">
+        <label><input type="checkbox" class="edit-emp-filial-checkbox" value="istikbol"> Истикбол</label>
+        <label><input type="checkbox" class="edit-emp-filial-checkbox" value="chekhov"> Чехов</label>
+      </div>
     </div>
     <button class="btn btn-primary" onclick="saveEmployee()">Сохранить</button>
     <div class="form-group" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
