@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>🐘 Slon Shisha & Bar</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="theme-color" content="#0e0d0b">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
@@ -222,6 +226,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <p id="home-role-text"></p>
       </div>
       <div id="home-shift-card"></div>
+      <div id="home-attendance-card"></div>
       <div id="telegram-link-card"></div>
       <div class="grid2" id="home-stats-grid">
         <div class="card"><div class="card-title">Выручка сегодня</div><div class="stat-val" id="home-revenue">—</div><div class="stat-sub">сум</div></div>
@@ -325,9 +330,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div style="display:flex;flex-direction:column;height:calc(100vh - 190px)">
       <div id="teamchat-list" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px"></div>
       <div style="display:flex;gap:8px;padding:12px 16px calc(env(safe-area-inset-bottom) + 80px);border-top:1px solid var(--border);background:var(--surface)">
+        <button onclick="pickTeamChatMedia()" style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:0 12px;font-size:16px;cursor:pointer">📎</button>
         <input class="form-input" id="teamchat-input" placeholder="Написать сообщение..." style="flex:1" onkeypress="if(event.key==='Enter')sendTeamChat()">
         <button onclick="sendTeamChat()" style="background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:18px;cursor:pointer">➤</button>
       </div>
+    </div>
+  </div>
+
+  <!-- PROFILE SCREEN -->
+  <div class="screen" id="screen-profile">
+    <div class="header">
+      <h1>📄 Личный кабинет</h1>
+      <p id="profile-name-label">—</p>
+    </div>
+    <div class="content" id="profile-content">
+      <div class="loading">Загрузка...</div>
     </div>
   </div>
 
@@ -377,8 +394,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <button class="nav-btn" onclick="showScreen('schedule',this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/></svg>График
     </button>
-    <button class="nav-btn" onclick="openMoreMenu()">
+    <button class="nav-btn" onclick="openMoreMenu()" style="position:relative">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>Ещё
+      <span id="unread-dot" style="display:none;position:absolute;top:6px;right:22%;width:8px;height:8px;background:#A13C3C;border-radius:50%;border:1.5px solid var(--nav-bg)"></span>
     </button>
   </nav>
 </div>
@@ -645,6 +663,7 @@ function showApp() {
   document.getElementById('app-page').style.display = 'block';
   applyRolePermissions();
   loadHome();
+  checkUnreadMessages();
 }
 
 function applyRolePermissions() {
@@ -664,6 +683,7 @@ function applyRolePermissions() {
 function openMoreMenu() {
   const role = currentProfile?.role;
   const items = [
+    {id:'profile', label:'📄 Личный кабинет', show: true},
     {id:'hr', label:'👥 Сотрудники', show: true},
     {id:'teamchat', label:'💬 Общий чат', show: true},
     {id:'finance', label:'💰 Финансы', show: role!=='employee'},
@@ -692,6 +712,7 @@ function showScreen(name, btn) {
   if(name==='checklist') { loadChecklist(currentChecklistType||'open'); }
   if(name==='schedule') loadSchedule();
   if(name==='teamchat') initTeamChat();
+  if(name==='profile') loadProfile2();
 }
 
 async function loadHome() {
@@ -731,6 +752,14 @@ async function loadHome() {
           }
         } else { shiftEl.innerHTML = ''; }
       }
+
+      // Attendance check-in/out
+      if(myShift && !myShift.is_day_off) {
+        await loadAttendanceCard(todayStr, myShift);
+      } else {
+        const attEl = document.getElementById('home-attendance-card');
+        if(attEl) attEl.innerHTML = '';
+      }
     }
 
     // Telegram link card
@@ -763,6 +792,155 @@ async function loadHome() {
       document.getElementById('home-revenue').textContent = formatNum((fins||[]).reduce((s,f)=>s+Number(f.amount),0));
     }
   } catch(e) { console.error(e); }
+}
+
+// ATTENDANCE
+function getCurrentTimeStr() {
+  const d = new Date();
+  return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+}
+
+function minutesFromStr(t) {
+  if(!t) return 0;
+  const [h,m] = t.split(':').map(Number);
+  return h*60+m;
+}
+
+async function loadAttendanceCard(dateStr, myShift) {
+  const attEl = document.getElementById('home-attendance-card');
+  if(!attEl) return;
+  try {
+    const { data: records } = await sb.from('attendance').select('*').eq('employee_id', currentProfile.employee_id).eq('date', dateStr);
+    const record = records && records.length > 0 ? records[0] : null;
+
+    if(!record) {
+      attEl.innerHTML = `<div class="card" style="margin-bottom:12px">
+        <div class="card-title">Отметка на смену</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Смена начинается в ${myShift.shift_start}</div>
+        <button class="btn btn-primary" onclick="checkIn()">🕐 Отметить приход</button>
+      </div>`;
+    } else if(!record.check_out_time) {
+      const lateBadge = record.is_late ? '<span class="badge badge-red" style="margin-left:6px">Опоздание</span>' : '<span class="badge badge-green" style="margin-left:6px">Вовремя</span>';
+      attEl.innerHTML = `<div class="card" style="margin-bottom:12px">
+        <div class="card-title">Отметка на смену</div>
+        <div style="font-size:14px;color:var(--text-primary);margin-bottom:10px">Пришёл в <b>${record.check_in_time}</b>${lateBadge}</div>
+        <button class="btn btn-primary" onclick="checkOut(${record.id})" style="background:#A13C3C">🚪 Отметить уход</button>
+      </div>`;
+    } else {
+      attEl.innerHTML = `<div class="card" style="margin-bottom:12px;background:var(--surface-2)">
+        <div class="card-title">Смена завершена</div>
+        <div style="font-size:13px;color:var(--text-secondary)">Пришёл: <b>${record.check_in_time}</b> · Ушёл: <b>${record.check_out_time}</b></div>
+      </div>`;
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function checkIn() {
+  try {
+    const todayStr = today();
+    const timeStr = getCurrentTimeStr();
+    const { data: myShifts } = await sb.from('schedules').select('*').eq('date', todayStr).eq('employee_id', currentProfile.employee_id);
+    const myShift = myShifts && myShifts[0];
+    const isLate = myShift && minutesFromStr(timeStr) > minutesFromStr(myShift.shift_start) + 10;
+
+    await sb.from('attendance').insert({
+      employee_id: currentProfile.employee_id, user_id: currentUser.id,
+      user_name: currentProfile?.name || currentUser?.email,
+      date: todayStr, check_in_time: timeStr, is_late: isLate
+    });
+
+    showToast(isLate ? '⏰ Отмечено (с опозданием)' : '✅ Отмечено вовремя!');
+    if(isLate) {
+      await notifyAdmin(`⏰ <b>Опоздание на смену</b>\n\n👤 ${currentProfile?.name||''}\n🕐 Пришёл в ${timeStr} (смена с ${myShift?.shift_start||''})`);
+    }
+    loadHome();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+async function checkOut(recordId) {
+  try {
+    const timeStr = getCurrentTimeStr();
+    await sb.from('attendance').update({check_out_time: timeStr}).eq('id', recordId);
+    showToast('✅ Уход отмечен');
+    loadHome();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+// PERSONAL CABINET
+async function loadProfile2() {
+  const content = document.getElementById('profile-content');
+  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  const name = currentProfile?.name || currentUser?.email;
+  document.getElementById('profile-name-label').textContent = name;
+  const role = currentProfile?.role;
+  const roleLabels = { admin: '👑 Управляющий', manager: '📋 Менеджер', employee: '👤 Сотрудник' };
+
+  try {
+    let html = `<div class="welcome" style="text-align:center">
+      <div class="avatar" style="width:60px;height:60px;font-size:20px;margin:0 auto 10px;background:var(--gold-light);color:#1a1611">${getInitials(name)}</div>
+      <h3>${name}</h3>
+      <p>${roleLabels[role]||''}</p>
+    </div>`;
+
+    if(currentProfile?.employee_id) {
+      const { data: emp } = await sb.from('employees').select('*').eq('id', currentProfile.employee_id).single();
+
+      // Salary (only if admin/manager can view own too)
+      if(emp?.salary && (role==='admin'||role==='manager')) {
+        html += `<div class="card"><div class="card-title">Зарплата</div><div class="stat-val">${formatNum(emp.salary)} сум</div></div>`;
+      }
+
+      // Task stats
+      const { data: myTasks } = await sb.from('tasks').select('status').eq('assigned_to_id', currentUser.id);
+      const total = myTasks?.length || 0;
+      const done = myTasks?.filter(t=>t.status==='done').length || 0;
+      const pct = total ? Math.round(done/total*100) : 0;
+      html += `<div class="section-label">Статистика задач</div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:13px;color:var(--text-muted)">${done} из ${total} выполнено</span>
+            <span style="font-size:18px;font-weight:700;color:var(--gold-dark)">${pct}%</span>
+          </div>
+          <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+        </div>`;
+
+      // Shift history (last 14 days)
+      const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate()-14);
+      const { data: shifts } = await sb.from('schedules').select('*').eq('employee_id', currentProfile.employee_id).gte('date', twoWeeksAgo.toISOString().split('T')[0]).order('date',{ascending:false});
+      html += '<div class="section-label">История смен (14 дней)</div><div class="card">';
+      if(!shifts || shifts.length===0) {
+        html += '<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">Смен пока нет</div></div>';
+      } else {
+        html += shifts.map(s => `
+          <div class="list-item">
+            <div class="item-info">
+              <div class="item-name">${new Date(s.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short',weekday:'short'})}</div>
+              <div class="item-sub">${s.is_day_off?'🌴 Выходной':'🕐 '+s.shift_start+'–'+s.shift_end}</div>
+            </div>
+          </div>`).join('');
+      }
+      html += '</div>';
+
+      // Attendance history
+      const { data: attendance } = await sb.from('attendance').select('*').eq('employee_id', currentProfile.employee_id).gte('date', twoWeeksAgo.toISOString().split('T')[0]).order('date',{ascending:false});
+      if(attendance && attendance.length > 0) {
+        const lateCount = attendance.filter(a=>a.is_late).length;
+        html += `<div class="section-label">Явка (14 дней)</div><div class="card">
+          <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">${attendance.length} отметок · ${lateCount>0?`<span style="color:#A13C3C">${lateCount} опозданий</span>`:'без опозданий 👍'}</div>
+          ${attendance.map(a=>`
+            <div class="list-item">
+              <div class="item-info">
+                <div class="item-name">${new Date(a.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}</div>
+                <div class="item-sub">Пришёл: ${a.check_in_time||'—'} ${a.check_out_time?'· Ушёл: '+a.check_out_time:''}</div>
+              </div>
+              ${a.is_late?'<span class="badge badge-red">Опоздание</span>':'<span class="badge badge-green">Вовремя</span>'}
+            </div>`).join('')}
+        </div>`;
+      }
+    }
+
+    content.innerHTML = html;
+  } catch(e) { console.error(e); content.innerHTML = '<div class="loading">Ошибка загрузки</div>'; }
 }
 
 function taskHTML(t) {
@@ -1886,14 +2064,25 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 // TASK COMMENTS
 let currentCommentsTaskId = null;
-function chatBubbleHTML(c, isMine) {
+function chatBubbleHTML(c, isMine, showPinBtn) {
   const time = new Date(c.created_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+  let mediaHTML = '';
+  if(c.media_url) {
+    if(c.media_type === 'video') {
+      mediaHTML = `<video src="${c.media_url}" controls style="max-width:100%;border-radius:10px;margin-bottom:${c.text?'6px':'0'};display:block"></video>`;
+    } else {
+      mediaHTML = `<img src="${c.media_url}" style="max-width:100%;border-radius:10px;margin-bottom:${c.text?'6px':'0'};display:block;cursor:pointer" onclick="viewReport('${c.media_url}','image')">`;
+    }
+  }
+  const pinBtn = showPinBtn ? `<button onclick="event.stopPropagation();toggleChatPin(${c.id},${c.is_pinned})" style="background:none;border:none;cursor:pointer;font-size:11px;opacity:0.6;margin-left:6px">${c.is_pinned?'📌':'📍'}</button>` : '';
   return `<div style="align-self:${isMine?'flex-end':'flex-start'};max-width:80%">
-    <div style="background:${isMine?'var(--gold-dark)':'var(--surface-2)'};color:${isMine?'#fff':'var(--text-primary)'};border-radius:14px;padding:10px 14px;font-size:14px;${isMine?'border-bottom-right-radius:4px':'border-bottom-left-radius:4px'}">
+    ${c.is_pinned?'<div style="font-size:10px;color:var(--gold-dark);font-weight:600;margin-bottom:2px">📌 Закреплено</div>':''}
+    <div style="background:${isMine?'var(--gold-dark)':'var(--surface-2)'};color:${isMine?'#fff':'var(--text-primary)'};border-radius:14px;padding:${c.media_url?'8px':'10px 14px'};font-size:14px;${isMine?'border-bottom-right-radius:4px':'border-bottom-left-radius:4px'}">
       ${!isMine?`<div style="font-size:11px;font-weight:600;opacity:0.7;margin-bottom:3px">${c.user_name||''}</div>`:''}
-      ${c.text}
+      ${mediaHTML}
+      ${c.text||''}
     </div>
-    <div style="font-size:10px;color:var(--text-muted);margin-top:2px;text-align:${isMine?'right':'left'}">${time}</div>
+    <div style="font-size:10px;color:var(--text-muted);margin-top:2px;text-align:${isMine?'right':'left'}">${time}${pinBtn}</div>
   </div>`;
 }
 
@@ -2011,6 +2200,7 @@ async function initTeamChat() {
 
   document.getElementById('teamchat-channel-label').textContent = currentChatChannel;
   await loadTeamChat();
+  markMessagesSeen();
 }
 
 function switchChatChannel(channel) {
@@ -2047,25 +2237,107 @@ async function loadTeamChat(isPoll) {
     if(isPoll && messages.length === lastTeamChatCount) return;
     lastTeamChatCount = messages.length;
     const wasAtBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 30;
-    list.innerHTML = messages.map(m => chatBubbleHTML(m, m.user_id === currentUser?.id)).join('');
+
+    const pinned = messages.filter(m => m.is_pinned);
+    const regular = messages.filter(m => !m.is_pinned);
+    let html = '';
+    if(pinned.length > 0) {
+      html += `<div style="background:var(--surface-2);border:1px solid var(--gold);border-radius:12px;padding:10px;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--gold-dark);margin-bottom:6px">📌 Закреплённые</div>
+        ${pinned.map(m => chatBubbleHTML(m, m.user_id === currentUser?.id, true)).join('')}
+      </div>`;
+    }
+    html += regular.map(m => chatBubbleHTML(m, m.user_id === currentUser?.id, true)).join('');
+    list.innerHTML = html;
     if(!isPoll || wasAtBottom) list.scrollTop = list.scrollHeight;
   } catch(e) { console.error(e); }
   if(!isPoll) startTeamChatPolling();
 }
 
+async function toggleChatPin(msgId, isPinned) {
+  const role = currentProfile?.role;
+  if(role !== 'admin' && role !== 'manager') return showToast('Только управляющий может закреплять');
+  await sb.from('team_chat').update({is_pinned: !isPinned}).eq('id', msgId);
+  lastTeamChatCount = 0;
+  loadTeamChat();
+}
+
+let teamChatMediaFile = null;
+function pickTeamChatMedia() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*,video/*';
+  input.onchange = (e) => {
+    teamChatMediaFile = e.target.files[0];
+    if(teamChatMediaFile) {
+      document.getElementById('teamchat-input').placeholder = '📎 ' + teamChatMediaFile.name;
+    }
+  };
+  input.click();
+}
+
 async function sendTeamChat() {
   const input = document.getElementById('teamchat-input');
   const text = input.value.trim();
-  if(!text) return;
+  if(!text && !teamChatMediaFile) return;
   try {
+    let mediaUrl = null, mediaType = null;
+    if(teamChatMediaFile) {
+      const ext = teamChatMediaFile.name.split('.').pop();
+      const path = `chat-${Date.now()}.${ext}`;
+      const { error: upErr } = await sb.storage.from('task-reports').upload(path, teamChatMediaFile);
+      if(upErr) { showToast('Ошибка загрузки: '+upErr.message); return; }
+      const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
+      mediaUrl = urlData.publicUrl;
+      mediaType = teamChatMediaFile.type.startsWith('video') ? 'video' : 'image';
+    }
+
     await sb.from('team_chat').insert({
       user_id: currentUser.id, user_name: currentProfile?.name || currentUser?.email,
-      text, channel: currentChatChannel
+      text, channel: currentChatChannel, media_url: mediaUrl, media_type: mediaType
     });
     input.value = '';
+    input.placeholder = 'Написать сообщение...';
+    teamChatMediaFile = null;
+    lastTeamChatCount = 0;
     await loadTeamChat();
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
+
+// UNREAD MESSAGES INDICATOR
+async function checkUnreadMessages() {
+  if(!currentUser || !currentProfile) return;
+  try {
+    const lastSeenKey = 'slon-lastseen-' + currentUser.id;
+    const lastSeen = localStorage.getItem(lastSeenKey) || '2000-01-01';
+
+    const role = currentProfile?.role;
+    let myDept = null;
+    if(role !== 'admin' && currentProfile?.employee_id) {
+      const { data: emp } = await sb.from('employees').select('department').eq('id', currentProfile.employee_id).single();
+      myDept = emp?.department;
+    }
+
+    let query = sb.from('team_chat').select('id,created_at,channel').gt('created_at', lastSeen).neq('user_id', currentUser.id);
+    if(role !== 'admin') {
+      const channels = role === 'manager' ? [myDept, 'Управляющий состав'].filter(Boolean) : [myDept].filter(Boolean);
+      if(channels.length === 0) { document.getElementById('unread-dot').style.display = 'none'; return; }
+      query = query.in('channel', channels);
+    }
+    const { data } = await query.limit(1);
+    const dot = document.getElementById('unread-dot');
+    if(dot) dot.style.display = (data && data.length > 0) ? 'block' : 'none';
+  } catch(e) { console.error(e); }
+}
+
+function markMessagesSeen() {
+  if(!currentUser) return;
+  localStorage.setItem('slon-lastseen-' + currentUser.id, new Date().toISOString());
+  const dot = document.getElementById('unread-dot');
+  if(dot) dot.style.display = 'none';
+}
+
+setInterval(checkUnreadMessages, 15000);
 
 sb.auth.getSession().then(({ data }) => {
   if(data.session) { currentUser = data.session.user; loadProfile().then(showApp); }
