@@ -528,6 +528,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-finance')">✕</button>
     <div class="modal-title">Новая операция</div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="fin-filial-display">—</div>
     <div class="form-group"><label class="form-label">Тип</label><select class="form-select" id="fin-type"><option value="income">Доход</option><option value="expense">Расход</option></select></div>
     <div class="form-group"><label class="form-label">Сумма (сум)</label><input class="form-input" id="fin-amount" placeholder="500000" type="number"></div>
     <div class="form-group"><label class="form-label">Категория</label><select class="form-select" id="fin-category"><option>Выручка</option><option>Зарплаты</option><option>Аренда</option><option>Товары</option><option>Коммунальные</option><option>Прочее</option></select></div>
@@ -623,6 +624,8 @@ function switchFilial(id) {
   if(document.getElementById('screen-schedule')?.classList.contains('active') && typeof loadSchedule === 'function') loadSchedule();
   if(document.getElementById('screen-tasks')?.classList.contains('active') && typeof loadTasks === 'function') loadTasks();
   if(document.getElementById('screen-checklist')?.classList.contains('active') && typeof loadChecklist === 'function') loadChecklist(currentChecklistType||'open');
+  if(document.getElementById('screen-finance')?.classList.contains('active') && typeof loadFinance === 'function') loadFinance();
+  if(document.getElementById('screen-hr')?.classList.contains('active') && typeof loadHR === 'function') loadHR();
   if(document.getElementById('screen-admin')?.classList.contains('active')) {
     if(currentAdminTab==='tasks' && typeof loadAdminTasks === 'function') loadAdminTasks(taskFilters||{});
     if(currentAdminTab==='checklists' && typeof loadAdminChecklists === 'function') loadAdminChecklists();
@@ -838,7 +841,7 @@ async function loadHome() {
     if(role !== 'employee') {
       const { data: books } = await sb.from('bookings').select('id').eq('date', todayStr);
       document.getElementById('home-bookings').textContent = (books||[]).length;
-      const { data: fins } = await sb.from('finances').select('amount').eq('date', todayStr).eq('type','income');
+      const { data: fins } = await sb.from('finances').select('amount').eq('date', todayStr).eq('type','income').eq('filial', currentFilial);
       document.getElementById('home-revenue').textContent = formatNum((fins||[]).reduce((s,f)=>s+Number(f.amount),0));
     }
   } catch(e) { console.error(e); }
@@ -1026,15 +1029,20 @@ function taskHTML(t) {
   </div>`;
 }
 
+let hrShowAll = false;
 async function loadHR() {
   try {
     const role = currentProfile?.role;
     const canSeeSalary = role === 'admin' || role === 'manager';
-    const { data: emps } = await sb.from('employees').select('*').order('name');
-    document.getElementById('hr-count').textContent = `${(emps||[]).length} человек в штате`;
+    const { data: allEmps } = await sb.from('employees').select('*').order('name');
+    const emps = hrShowAll ? (allEmps||[]) : (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
+    document.getElementById('hr-count').textContent = hrShowAll
+      ? `${(allEmps||[]).length} человек в штате (все филиалы)`
+      : `${emps.length} на филиале «${getFilialName(currentFilial)}» · всего ${(allEmps||[]).length}`;
     const list = document.getElementById('hr-list');
-    if(!emps||emps.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Сотрудников пока нет</div></div>'; return; }
-    list.innerHTML = emps.map(e=>`
+    const toggleBtn = `<div style="padding:0 4px 10px"><button onclick="hrShowAll=!hrShowAll;loadHR()" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${hrShowAll?'📍 Показать только этот филиал':'👥 Показать всех сотрудников'}</button></div>`;
+    if(!emps||emps.length===0) { list.innerHTML=toggleBtn+'<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Нет сотрудников для этого филиала</div></div>'; return; }
+    list.innerHTML = toggleBtn + emps.map(e=>`
       <div class="list-item">
         <div class="avatar ${getColor(e.name)}">${getInitials(e.name)}</div>
         <div class="item-info"><div class="item-name">${e.name}</div><div class="item-sub">${e.role||''} · ${e.phone||''}</div><div class="item-sub">${(e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).map(getFilialName).join(', ')}</div>${canSeeSalary&&e.salary?`<div class="item-sub">${formatNum(e.salary)} сум</div>`:''}</div>
@@ -1212,7 +1220,7 @@ function viewReport(url, type) {
 
 async function loadFinance() {
   try {
-    const { data: fins } = await sb.from('finances').select('*').order('date',{ascending:false});
+    const { data: fins } = await sb.from('finances').select('*').eq('filial', currentFilial).order('date',{ascending:false});
     const income = (fins||[]).filter(f=>f.type==='income').reduce((s,f)=>s+Number(f.amount),0);
     const expense = (fins||[]).filter(f=>f.type==='expense').reduce((s,f)=>s+Number(f.amount),0);
     document.getElementById('finance-income').textContent = formatNum(income);
@@ -1236,7 +1244,7 @@ async function addFinance() {
   const amount = document.getElementById('fin-amount').value;
   if(!amount) return showToast('Введите сумму');
   try {
-    await sb.from('finances').insert({ type:document.getElementById('fin-type').value, amount:parseFloat(amount), category:document.getElementById('fin-category').value, description:document.getElementById('fin-desc').value, date:today() });
+    await sb.from('finances').insert({ type:document.getElementById('fin-type').value, amount:parseFloat(amount), category:document.getElementById('fin-category').value, description:document.getElementById('fin-desc').value, date:today(), filial: currentFilial });
     closeModal('modal-add-finance');
     ['fin-amount','fin-desc'].forEach(id=>document.getElementById(id).value='');
     showToast('✅ Операция добавлена');
@@ -1272,6 +1280,10 @@ async function addBooking() {
 }
 
 document.querySelector('[onclick="openModal(\'modal-add-task\')"]')?.addEventListener('click', loadTaskEmployees);
+document.querySelector('[onclick="openModal(\'modal-add-finance\')"]')?.addEventListener('click', ()=>{
+  const el = document.getElementById('fin-filial-display');
+  if(el) el.textContent = '📍 Операция для филиала: ' + getFilialName(currentFilial);
+});
 
 
 
@@ -1573,7 +1585,7 @@ async function loadAnalytics() {
     }
 
     // Finance by weeks
-    const { data: fins } = await sb.from('finances').select('amount,type,date').order('date');
+    const { data: fins } = await sb.from('finances').select('amount,type,date').eq('filial', currentFilial).order('date');
     const weeks = {};
     (fins||[]).forEach(f=>{
       if(!f.date) return;
