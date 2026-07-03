@@ -1378,9 +1378,30 @@ async function changePassword() {
   const { data: profile } = await sb.from('profiles').select('user_id').eq('employee_id',id).single();
   if(!profile?.user_id) return showToast('Аккаунт не найден');
   showToast('⏳ Меняем пароль...');
-  // Use admin API via edge function would be needed for real password change
-  // For now update via signUp workaround
-  showToast('Функция в разработке');
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if(!accessToken) return showToast('Сессия истекла, войдите заново');
+    const res = await fetch('https://omeomdkurvtvirhfkffu.supabase.co/functions/v1/admin-reset-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + accessToken
+      },
+      body: JSON.stringify({ targetUserId: profile.user_id, newPassword: pass })
+    });
+    const result = await res.json();
+    if(!res.ok || result.error) {
+      showToast('Ошибка: ' + (result.error || 'не удалось сменить пароль'));
+      return;
+    }
+    document.getElementById('edit-emp-password').value = '';
+    await logActivity('change_password', document.getElementById('edit-emp-name').value);
+    showToast('✅ Пароль изменён');
+  } catch(e) {
+    showToast('Ошибка: ' + e.message);
+  }
 }
 
 async function deleteEmployee(id, name) {
