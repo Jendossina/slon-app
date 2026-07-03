@@ -452,6 +452,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-task')">✕</button>
     <div class="modal-title">Новая задача</div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="task-filial-display">—</div>
     <div class="form-group"><label class="form-label">Задача</label><input class="form-input" id="task-title" placeholder="Заказать табак Adalya"></div>
     <div class="form-group"><label class="form-label">Описание (необязательно)</label>
       <textarea class="form-input" id="task-description" placeholder="Подробности задачи..." style="min-height:70px;resize:vertical;font-family:inherit"></textarea>
@@ -617,9 +618,15 @@ function switchFilial(id) {
   localStorage.setItem('slon-filial', id);
   renderFilialSwitcher();
   showToast('📍 Филиал: ' + getFilialName(id));
-  // Обновим текущий экран под новый филиал (пока действует только визуально,
-  // фильтрация данных по филиалу подключается на следующих этапах)
-  if(typeof loadHome === 'function' && document.getElementById('screen-home')?.classList.contains('active')) loadHome();
+  // Обновим текущий экран под новый филиал
+  if(document.getElementById('screen-home')?.classList.contains('active') && typeof loadHome === 'function') loadHome();
+  if(document.getElementById('screen-schedule')?.classList.contains('active') && typeof loadSchedule === 'function') loadSchedule();
+  if(document.getElementById('screen-tasks')?.classList.contains('active') && typeof loadTasks === 'function') loadTasks();
+  if(document.getElementById('screen-checklist')?.classList.contains('active') && typeof loadChecklist === 'function') loadChecklist(currentChecklistType||'open');
+  if(document.getElementById('screen-admin')?.classList.contains('active')) {
+    if(currentAdminTab==='tasks' && typeof loadAdminTasks === 'function') loadAdminTasks(taskFilters||{});
+    if(currentAdminTab==='checklists' && typeof loadAdminChecklists === 'function') loadAdminChecklists();
+  }
 }
 
 const colors = ['av-purple','av-teal','av-coral','av-amber'];
@@ -770,6 +777,7 @@ async function loadHome() {
     const todayStr = today();
     let tasksQuery = sb.from('tasks').select('*').eq('due_date', todayStr);
     if(role === 'employee') tasksQuery = tasksQuery.eq('assigned_to_id', currentUser.id);
+    else tasksQuery = tasksQuery.eq('filial', currentFilial);
     const { data: tasks } = await tasksQuery;
     const done = (tasks||[]).filter(t=>t.status==='done').length;
     const total = (tasks||[]).length;
@@ -790,7 +798,7 @@ async function loadHome() {
           if(myShift.is_day_off) {
             shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#EAF3DE,#d4edda);border:none;margin-bottom:12px"><div style="text-align:center;padding:8px"><div style="font-size:28px">🌴</div><div style="font-size:15px;font-weight:600;color:#3B6D11;margin-top:4px">Сегодня выходной</div></div></div>`;
           } else {
-            shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2b6b);border:none;color:#fff;margin-bottom:12px"><div style="font-size:11px;opacity:0.7;margin-bottom:4px">ТВОЯ СМЕНА СЕГОДНЯ</div><div style="font-size:24px;font-weight:700">🕐 ${myShift.shift_start||''} — ${myShift.shift_end||''}</div>${myShift.note?`<div style="font-size:12px;opacity:0.7;margin-top:4px">${myShift.note}</div>`:''}</div>`;
+            shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2b6b);border:none;color:#fff;margin-bottom:12px"><div style="font-size:11px;opacity:0.7;margin-bottom:4px">ТВОЯ СМЕНА СЕГОДНЯ · ${getFilialName(myShift.filial||'istikbol')}</div><div style="font-size:24px;font-weight:700">🕐 ${myShift.shift_start||''} — ${myShift.shift_end||''}</div>${myShift.note?`<div style="font-size:12px;opacity:0.7;margin-top:4px">${myShift.note}</div>`:''}</div>`;
           }
         } else { shiftEl.innerHTML = ''; }
       }
@@ -888,7 +896,8 @@ async function checkIn() {
     await sb.from('attendance').insert({
       employee_id: currentProfile.employee_id, user_id: currentUser.id,
       user_name: currentProfile?.name || currentUser?.email,
-      date: todayStr, check_in_time: timeStr, is_late: isLate
+      date: todayStr, check_in_time: timeStr, is_late: isLate,
+      filial: myShift?.filial || currentFilial
     });
 
     showToast(isLate ? '⏰ Отмечено (с опозданием)' : '✅ Отмечено вовремя!');
@@ -957,7 +966,7 @@ async function loadProfile2() {
           <div class="list-item">
             <div class="item-info">
               <div class="item-name">${new Date(s.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short',weekday:'short'})}</div>
-              <div class="item-sub">${s.is_day_off?'🌴 Выходной':'🕐 '+s.shift_start+'–'+s.shift_end}</div>
+              <div class="item-sub">${s.is_day_off?'🌴 Выходной':'🕐 '+s.shift_start+'–'+s.shift_end+' · '+getFilialName(s.filial||'istikbol')}</div>
             </div>
           </div>`).join('');
       }
@@ -1008,7 +1017,7 @@ function taskHTML(t) {
     <div class="task-body">
       <div class="task-text" style="${isDone?'text-decoration:line-through;color:#999':''}">${t.title}</div>
       ${t.description?`<div style="font-size:12px;color:#666;margin-top:2px">${t.description}</div>`:''}
-      <div class="task-meta">👤 ${t.assigned_to_name||'—'} ${t.due_date?'· до '+t.due_date:''}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">Моя</span>':''}</div>
+      <div class="task-meta">👤 ${t.assigned_to_name||'—'} ${t.due_date?'· до '+t.due_date:''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">Моя</span>':''}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
         ${reportSection}
         <button class="report-btn" onclick="event.stopPropagation();openTaskComments(${t.id},'${(t.title||'').replace(/'/g,"\\'")}')">💬 Обсудить</button>
@@ -1065,6 +1074,7 @@ async function loadTasks() {
     const role = currentProfile?.role;
     let query = sb.from('tasks').select('*').order('due_date');
     if(role==='employee') query = query.eq('assigned_to_id', currentUser.id);
+    else query = query.eq('filial', currentFilial);
     const { data: tasks } = await query;
     const done = (tasks||[]).filter(t=>t.status==='done').length;
     document.getElementById('tasks-count').textContent = `${done} из ${(tasks||[]).length} выполнено`;
@@ -1081,9 +1091,12 @@ async function toggleTask(id, status) {
 }
 
 async function loadTaskEmployees() {
-  const { data: emps } = await sb.from('employees').select('id,name,department').order('name');
+  const el = document.getElementById('task-filial-display');
+  if(el) el.textContent = '📍 Задача для филиала: ' + getFilialName(currentFilial);
+  const { data: allEmps } = await sb.from('employees').select('id,name,department,filials').order('name');
+  const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
   const list = document.getElementById('task-assigned-list');
-  if(!emps || emps.length===0) { list.innerHTML='<div style="padding:10px;color:#999;font-size:13px">Нет сотрудников</div>'; return; }
+  if(!emps || emps.length===0) { list.innerHTML='<div style="padding:10px;color:#999;font-size:13px">Нет сотрудников для филиала «' + getFilialName(currentFilial) + '»</div>'; return; }
   list.innerHTML = emps.map(e=>`
     <label style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer">
       <input type="checkbox" class="task-emp-checkbox" value="${e.id}" data-name="${e.name}" style="width:18px;height:18px">
@@ -1112,7 +1125,8 @@ async function addTask() {
       await sb.from('tasks').insert({
         title, description, assigned_to_name: empName,
         assigned_to_id: profile?.user_id||null,
-        due_date: dueDate, status:'pending', created_by: currentUser.id
+        due_date: dueDate, status:'pending', created_by: currentUser.id,
+        filial: currentFilial
       });
 
       await logActivity('add_task', title + ' → ' + empName);
@@ -1273,7 +1287,9 @@ async function logActivity(action, details) {
 }
 
 // ADMIN TABS
+let currentAdminTab = 'employees';
 function switchAdminTab(tab, btn) {
+  currentAdminTab = tab;
   ['employees','tasks','analytics','activity','checklists'].forEach(t=>{
     const el = document.getElementById('admin-tab-'+t);
     const b = document.getElementById('atab-'+t);
@@ -1290,7 +1306,7 @@ function switchAdminTab(tab, btn) {
 async function loadAdminChecklists() {
   try {
     const dateFilter = document.getElementById('admin-checklist-date-filter').value;
-    let query = sb.from('checklist_logs').select('*').order('date',{ascending:false}).order('created_at',{ascending:false});
+    let query = sb.from('checklist_logs').select('*').eq('filial', currentFilial).order('date',{ascending:false}).order('created_at',{ascending:false});
     if(dateFilter) query = query.eq('date', dateFilter);
     const { data: logs } = await query;
 
@@ -1464,7 +1480,7 @@ async function deleteEmployee(id, name) {
 let taskFilters = {};
 async function loadAdminTasks(filters={}) {
   try {
-    let query = sb.from('tasks').select('*').order('created_at',{ascending:false});
+    let query = sb.from('tasks').select('*').eq('filial', currentFilial).order('created_at',{ascending:false});
     if(filters.employee) query = query.eq('assigned_to_name', filters.employee);
     if(filters.status) query = query.eq('status', filters.status);
     if(filters.dateFrom) query = query.gte('due_date', filters.dateFrom);
@@ -1667,11 +1683,12 @@ async function loadScheduleGrid() {
   content.innerHTML = '<div class="loading">Загрузка...</div>';
 
   try {
-    // Get employees in this department
-    const { data: emps } = await sb.from('employees').select('*').eq('department', currentDept).order('name');
+    // Get employees in this department, eligible for the selected filial
+    const { data: allEmps } = await sb.from('employees').select('*').eq('department', currentDept).order('name');
+    const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
     
     if(!emps || emps.length===0) {
-      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📅</div><div class="empty-text">В этом отделе пока нет сотрудников</div></div></div>';
+      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📅</div><div class="empty-text">В этом отделе нет сотрудников для филиала «' + getFilialName(currentFilial) + '»</div></div></div>';
       return;
     }
 
@@ -1684,9 +1701,9 @@ async function loadScheduleGrid() {
     }
     const dateStrs = weekDates.map(fmtDate);
 
-    // Get all schedules for this week for these employees
+    // Get all schedules for this week for these employees, on the selected filial
     const empIds = emps.map(e=>e.id);
-    const { data: schedules } = await sb.from('schedules').select('*').in('employee_id', empIds).gte('date', dateStrs[0]).lte('date', dateStrs[6]);
+    const { data: schedules } = await sb.from('schedules').select('*').in('employee_id', empIds).eq('filial', currentFilial).gte('date', dateStrs[0]).lte('date', dateStrs[6]);
 
     // Build map: date+empId -> schedule
     const schedMap = {};
@@ -1766,6 +1783,7 @@ function quickEditSchedule(empId, empName, date) {
   quickEditEmpId = empId; quickEditEmpName = empName; quickEditDate = date;
   document.getElementById('sch-employee-display').textContent = empName;
   document.getElementById('sch-date-display').textContent = new Date(date).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('sch-filial-display').textContent = '📍 ' + getFilialName(currentFilial);
   document.getElementById('sch-dayoff').checked = false;
   document.getElementById('sch-time-fields').style.display = 'block';
   document.getElementById('sch-start').value = '11:00';
@@ -1783,8 +1801,9 @@ async function loadScheduleEmployees() {
 }
 
 async function pickEmployeeForSchedule() {
-  const { data: emps } = await sb.from('employees').select('id,name').eq('department', currentDept).order('name');
-  if(!emps || emps.length===0) return showToast('В этом отделе нет сотрудников');
+  const { data: allEmps } = await sb.from('employees').select('id,name,filials').eq('department', currentDept).order('name');
+  const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
+  if(!emps || emps.length===0) return showToast('В этом отделе нет сотрудников для филиала «' + getFilialName(currentFilial) + '»');
   const names = emps.map((e,i)=>`${i+1}. ${e.name}`).join('\n');
   const choice = prompt('Выбери сотрудника (введи номер):\n\n' + names);
   const idx = parseInt(choice) - 1;
@@ -1796,10 +1815,12 @@ async function pickEmployeeForSchedule() {
 // WEEK FILL
 let weekFillDates = [];
 async function openWeekFillPicker() {
-  const { data: emps } = await sb.from('employees').select('id,name').eq('department', currentDept).order('name');
-  if(!emps || emps.length===0) return showToast('В этом отделе нет сотрудников');
+  const { data: allEmps } = await sb.from('employees').select('id,name,filials').eq('department', currentDept).order('name');
+  const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
+  if(!emps || emps.length===0) return showToast('В этом отделе нет сотрудников для филиала «' + getFilialName(currentFilial) + '»');
   const sel = document.getElementById('week-employee');
   sel.innerHTML = emps.map(e=>`<option value="${e.id}" data-name="${e.name}">${e.name}</option>`).join('');
+  document.getElementById('wf-filial-display').textContent = '📍 ' + getFilialName(currentFilial);
   await renderWeekFillDays();
   openModal('modal-week-fill');
 }
@@ -1817,7 +1838,7 @@ async function renderWeekFillDays() {
 
   // Load existing schedule for this employee this week
   const dateStrs = weekFillDates.map(fmtDate);
-  const { data: existing } = await sb.from('schedules').select('*').eq('employee_id', empId).in('date', dateStrs);
+  const { data: existing } = await sb.from('schedules').select('*').eq('employee_id', empId).eq('filial', currentFilial).in('date', dateStrs);
   const existingMap = {};
   (existing||[]).forEach(s => { existingMap[s.date] = s; });
 
@@ -1874,11 +1895,11 @@ async function saveWeekFill() {
       const start = document.querySelector(`.wf-start[data-idx="${i}"]`).value;
       const end = document.querySelector(`.wf-end[data-idx="${i}"]`).value;
 
-      await sb.from('schedules').delete().eq('employee_id', empId).eq('date', dateStr);
+      await sb.from('schedules').delete().eq('employee_id', empId).eq('date', dateStr).eq('filial', currentFilial);
       await sb.from('schedules').insert({
         employee_id: parseInt(empId), employee_name: empName, date: dateStr,
         shift_start: isOff ? null : start, shift_end: isOff ? null : end,
-        is_day_off: isOff
+        is_day_off: isOff, filial: currentFilial
       });
     }
 
@@ -1905,11 +1926,11 @@ async function addSchedule() {
   if(!empId) return showToast('Выберите ячейку в таблице');
 
   try {
-    await sb.from('schedules').delete().eq('employee_id', empId).eq('date', date);
+    await sb.from('schedules').delete().eq('employee_id', empId).eq('date', date).eq('filial', currentFilial);
     await sb.from('schedules').insert({
       employee_id: parseInt(empId), employee_name: empName, date,
       shift_start: isDayOff ? null : start, shift_end: isDayOff ? null : end,
-      is_day_off: isDayOff, note
+      is_day_off: isDayOff, note, filial: currentFilial
     });
 
     const { data: profile } = await sb.from('profiles').select('telegram_id').eq('employee_id', empId).single();
@@ -1964,7 +1985,8 @@ async function loadChecklist(type) {
       .select('*')
       .eq('template_id', template.id)
       .eq('date', todayStr)
-      .eq('user_id', currentUser.id);
+      .eq('user_id', currentUser.id)
+      .eq('filial', currentFilial);
     
     currentChecklistLog = logs && logs.length > 0 ? logs[0] : null;
     const donItems = currentChecklistLog?.items_done || [];
@@ -2074,7 +2096,7 @@ async function uploadChecklistMedia() {
       const { data: newLog } = await sb.from('checklist_logs').insert({
         template_id: templateId, date: dateStr, user_id: currentUser.id,
         user_name: currentProfile?.name || currentUser?.email,
-        items_done: [], items_media: itemsMedia
+        items_done: [], items_media: itemsMedia, filial: currentFilial
       }).select().single();
       currentChecklistLog = newLog;
     }
@@ -2109,7 +2131,8 @@ async function toggleChecklistItem(itemId, templateId, date) {
         user_id: currentUser.id,
         user_name: currentProfile?.name || currentUser?.email,
         items_done: donItems,
-        completed
+        completed,
+        filial: currentFilial
       }).select().single();
       currentChecklistLog = newLog;
     }
@@ -2475,6 +2498,7 @@ sb.auth.getSession().then(({ data }) => {
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-week-fill')">✕</button>
     <div class="modal-title">📆 Заполнить неделю</div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="wf-filial-display">—</div>
     <div class="form-group"><label class="form-label">Сотрудник</label>
       <select class="form-select" id="week-employee" onchange="renderWeekFillDays()"></select>
     </div>
@@ -2501,6 +2525,7 @@ sb.auth.getSession().then(({ data }) => {
     <div class="card" style="background:var(--surface-2);margin-bottom:16px">
       <div style="font-size:15px;font-weight:600;color:var(--text-primary)" id="sch-employee-display">—</div>
       <div style="font-size:13px;color:#999;margin-top:2px" id="sch-date-display">—</div>
+      <div style="font-size:12px;color:var(--gold-dark);margin-top:4px" id="sch-filial-display">—</div>
     </div>
     <div class="form-group">
       <label class="form-label">
