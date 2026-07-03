@@ -541,6 +541,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-booking')">✕</button>
     <div class="modal-title">Новая бронь</div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="book-filial-display">—</div>
     <div class="form-group"><label class="form-label">Имя гостя</label><input class="form-input" id="book-name" placeholder="Акбар Назаров"></div>
     <div class="form-group"><label class="form-label">Телефон</label><input class="form-input" id="book-phone" placeholder="+998 90 123 45 67" type="tel"></div>
     <div class="form-group"><label class="form-label">Дата</label><input class="form-input" id="book-date" type="date"></div>
@@ -626,6 +627,7 @@ function switchFilial(id) {
   if(document.getElementById('screen-checklist')?.classList.contains('active') && typeof loadChecklist === 'function') loadChecklist(currentChecklistType||'open');
   if(document.getElementById('screen-finance')?.classList.contains('active') && typeof loadFinance === 'function') loadFinance();
   if(document.getElementById('screen-hr')?.classList.contains('active') && typeof loadHR === 'function') loadHR();
+  if(document.getElementById('screen-crm')?.classList.contains('active') && typeof loadCRM === 'function') loadCRM();
   if(document.getElementById('screen-admin')?.classList.contains('active')) {
     if(currentAdminTab==='tasks' && typeof loadAdminTasks === 'function') loadAdminTasks(taskFilters||{});
     if(currentAdminTab==='checklists' && typeof loadAdminChecklists === 'function') loadAdminChecklists();
@@ -839,7 +841,7 @@ async function loadHome() {
     }
 
     if(role !== 'employee') {
-      const { data: books } = await sb.from('bookings').select('id').eq('date', todayStr);
+      const { data: books } = await sb.from('bookings').select('id').eq('date', todayStr).eq('filial', currentFilial);
       document.getElementById('home-bookings').textContent = (books||[]).length;
       const { data: fins } = await sb.from('finances').select('amount').eq('date', todayStr).eq('type','income').eq('filial', currentFilial);
       document.getElementById('home-revenue').textContent = formatNum((fins||[]).reduce((s,f)=>s+Number(f.amount),0));
@@ -1254,8 +1256,8 @@ async function addFinance() {
 
 async function loadCRM() {
   try {
-    const { data: books } = await sb.from('bookings').select('*').order('date',{ascending:false});
-    document.getElementById('crm-count').textContent = `${(books||[]).length} броней`;
+    const { data: books } = await sb.from('bookings').select('*').eq('filial', currentFilial).order('date',{ascending:false});
+    document.getElementById('crm-count').textContent = `${(books||[]).length} броней · ${getFilialName(currentFilial)}`;
     const list = document.getElementById('crm-list');
     if(!books||books.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Броней пока нет</div></div>'; return; }
     list.innerHTML = books.map(b=>`
@@ -1271,7 +1273,7 @@ async function addBooking() {
   const name = document.getElementById('book-name').value.trim();
   if(!name) return showToast('Введите имя гостя');
   try {
-    await sb.from('bookings').insert({ guest_name:name, phone:document.getElementById('book-phone').value, date:document.getElementById('book-date').value||today(), time:document.getElementById('book-time').value, guests_count:parseInt(document.getElementById('book-guests').value)||1, zone:document.getElementById('book-zone').value, status:'Ожидание' });
+    await sb.from('bookings').insert({ guest_name:name, phone:document.getElementById('book-phone').value, date:document.getElementById('book-date').value||today(), time:document.getElementById('book-time').value, guests_count:parseInt(document.getElementById('book-guests').value)||1, zone:document.getElementById('book-zone').value, status:'Ожидание', filial: currentFilial });
     closeModal('modal-add-booking');
     ['book-name','book-phone','book-date','book-time','book-guests'].forEach(id=>document.getElementById(id).value='');
     showToast('✅ Бронь добавлена');
@@ -1283,6 +1285,10 @@ document.querySelector('[onclick="openModal(\'modal-add-task\')"]')?.addEventLis
 document.querySelector('[onclick="openModal(\'modal-add-finance\')"]')?.addEventListener('click', ()=>{
   const el = document.getElementById('fin-filial-display');
   if(el) el.textContent = '📍 Операция для филиала: ' + getFilialName(currentFilial);
+});
+document.querySelector('[onclick="openModal(\'modal-add-booking\')"]')?.addEventListener('click', ()=>{
+  const el = document.getElementById('book-filial-display');
+  if(el) el.textContent = '📍 Бронь на филиал: ' + getFilialName(currentFilial);
 });
 
 
