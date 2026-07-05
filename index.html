@@ -385,11 +385,8 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <h1>☑️ Чек-листы</h1>
       <p id="checklist-date"></p>
     </div>
-    <div style="background:#1a1a2e;padding:0 16px 12px;display:flex;gap:8px;overflow-x:auto">
-      <button onclick="switchChecklistTab('open',this)" id="ctab-open" class="ctab" style="background:#A6803F;color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">🌅 Открытие</button>
-      <button onclick="switchChecklistTab('second',this)" id="ctab-second" class="ctab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">👤 2-й официант</button>
-      <button onclick="switchChecklistTab('close',this)" id="ctab-close" class="ctab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">🌙 Закрытие</button>
-    </div>
+    <div id="checklist-dept-switcher" style="background:#12121e;padding:0 16px;display:none;gap:8px;overflow-x:auto"></div>
+    <div style="background:#1a1a2e;padding:8px 16px 12px;display:flex;gap:8px;overflow-x:auto" id="checklist-tabs"></div>
     <div class="content" id="checklist-content">
       <div class="loading">Загрузка...</div>
     </div>
@@ -768,7 +765,7 @@ function switchFilial(id) {
   if(document.getElementById('screen-home')?.classList.contains('active') && typeof loadHome === 'function') loadHome();
   if(document.getElementById('screen-schedule')?.classList.contains('active') && typeof loadSchedule === 'function') loadSchedule();
   if(document.getElementById('screen-tasks')?.classList.contains('active') && typeof loadTasks === 'function') loadTasks();
-  if(document.getElementById('screen-checklist')?.classList.contains('active') && typeof loadChecklist === 'function') loadChecklist(currentChecklistType||'open');
+  if(document.getElementById('screen-checklist')?.classList.contains('active') && typeof initChecklistScreen === 'function') initChecklistScreen();
   if(document.getElementById('screen-finance')?.classList.contains('active') && typeof loadFinance === 'function') loadFinance();
   if(document.getElementById('screen-hr')?.classList.contains('active') && typeof loadHR === 'function') loadHR();
   if(document.getElementById('screen-supply')?.classList.contains('active') && typeof loadSupply === 'function') loadSupply();
@@ -919,7 +916,7 @@ function showScreen(name, btn) {
   if(name==='finance') loadFinance();
   if(name==='crm') loadCRM();
   if(name==='admin') loadAdmin();
-  if(name==='checklist') { loadChecklist(currentChecklistType||'open'); }
+  if(name==='checklist') { initChecklistScreen(); }
   if(name==='schedule') loadSchedule();
   if(name==='teamchat') initTeamChat();
   if(name==='profile') loadProfile2();
@@ -1264,12 +1261,25 @@ async function loadHR() {
       : '';
     const toggleBtn = `<div style="padding:0 4px 10px"><button onclick="hrShowAll=!hrShowAll;loadHR()" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${hrShowAll?'📍 Показать только этот филиал':'👥 Показать всех сотрудников'}</button></div>`;
     if(!emps||emps.length===0) { list.innerHTML=toggleBtn+'<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Нет сотрудников для этого филиала</div></div>'; return; }
-    list.innerHTML = toggleBtn + emps.map(e=>`
+
+    // Группировка по отделам
+    const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара','Техперсонал'];
+    const DEPT_ICONS = {'Менеджеры':'📋','Официанты':'🍽️','Бармены':'🍹','Кальянные мастера':'💨','Повара':'👨‍🍳','Техперсонал':'🔧'};
+    const groups = {};
+    emps.forEach(e=>{ const d = e.department || 'Без отдела'; (groups[d]=groups[d]||[]).push(e); });
+    const orderedDepts = [...DEPT_ORDER.filter(d=>groups[d]), ...Object.keys(groups).filter(d=>!DEPT_ORDER.includes(d))];
+
+    const empCard = e => `
       <div class="list-item">
         <div class="avatar ${getColor(e.name)}">${getInitials(e.name)}</div>
         <div class="item-info"><div class="item-name">${e.name}</div><div class="item-sub">${e.role||''} · ${e.phone||''}</div><div class="item-sub">${(e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).map(getFilialName).join(', ')}</div>${canSeeSalary&&e.salary?`<div class="item-sub">${formatNum(e.salary)} сум</div>`:''}</div>
         ${canSeeSalary?`<span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}">${e.status||'Активен'}</span>`:''}
-      </div>`).join('');
+      </div>`;
+
+    list.innerHTML = toggleBtn + orderedDepts.map(dept=>`
+      <div style="margin:14px 4px 6px;font-size:13px;font-weight:700;color:var(--gold-dark);text-transform:uppercase;letter-spacing:0.5px">${DEPT_ICONS[dept]||'👥'} ${dept} · ${groups[dept].length}</div>
+      ${groups[dept].map(empCard).join('')}
+    `).join('');
   } catch(e) { document.getElementById('hr-list').innerHTML='<div class="loading">Ошибка</div>'; }
 }
 
@@ -2294,16 +2304,71 @@ async function deleteSchedule(id) {
 
 
 // CHECKLISTS
-let currentChecklistType = 'open';
+let currentChecklistType = null;
 let currentChecklistLog = null;
+let currentChecklistDept = null;
+
+const CHECKLIST_DEPTS = ['Официанты','Бармены','Кальянные мастера','Повара'];
+const CHECKLIST_DEPT_ICONS = {'Официанты':'🍽️','Бармены':'🍹','Кальянные мастера':'💨','Повара':'👨‍🍳'};
+
+// Инициализация экрана чек-листов: определяем отдел и строим вкладки
+async function initChecklistScreen() {
+  document.getElementById('checklist-date').textContent = new Date().toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
+  const role = currentRole();
+  const canSeeAll = (role === 'admin' || role === 'manager' || role === 'boss');
+
+  // Отдел по умолчанию — свой у сотрудника
+  let myDept = null;
+  if(currentProfile?.employee_id) {
+    const { data: emp } = await sb.from('employees').select('department').eq('id', currentProfile.employee_id).single();
+    myDept = emp?.department || null;
+  }
+  if(!currentChecklistDept) currentChecklistDept = (canSeeAll ? (myDept || 'Официанты') : (myDept || 'Официанты'));
+
+  // Переключатель отделов — только для руководства
+  const deptSwitcher = document.getElementById('checklist-dept-switcher');
+  if(canSeeAll) {
+    deptSwitcher.style.display = 'flex';
+    deptSwitcher.innerHTML = CHECKLIST_DEPTS.map(d=>`<button onclick="switchChecklistDept('${d}')" style="background:${d===currentChecklistDept?'var(--gold)':'transparent'};color:${d===currentChecklistDept?'#1a1611':'#8a8a99'};border:none;padding:10px 8px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer;border-bottom:2px solid ${d===currentChecklistDept?'var(--gold)':'transparent'}">${CHECKLIST_DEPT_ICONS[d]||''} ${d}</button>`).join('');
+  } else {
+    deptSwitcher.style.display = 'none';
+    currentChecklistDept = myDept || 'Официанты';
+  }
+
+  await buildChecklistTabs();
+}
+
+function switchChecklistDept(dept) {
+  currentChecklistDept = dept;
+  currentChecklistType = null; // сбросим тип, выберется первый доступный
+  initChecklistScreen();
+}
+
+// Строим вкладки типов чек-листов для выбранного отдела
+async function buildChecklistTabs() {
+  const tabsEl = document.getElementById('checklist-tabs');
+  const content = document.getElementById('checklist-content');
+  try {
+    const { data: templates } = await sb.from('checklist_templates').select('id,name,type,department').eq('department', currentChecklistDept).eq('is_active', true).order('id');
+    if(!templates || templates.length===0) {
+      tabsEl.innerHTML = '';
+      content.innerHTML = '<div class="empty"><div class="empty-icon">☑️</div><div class="empty-text">Для отдела «'+currentChecklistDept+'» чек-листов пока нет</div></div>';
+      return;
+    }
+    // Если текущий тип не входит в список — берём первый
+    if(!currentChecklistType || !templates.find(t=>t.type===currentChecklistType)) {
+      currentChecklistType = templates[0].type;
+    }
+    tabsEl.innerHTML = templates.map(t=>`<button onclick="switchChecklistTab('${t.type}')" class="ctab" style="background:${t.type===currentChecklistType?'#A6803F':'rgba(255,255,255,0.15)'};color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">${t.name}</button>`).join('');
+    await loadChecklist(currentChecklistType);
+  } catch(e) {
+    content.innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки чек-листов</div></div>';
+  }
+}
 
 async function switchChecklistTab(type, btn) {
   currentChecklistType = type;
-  document.querySelectorAll('.ctab').forEach(b=>{
-    b.style.background = 'rgba(255,255,255,0.15)';
-  });
-  if(btn) btn.style.background = '#A6803F';
-  await loadChecklist(type);
+  await buildChecklistTabs();
 }
 
 async function loadChecklist(type) {
@@ -2313,7 +2378,7 @@ async function loadChecklist(type) {
 
   try {
     // Get template
-    const { data: templates } = await sb.from('checklist_templates').select('*').eq('type', type).eq('is_active', true);
+    const { data: templates } = await sb.from('checklist_templates').select('*').eq('type', type).eq('department', currentChecklistDept).eq('is_active', true);
     if(!templates || templates.length===0) { content.innerHTML='<div class="empty"><div class="empty-icon">☑️</div><div class="empty-text">Чек-лист не найден</div></div>'; return; }
     const template = templates[0];
     const items = template.items;
