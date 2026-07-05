@@ -296,6 +296,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <button onclick="switchAdminTab('analytics',this)" id="atab-analytics" class="atab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">📊 Аналитика</button>
       <button onclick="switchAdminTab('activity',this)" id="atab-activity" class="atab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">📜 История</button>
       <button onclick="switchAdminTab('checklists',this)" id="atab-checklists" class="atab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">☑️ Чек-листы</button>
+      <button onclick="switchAdminTab('storage',this)" id="atab-storage" class="atab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">🗄 Хранилище</button>
     </div>
     <div class="content">
       <!-- EMPLOYEES TAB -->
@@ -330,6 +331,22 @@ body.boss-readonly [data-edit-only] { display: none !important; }
           </select>
         </div>
         <div id="admin-checklists-list"><div class="loading">Загрузка...</div></div>
+      </div>
+      <!-- STORAGE TAB -->
+      <div id="admin-tab-storage" style="display:none">
+        <div class="section-label">ФОТО И ВИДЕО</div>
+        <div class="card">
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px">
+            Фото и видео (отчёты по задачам, чек-листам, фото в чат) занимают место в облаке. Бесплатный план — 1 ГБ.<br>
+            Фото автоматически сжимаются при загрузке. Старые медиа можно чистить — данные (кто, когда, что) при этом остаются, удаляются только сами картинки.
+          </div>
+          <div id="storage-stats" style="font-size:14px;color:var(--text-primary);margin-bottom:14px"></div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button onclick="cleanupMedia(90)" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer">🧹 Удалить медиа старше 90 дней</button>
+            <button onclick="cleanupMedia(30)" style="background:#f5e0c8;color:#8a5a2f;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer">🧹 Удалить медиа старше 30 дней</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:10px">Точный объём хранилища смотрите в Supabase → Settings → Usage. Здесь — количество файлов.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -732,6 +749,47 @@ const FILIALS = [
 let currentFilial = localStorage.getItem('slon-filial') || FILIALS[0].id;
 
 function getFilialName(id) { return FILIALS.find(f=>f.id===id)?.name || id; }
+
+// Сжатие изображения перед загрузкой (экономит место в облаке и ускоряет отправку).
+// Видео не трогаем — их сжать в браузере надёжно нельзя. Возвращает File.
+async function compressImage(file, maxSide = 1280, quality = 0.7) {
+  // Только изображения; видео и прочее возвращаем как есть
+  if(!file || !file.type || !file.type.startsWith('image/')) return file;
+  // gif не трогаем (потеряется анимация)
+  if(file.type === 'image/gif') return file;
+  try {
+    const dataUrl = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = dataUrl;
+    });
+    let { width, height } = img;
+    if(width > maxSide || height > maxSide) {
+      if(width >= height) { height = Math.round(height * maxSide / width); width = maxSide; }
+      else { width = Math.round(width * maxSide / height); height = maxSide; }
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, width, height);
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+    if(!blob) return file;
+    // Если сжатие не дало выигрыша — оставляем оригинал
+    if(blob.size >= file.size) return file;
+    const newName = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
+    return new File([blob], newName, { type: 'image/jpeg' });
+  } catch(e) {
+    console.warn('compressImage failed, using original', e);
+    return file;
+  }
+}
 
 // ===== РОЛИ И ПРАВА =====
 // employee — сотрудник (своё), manager — менеджер (всё кроме финансов и админки, но зарплаты видит),
@@ -1470,9 +1528,10 @@ async function uploadReport() {
   const bar = document.getElementById('uploading-bar');
   bar.style.display = 'block';
   try {
-    const ext = reportFile.name.split('.').pop();
+    const fileToUpload = await compressImage(reportFile);
+    const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : reportFile.name.split('.').pop());
     const path = `task-${taskId}-${Date.now()}.${ext}`;
-    const { error: upErr } = await sb.storage.from('task-reports').upload(path, reportFile);
+    const { error: upErr } = await sb.storage.from('task-reports').upload(path, fileToUpload);
     if(upErr) { showToast('Ошибка загрузки: '+upErr.message); bar.style.display='none'; return; }
     const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
     const isVideo = reportFile.type.startsWith('video');
@@ -1598,7 +1657,7 @@ async function logActivity(action, details) {
 let currentAdminTab = 'employees';
 function switchAdminTab(tab, btn) {
   currentAdminTab = tab;
-  ['employees','tasks','analytics','activity','checklists'].forEach(t=>{
+  ['employees','tasks','analytics','activity','checklists','storage'].forEach(t=>{
     const el = document.getElementById('admin-tab-'+t);
     const b = document.getElementById('atab-'+t);
     if(el) el.style.display = t===tab ? 'block' : 'none';
@@ -1609,6 +1668,50 @@ function switchAdminTab(tab, btn) {
   if(tab==='analytics') loadAnalytics();
   if(tab==='activity') loadActivityLog();
   if(tab==='checklists') loadAdminChecklists();
+  if(tab==='storage') loadStorageStats();
+}
+
+// Статистика хранилища: сколько файлов лежит в бакете
+async function loadStorageStats() {
+  const el = document.getElementById('storage-stats');
+  if(!el) return;
+  el.textContent = 'Считаю...';
+  try {
+    const { data: files, error } = await sb.storage.from('task-reports').list('', { limit: 10000 });
+    if(error) { el.textContent = 'Не удалось получить данные хранилища'; return; }
+    const count = (files||[]).filter(f=>f.name && f.name!=='.emptyFolderPlaceholder').length;
+    el.innerHTML = `Сейчас в хранилище: <b>${count}</b> файлов`;
+  } catch(e) { el.textContent = 'Ошибка чтения хранилища'; }
+}
+
+// Очистка медиа старше N дней: удаляет файлы из хранилища и ссылки из записей
+async function cleanupMedia(days) {
+  if(!canEditData()) return showToast('Режим наблюдателя — действие недоступно');
+  if(!confirm(`Удалить все фото и видео старше ${days} дней?\n\nСами записи (задачи, чек-листы, сообщения) останутся — удалятся только прикреплённые картинки и видео. Отменить будет нельзя.`)) return;
+  showToast('⏳ Чищу старые медиа...');
+  try {
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+    const { data: files, error } = await sb.storage.from('task-reports').list('', { limit: 10000 });
+    if(error) { showToast('Ошибка доступа к хранилищу'); return; }
+    const toDelete = (files||[]).filter(f=>{
+      if(!f.name || f.name==='.emptyFolderPlaceholder') return false;
+      const created = f.created_at ? new Date(f.created_at) : null;
+      return created && created < cutoff;
+    }).map(f=>f.name);
+
+    if(toDelete.length===0) { showToast('Нет файлов старше '+days+' дней'); return; }
+
+    // Удаляем пачками по 100
+    let deleted = 0;
+    for(let i=0;i<toDelete.length;i+=100) {
+      const batch = toDelete.slice(i, i+100);
+      const { error: delErr } = await sb.storage.from('task-reports').remove(batch);
+      if(!delErr) deleted += batch.length;
+    }
+    await logActivity('cleanup_media', `Удалено ${deleted} файлов старше ${days} дней`);
+    showToast(`✅ Удалено ${deleted} файлов`);
+    loadStorageStats();
+  } catch(e) { showToast('Ошибка: '+e.message); }
 }
 
 async function loadAdminChecklists() {
@@ -2481,9 +2584,10 @@ async function uploadChecklistMedia() {
   bar.style.display = 'block';
 
   try {
-    const ext = clMediaFile.name.split('.').pop();
+    const fileToUpload = await compressImage(clMediaFile);
+    const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : clMediaFile.name.split('.').pop());
     const path = `checklist-${templateId}-${itemId}-${Date.now()}.${ext}`;
-    const { error: upErr } = await sb.storage.from('task-reports').upload(path, clMediaFile);
+    const { error: upErr } = await sb.storage.from('task-reports').upload(path, fileToUpload);
     if(upErr) { showToast('Ошибка загрузки: '+upErr.message); bar.style.display='none'; return; }
     const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
     const isVideo = clMediaFile.type.startsWith('video');
@@ -3227,9 +3331,10 @@ async function sendTeamChat() {
   try {
     let mediaUrl = null, mediaType = null;
     if(teamChatMediaFile) {
-      const ext = teamChatMediaFile.name.split('.').pop();
+      const fileToUpload = await compressImage(teamChatMediaFile);
+      const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : teamChatMediaFile.name.split('.').pop());
       const path = `chat-${Date.now()}.${ext}`;
-      const { error: upErr } = await sb.storage.from('task-reports').upload(path, teamChatMediaFile);
+      const { error: upErr } = await sb.storage.from('task-reports').upload(path, fileToUpload);
       if(upErr) { showToast('Ошибка загрузки: '+upErr.message); return; }
       const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
       mediaUrl = urlData.publicUrl;
