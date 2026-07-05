@@ -212,6 +212,10 @@ body.boss-readonly [data-edit-only] { display: none !important; }
         <label class="form-label">Пароль</label>
         <input class="form-input" id="login-password" type="password" placeholder="••••••••">
       </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text-primary);cursor:pointer;margin-bottom:14px">
+        <input type="checkbox" id="login-remember" style="width:18px;height:18px">
+        Запомнить меня
+      </label>
       <button class="btn btn-primary" onclick="doLogin()">Войти</button>
       <div id="login-error" style="color:#A32D2D;font-size:13px;margin-top:12px;text-align:center;"></div>
     </div>
@@ -878,9 +882,27 @@ async function doLogin() {
   const email = login.includes('@') ? login : login + '@slon.uz';
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
   if(error) { document.getElementById('login-error').textContent = 'Неверный логин или пароль'; return; }
+  // Запомнить логин, если стоит галочка
+  const remember = document.getElementById('login-remember')?.checked;
+  if(remember) localStorage.setItem('slon-remember-login', login);
+  else localStorage.removeItem('slon-remember-login');
   currentUser = data.user;
   await loadProfile();
   showApp();
+}
+
+// Подставляем сохранённый логин на странице входа
+function prefillLogin() {
+  const saved = localStorage.getItem('slon-remember-login');
+  if(saved) {
+    const emailEl = document.getElementById('login-email');
+    const rememberEl = document.getElementById('login-remember');
+    if(emailEl) emailEl.value = saved;
+    if(rememberEl) rememberEl.checked = true;
+    // фокус на поле пароля, раз логин уже введён
+    const passEl = document.getElementById('login-password');
+    if(passEl) passEl.focus();
+  }
 }
 
 async function doLogout() {
@@ -888,6 +910,8 @@ async function doLogout() {
   currentUser = null; currentProfile = null;
   document.getElementById('app-page').style.display = 'none';
   document.getElementById('login-page').style.display = 'block';
+  document.getElementById('login-password').value = '';
+  prefillLogin();
 }
 
 async function loadProfile() {
@@ -3390,6 +3414,7 @@ setInterval(checkUnreadMessages, 15000);
 
 sb.auth.getSession().then(({ data }) => {
   if(data.session) { currentUser = data.session.user; loadProfile().then(showApp); }
+  else { prefillLogin(); }
 });
 </script>
 
