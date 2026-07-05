@@ -1658,6 +1658,23 @@ async function deleteEmployee(id, name) {
   loadAdminEmployees();
 }
 
+// Удаление из карточки редактирования (берёт id/имя из открытой модалки)
+async function deleteEmployeeFromCard() {
+  const id = document.getElementById('edit-emp-id').value;
+  const name = document.getElementById('edit-emp-name').value || 'сотрудника';
+  if(!id) return;
+  if(!confirm('Удалить '+name+'? Это действие необратимо — сотрудник и его аккаунт будут удалены.\n\nЕсли человек просто уволился, лучше поставить статус «Уволен» вместо удаления.')) return;
+  try {
+    await sb.from('profiles').delete().eq('employee_id', id);
+    await sb.from('employees').delete().eq('id', id);
+    await logActivity('delete_employee', name);
+    closeModal('modal-edit-employee');
+    showToast('✅ Сотрудник удалён');
+    if(typeof loadAdminEmployees === 'function' && document.getElementById('screen-admin')?.classList.contains('active')) loadAdminEmployees();
+    if(typeof loadHR === 'function' && document.getElementById('screen-hr')?.classList.contains('active')) loadHR();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
 // TASKS ADMIN
 let taskFilters = {};
 async function loadAdminTasks(filters={}) {
@@ -2854,6 +2871,10 @@ sb.auth.getSession().then(({ data }) => {
       <input class="form-input" id="edit-emp-password" placeholder="минимум 6 символов">
     </div>
     <button class="btn btn-secondary" onclick="changePassword()">Сменить пароль</button>
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <button class="btn btn-secondary" onclick="deleteEmployeeFromCard()" style="background:#FCEBEB;color:#A32D2D">🗑 Удалить сотрудника</button>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center">Удаление безвозвратно уберёт сотрудника и его аккаунт. Если человек просто уволился — лучше поставить статус «Уволен».</div>
+    </div>
   </div>
 </div>
 
