@@ -57,6 +57,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .theme-toggle { position: fixed; top: 14px; right: 16px; z-index: 150; background: rgba(255,255,255,0.12); border: none; border-radius: 20px; padding: 6px 12px; font-size: 12px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 5px; backdrop-filter: blur(6px); }
 
 .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--nav-bg); border-top: 1px solid var(--border); display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+.filial-switcher { position: sticky; top: 0; left: 0; right: 0; display: flex; background: var(--nav-bg); border-bottom: 1px solid var(--border); z-index: 95; }
+.filial-tab { flex: 1; text-align: center; padding: 11px 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; background: none; border-left: none; border-right: none; border-top: none; }
+.filial-tab.active { color: var(--gold-dark); border-bottom-color: var(--gold-dark); }
+[data-theme="dark"] .filial-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+.filial-checkbox-group { display: flex; gap: 16px; padding: 8px 4px; }
+.filial-checkbox-group label { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text-primary); cursor: pointer; }
+.filial-checkbox-group input { width: 18px; height: 18px; }
 .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px 8px; border: none; background: none; color: var(--text-muted); font-size: 10px; cursor: pointer; }
 .nav-btn.active { color: var(--gold-dark); }
 [data-theme="dark"] .nav-btn.active { color: var(--gold); }
@@ -210,6 +217,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <!-- APP -->
 <div id="app-page" style="display:none">
 
+  <div class="filial-switcher" id="filial-switcher"></div>
+
   <div class="screen active" id="screen-home">
     <div class="header">
       <div class="header-row">
@@ -227,6 +236,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </div>
       <div id="home-shift-card"></div>
       <div id="home-attendance-card"></div>
+      <div id="home-salary-card"></div>
       <div id="telegram-link-card"></div>
       <div class="grid2" id="home-stats-grid">
         <div class="card"><div class="card-title">Выручка сегодня</div><div class="stat-val" id="home-revenue">—</div><div class="stat-sub">сум</div></div>
@@ -244,7 +254,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
   <div class="screen" id="screen-hr">
     <div class="header"><h1>Сотрудники</h1><p id="hr-count">Загрузка...</p></div>
-    <div class="content"><div class="card" id="hr-list"><div class="loading">Загрузка...</div></div></div>
+    <div class="content"><div id="hr-payroll-btn"></div><div class="card" id="hr-list"><div class="loading">Загрузка...</div></div></div>
     <button class="fab" id="fab-hr" onclick="openModal('modal-add-employee')" style="display:none">+</button>
   </div>
 
@@ -381,6 +391,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
   </div>
 
+  <!-- KNOWLEDGE BASE SCREEN -->
+  <div class="screen" id="screen-knowledge">
+    <div class="header">
+      <div class="header-row">
+        <div><h1 id="kb-title">📚 База знаний</h1><p id="kb-subtitle">Регламенты и стандарты</p></div>
+        <button id="kb-add-book-btn" onclick="openKbBookModal()" style="display:none;background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Книга</button>
+      </div>
+    </div>
+    <div class="content" id="kb-content" style="padding:12px">
+      <div class="loading">Загрузка...</div>
+    </div>
+  </div>
+
     <nav class="bottom-nav">
     <button class="nav-btn active" onclick="showScreen('home',this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Главная
@@ -410,6 +433,44 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
+<!-- PAYROLL MODAL -->
+<div class="modal-overlay" id="modal-payroll">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-payroll')">✕</button>
+    <div class="modal-title" id="payroll-title">💰 Зарплатная ведомость</div>
+    <div id="payroll-body"><div class="loading">Загрузка...</div></div>
+  </div>
+</div>
+
+<!-- KB BOOK MODAL -->
+<div class="modal-overlay" id="modal-kb-book">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-kb-book')">✕</button>
+    <div class="modal-title" id="kb-book-modal-title">Новая книга</div>
+    <input type="hidden" id="kb-book-id">
+    <div class="form-group"><label class="form-label">Иконка (эмодзи)</label><input class="form-input" id="kb-book-icon" placeholder="📖" maxlength="4"></div>
+    <div class="form-group"><label class="form-label">Название</label><input class="form-input" id="kb-book-title" placeholder="Например: Bar Book"></div>
+    <button class="btn btn-primary" onclick="saveKbBook()">Сохранить</button>
+    <button class="btn btn-secondary" id="kb-book-delete-btn" onclick="deleteKbBook()" style="display:none;margin-top:8px;background:#FCEBEB;color:#A32D2D">Удалить книгу</button>
+  </div>
+</div>
+
+<!-- KB ARTICLE MODAL -->
+<div class="modal-overlay" id="modal-kb-article">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-kb-article')">✕</button>
+    <div class="modal-title" id="kb-article-modal-title">Новая статья</div>
+    <input type="hidden" id="kb-article-id">
+    <input type="hidden" id="kb-article-book-id">
+    <div class="form-group"><label class="form-label">Заголовок</label><input class="form-input" id="kb-article-title" placeholder="Например: Классические коктейли"></div>
+    <div class="form-group"><label class="form-label">Текст</label>
+      <textarea class="form-input" id="kb-article-content" placeholder="Содержание статьи..." style="min-height:200px;resize:vertical;font-family:inherit;line-height:1.6"></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="saveKbArticle()">Сохранить</button>
+    <button class="btn btn-secondary" id="kb-article-delete-btn" onclick="deleteKbArticle()" style="display:none;margin-top:8px;background:#FCEBEB;color:#A32D2D">Удалить статью</button>
+  </div>
+</div>
+
 <!-- MODALS -->
 <div class="modal-overlay" id="modal-add-employee">
   <div class="modal">
@@ -417,17 +478,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="modal-title">Новый сотрудник</div>
     <div class="form-group"><label class="form-label">Имя и фамилия</label><input class="form-input" id="emp-name" placeholder="Алиша Каримова"></div>
     <div class="form-group"><label class="form-label">Должность</label>
-      <select class="form-select" id="emp-role"><option>Бармен</option><option>Кальянный мастер</option><option>Официант</option><option>Администратор</option><option>Менеджер</option><option>Охранник</option><option>Уборщик</option><option>Старший кальянный мастер</option><option>Старший Бармен</option><option>Шеф повар</option><option>Су-шеф</option><option>Бар менеджер</option><option>Шеф бармен</option><option>Шеф кальянной станции</option></select>
+      <select class="form-select" id="emp-role"><option>Бармен</option><option>Кальянщик</option><option>Официант</option><option>Администратор</option><option>Менеджер</option><option>Охранник</option><option>Уборщик</option></select>
     </div>
     <div class="form-group"><label class="form-label">Отдел (для графика)</label>
       <select class="form-select" id="emp-department"><option>Официанты</option><option>Бармены</option><option>Кальянные мастера</option><option>Повара</option><option>Техперсонал</option><option>Менеджеры</option></select>
     </div>
     <div class="form-group"><label class="form-label">Телефон</label><input class="form-input" id="emp-phone" placeholder="+998 90 123 45 67" type="tel"></div>
-    <div class="form-group"><label class="form-label">Зарплата (сум)</label><input class="form-input" id="emp-salary" placeholder="3000000" type="number"></div>
+    <div class="form-group"><label class="form-label">Ставка за смену (сум)</label><input class="form-input" id="emp-salary" placeholder="200000" type="number"></div>
     <div class="form-group"><label class="form-label">Логин (без @slon.uz)</label><input class="form-input" id="emp-email" placeholder="alisha" type="text"></div>
     <div class="form-group"><label class="form-label">Пароль</label><input class="form-input" id="emp-password" placeholder="минимум 6 символов"></div>
     <div class="form-group"><label class="form-label">Роль в системе</label>
       <select class="form-select" id="emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">На каких филиалах может работать</label>
+      <div class="filial-checkbox-group" id="emp-filials-group">
+        <label><input type="checkbox" class="emp-filial-checkbox" value="istikbol" checked> Истикбол</label>
+        <label><input type="checkbox" class="emp-filial-checkbox" value="chekhov" checked> Чехов</label>
+      </div>
     </div>
     <button class="btn btn-primary" onclick="addEmployee()">Добавить сотрудника</button>
   </div>
@@ -437,6 +504,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-task')">✕</button>
     <div class="modal-title">Новая задача</div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="task-filial-display">—</div>
     <div class="form-group"><label class="form-label">Задача</label><input class="form-input" id="task-title" placeholder="Заказать табак Adalya"></div>
     <div class="form-group"><label class="form-label">Описание (необязательно)</label>
       <textarea class="form-input" id="task-description" placeholder="Подробности задачи..." style="min-height:70px;resize:vertical;font-family:inherit"></textarea>
@@ -512,6 +580,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-finance')">✕</button>
     <div class="modal-title">Новая операция</div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="fin-filial-display">—</div>
     <div class="form-group"><label class="form-label">Тип</label><select class="form-select" id="fin-type"><option value="income">Доход</option><option value="expense">Расход</option></select></div>
     <div class="form-group"><label class="form-label">Сумма (сум)</label><input class="form-input" id="fin-amount" placeholder="500000" type="number"></div>
     <div class="form-group"><label class="form-label">Категория</label><select class="form-select" id="fin-category"><option>Выручка</option><option>Зарплаты</option><option>Аренда</option><option>Товары</option><option>Коммунальные</option><option>Прочее</option></select></div>
@@ -524,6 +593,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-booking')">✕</button>
     <div class="modal-title">Новая бронь</div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="book-filial-display">—</div>
     <div class="form-group"><label class="form-label">Имя гостя</label><input class="form-input" id="book-name" placeholder="Акбар Назаров"></div>
     <div class="form-group"><label class="form-label">Телефон</label><input class="form-input" id="book-phone" placeholder="+998 90 123 45 67" type="tel"></div>
     <div class="form-group"><label class="form-label">Дата</label><input class="form-input" id="book-date" type="date"></div>
@@ -580,6 +650,41 @@ async function saveTelegramId() {
 let currentUser = null;
 let currentProfile = null;
 let reportFile = null;
+
+// ФИЛИАЛЫ
+const FILIALS = [
+  { id: 'istikbol', name: 'Истикбол' },
+  { id: 'chekhov', name: 'Чехов' }
+];
+let currentFilial = localStorage.getItem('slon-filial') || FILIALS[0].id;
+
+function getFilialName(id) { return FILIALS.find(f=>f.id===id)?.name || id; }
+
+function renderFilialSwitcher() {
+  const el = document.getElementById('filial-switcher');
+  if(!el) return;
+  el.innerHTML = FILIALS.map(f=>`<button class="filial-tab ${f.id===currentFilial?'active':''}" onclick="switchFilial('${f.id}')">${f.name}</button>`).join('');
+}
+
+function switchFilial(id) {
+  if(id === currentFilial) return;
+  currentFilial = id;
+  localStorage.setItem('slon-filial', id);
+  renderFilialSwitcher();
+  showToast('📍 Филиал: ' + getFilialName(id));
+  // Обновим текущий экран под новый филиал
+  if(document.getElementById('screen-home')?.classList.contains('active') && typeof loadHome === 'function') loadHome();
+  if(document.getElementById('screen-schedule')?.classList.contains('active') && typeof loadSchedule === 'function') loadSchedule();
+  if(document.getElementById('screen-tasks')?.classList.contains('active') && typeof loadTasks === 'function') loadTasks();
+  if(document.getElementById('screen-checklist')?.classList.contains('active') && typeof loadChecklist === 'function') loadChecklist(currentChecklistType||'open');
+  if(document.getElementById('screen-finance')?.classList.contains('active') && typeof loadFinance === 'function') loadFinance();
+  if(document.getElementById('screen-hr')?.classList.contains('active') && typeof loadHR === 'function') loadHR();
+  if(document.getElementById('screen-crm')?.classList.contains('active') && typeof loadCRM === 'function') loadCRM();
+  if(document.getElementById('screen-admin')?.classList.contains('active')) {
+    if(currentAdminTab==='tasks' && typeof loadAdminTasks === 'function') loadAdminTasks(taskFilters||{});
+    if(currentAdminTab==='checklists' && typeof loadAdminChecklists === 'function') loadAdminChecklists();
+  }
+}
 
 const colors = ['av-purple','av-teal','av-coral','av-amber'];
 function getColor(s) { if(!s) return colors[0]; let h=0; for(let c of s) h+=c.charCodeAt(0); return colors[h%4]; }
@@ -662,6 +767,7 @@ function showApp() {
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app-page').style.display = 'block';
   applyRolePermissions();
+  renderFilialSwitcher();
   loadHome();
   checkUnreadMessages();
 }
@@ -684,6 +790,7 @@ function openMoreMenu() {
   const role = currentProfile?.role;
   const items = [
     {id:'profile', label:'📄 Личный кабинет', show: true},
+    {id:'knowledge', label:'📚 База знаний', show: true},
     {id:'hr', label:'👥 Сотрудники', show: true},
     {id:'teamchat', label:'💬 Общий чат', show: true},
     {id:'finance', label:'💰 Финансы', show: role!=='employee'},
@@ -713,6 +820,7 @@ function showScreen(name, btn) {
   if(name==='schedule') loadSchedule();
   if(name==='teamchat') initTeamChat();
   if(name==='profile') loadProfile2();
+  if(name==='knowledge') loadKnowledgeBase();
 }
 
 async function loadHome() {
@@ -728,6 +836,7 @@ async function loadHome() {
     const todayStr = today();
     let tasksQuery = sb.from('tasks').select('*').eq('due_date', todayStr);
     if(role === 'employee') tasksQuery = tasksQuery.eq('assigned_to_id', currentUser.id);
+    else tasksQuery = tasksQuery.eq('filial', currentFilial);
     const { data: tasks } = await tasksQuery;
     const done = (tasks||[]).filter(t=>t.status==='done').length;
     const total = (tasks||[]).length;
@@ -748,7 +857,7 @@ async function loadHome() {
           if(myShift.is_day_off) {
             shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#EAF3DE,#d4edda);border:none;margin-bottom:12px"><div style="text-align:center;padding:8px"><div style="font-size:28px">🌴</div><div style="font-size:15px;font-weight:600;color:#3B6D11;margin-top:4px">Сегодня выходной</div></div></div>`;
           } else {
-            shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2b6b);border:none;color:#fff;margin-bottom:12px"><div style="font-size:11px;opacity:0.7;margin-bottom:4px">ТВОЯ СМЕНА СЕГОДНЯ</div><div style="font-size:24px;font-weight:700">🕐 ${myShift.shift_start||''} — ${myShift.shift_end||''}</div>${myShift.note?`<div style="font-size:12px;opacity:0.7;margin-top:4px">${myShift.note}</div>`:''}</div>`;
+            shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2b6b);border:none;color:#fff;margin-bottom:12px"><div style="font-size:11px;opacity:0.7;margin-bottom:4px">ТВОЯ СМЕНА СЕГОДНЯ · ${getFilialName(myShift.filial||'istikbol')}</div><div style="font-size:24px;font-weight:700">🕐 ${myShift.shift_start||''} — ${myShift.shift_end||''}</div>${myShift.note?`<div style="font-size:12px;opacity:0.7;margin-top:4px">${myShift.note}</div>`:''}</div>`;
           }
         } else { shiftEl.innerHTML = ''; }
       }
@@ -760,6 +869,9 @@ async function loadHome() {
         const attEl = document.getElementById('home-attendance-card');
         if(attEl) attEl.innerHTML = '';
       }
+
+      // Моя зарплата за месяц
+      await loadSalaryCard();
     }
 
     // Telegram link card
@@ -786,9 +898,9 @@ async function loadHome() {
     }
 
     if(role !== 'employee') {
-      const { data: books } = await sb.from('bookings').select('id').eq('date', todayStr);
+      const { data: books } = await sb.from('bookings').select('id').eq('date', todayStr).eq('filial', currentFilial);
       document.getElementById('home-bookings').textContent = (books||[]).length;
-      const { data: fins } = await sb.from('finances').select('amount').eq('date', todayStr).eq('type','income');
+      const { data: fins } = await sb.from('finances').select('amount').eq('date', todayStr).eq('type','income').eq('filial', currentFilial);
       document.getElementById('home-revenue').textContent = formatNum((fins||[]).reduce((s,f)=>s+Number(f.amount),0));
     }
   } catch(e) { console.error(e); }
@@ -835,23 +947,70 @@ async function loadAttendanceCard(dateStr, myShift) {
   } catch(e) { console.error(e); }
 }
 
+// Карточка "Моя зарплата" на главном экране (только свои данные сотрудника)
+async function loadSalaryCard() {
+  const el = document.getElementById('home-salary-card');
+  if(!el) return;
+  el.innerHTML = '';
+  try {
+    if(!currentProfile?.employee_id) return;
+    const { data: emp } = await sb.from('employees').select('salary,name').eq('id', currentProfile.employee_id).single();
+    const rate = Number(emp?.salary) || 0;
+    if(!rate) return;
+
+    const now = new Date();
+    const firstStr = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+    const lastStr = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
+
+    const { data: att } = await sb.from('attendance').select('date,penalty,late_minutes,check_in_time')
+      .eq('employee_id', currentProfile.employee_id).gte('date', firstStr).lte('date', lastStr);
+    const records = att || [];
+    const shifts = records.filter(a=>a.check_in_time).length;
+    const penalties = records.reduce((s,a)=>s+(Number(a.penalty)||0), 0);
+    const earned = shifts * rate;
+    const total = earned - penalties;
+    const monthName = now.toLocaleDateString('ru-RU',{month:'long'});
+
+    el.innerHTML = `<div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#2d2416,#4a3a1f);border:none;color:#f0e9db">
+      <div style="font-size:11px;opacity:0.7;margin-bottom:8px;text-transform:uppercase">Моя зарплата · ${monthName}</div>
+      <div style="font-size:28px;font-weight:700;margin-bottom:10px">${formatNum(total)} <span style="font-size:14px;opacity:0.7">сум</span></div>
+      <div style="display:flex;gap:16px;font-size:12px;opacity:0.85;flex-wrap:wrap">
+        <div>Смен: <b>${shifts}</b></div>
+        <div>Ставка: <b>${formatNum(rate)}</b></div>
+        <div>Начислено: <b>${formatNum(earned)}</b></div>
+        ${penalties>0?`<div style="color:#ff9b9b">Штрафы: <b>−${formatNum(penalties)}</b></div>`:''}
+      </div>
+    </div>`;
+  } catch(e) { console.error('salary card', e); }
+}
+function calcLatePenalty(lateMin) {
+  if(lateMin <= 5) return 0;
+  if(lateMin <= 15) return 30000;
+  if(lateMin <= 60) return 50000;
+  return 100000;
+}
+
 async function checkIn() {
   try {
     const todayStr = today();
     const timeStr = getCurrentTimeStr();
     const { data: myShifts } = await sb.from('schedules').select('*').eq('date', todayStr).eq('employee_id', currentProfile.employee_id);
     const myShift = myShifts && myShifts[0];
-    const isLate = myShift && minutesFromStr(timeStr) > minutesFromStr(myShift.shift_start) + 10;
+    const lateMin = myShift ? Math.max(0, minutesFromStr(timeStr) - minutesFromStr(myShift.shift_start)) : 0;
+    const penalty = myShift ? calcLatePenalty(lateMin) : 0;
+    const isLate = penalty > 0;
 
     await sb.from('attendance').insert({
       employee_id: currentProfile.employee_id, user_id: currentUser.id,
       user_name: currentProfile?.name || currentUser?.email,
-      date: todayStr, check_in_time: timeStr, is_late: isLate
+      date: todayStr, check_in_time: timeStr, is_late: isLate,
+      late_minutes: lateMin, penalty: penalty,
+      filial: myShift?.filial || currentFilial
     });
 
-    showToast(isLate ? '⏰ Отмечено (с опозданием)' : '✅ Отмечено вовремя!');
+    showToast(isLate ? `⏰ Опоздание ${lateMin} мин · штраф ${formatNum(penalty)} сум` : '✅ Отмечено вовремя!');
     if(isLate) {
-      await notifyAdmin(`⏰ <b>Опоздание на смену</b>\n\n👤 ${currentProfile?.name||''}\n🕐 Пришёл в ${timeStr} (смена с ${myShift?.shift_start||''})`);
+      await notifyAdmin(`⏰ <b>Опоздание на смену</b>\n\n👤 ${currentProfile?.name||''}\n🕐 Пришёл в ${timeStr} (смена с ${myShift?.shift_start||''})\n⏱ Опоздание: ${lateMin} мин\n💸 Штраф: ${formatNum(penalty)} сум`);
     }
     loadHome();
   } catch(e) { showToast('Ошибка: '+e.message); }
@@ -885,9 +1044,9 @@ async function loadProfile2() {
     if(currentProfile?.employee_id) {
       const { data: emp } = await sb.from('employees').select('*').eq('id', currentProfile.employee_id).single();
 
-      // Salary (only if admin/manager can view own too)
+      // Ставка за смену (видят только admin/manager)
       if(emp?.salary && (role==='admin'||role==='manager')) {
-        html += `<div class="card"><div class="card-title">Зарплата</div><div class="stat-val">${formatNum(emp.salary)} сум</div></div>`;
+        html += `<div class="card"><div class="card-title">Ставка за смену</div><div class="stat-val">${formatNum(emp.salary)} сум</div></div>`;
       }
 
       // Task stats
@@ -915,7 +1074,7 @@ async function loadProfile2() {
           <div class="list-item">
             <div class="item-info">
               <div class="item-name">${new Date(s.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short',weekday:'short'})}</div>
-              <div class="item-sub">${s.is_day_off?'🌴 Выходной':'🕐 '+s.shift_start+'–'+s.shift_end}</div>
+              <div class="item-sub">${s.is_day_off?'🌴 Выходной':'🕐 '+s.shift_start+'–'+s.shift_end+' · '+getFilialName(s.filial||'istikbol')}</div>
             </div>
           </div>`).join('');
       }
@@ -925,15 +1084,16 @@ async function loadProfile2() {
       const { data: attendance } = await sb.from('attendance').select('*').eq('employee_id', currentProfile.employee_id).gte('date', twoWeeksAgo.toISOString().split('T')[0]).order('date',{ascending:false});
       if(attendance && attendance.length > 0) {
         const lateCount = attendance.filter(a=>a.is_late).length;
+        const totalPenalty = attendance.reduce((s,a)=>s+(Number(a.penalty)||0),0);
         html += `<div class="section-label">Явка (14 дней)</div><div class="card">
-          <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">${attendance.length} отметок · ${lateCount>0?`<span style="color:#A13C3C">${lateCount} опозданий</span>`:'без опозданий 👍'}</div>
+          <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">${attendance.length} отметок · ${lateCount>0?`<span style="color:#A13C3C">${lateCount} опозданий${totalPenalty>0?' · штрафы '+formatNum(totalPenalty)+' сум':''}</span>`:'без опозданий 👍'}</div>
           ${attendance.map(a=>`
             <div class="list-item">
               <div class="item-info">
                 <div class="item-name">${new Date(a.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}</div>
-                <div class="item-sub">Пришёл: ${a.check_in_time||'—'} ${a.check_out_time?'· Ушёл: '+a.check_out_time:''}</div>
+                <div class="item-sub">Пришёл: ${a.check_in_time||'—'} ${a.check_out_time?'· Ушёл: '+a.check_out_time:''}${a.is_late&&a.late_minutes?' · опоздал на '+a.late_minutes+' мин':''}</div>
               </div>
-              ${a.is_late?'<span class="badge badge-red">Опоздание</span>':'<span class="badge badge-green">Вовремя</span>'}
+              ${a.is_late?`<span class="badge badge-red">${a.penalty?'−'+formatNum(a.penalty):'Опоздание'}</span>`:'<span class="badge badge-green">Вовремя</span>'}
             </div>`).join('')}
         </div>`;
       }
@@ -966,7 +1126,7 @@ function taskHTML(t) {
     <div class="task-body">
       <div class="task-text" style="${isDone?'text-decoration:line-through;color:#999':''}">${t.title}</div>
       ${t.description?`<div style="font-size:12px;color:#666;margin-top:2px">${t.description}</div>`:''}
-      <div class="task-meta">👤 ${t.assigned_to_name||'—'} ${t.due_date?'· до '+t.due_date:''}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">Моя</span>':''}</div>
+      <div class="task-meta">👤 ${t.assigned_to_name||'—'} ${t.due_date?'· до '+t.due_date:''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">Моя</span>':''}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
         ${reportSection}
         <button class="report-btn" onclick="event.stopPropagation();openTaskComments(${t.id},'${(t.title||'').replace(/'/g,"\\'")}')">💬 Обсудить</button>
@@ -975,21 +1135,86 @@ function taskHTML(t) {
   </div>`;
 }
 
+let hrShowAll = false;
 async function loadHR() {
   try {
     const role = currentProfile?.role;
     const canSeeSalary = role === 'admin' || role === 'manager';
-    const { data: emps } = await sb.from('employees').select('*').order('name');
-    document.getElementById('hr-count').textContent = `${(emps||[]).length} человек в штате`;
+    const { data: allEmps } = await sb.from('employees').select('*').order('name');
+    const emps = hrShowAll ? (allEmps||[]) : (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
+    document.getElementById('hr-count').textContent = hrShowAll
+      ? `${(allEmps||[]).length} человек в штате (все филиалы)`
+      : `${emps.length} на филиале «${getFilialName(currentFilial)}» · всего ${(allEmps||[]).length}`;
     const list = document.getElementById('hr-list');
-    if(!emps||emps.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Сотрудников пока нет</div></div>'; return; }
-    list.innerHTML = emps.map(e=>`
+    const payrollBtnEl = document.getElementById('hr-payroll-btn');
+    if(payrollBtnEl) payrollBtnEl.innerHTML = canSeeSalary
+      ? `<button onclick="openPayroll()" style="width:100%;background:linear-gradient(135deg,#2d2416,#4a3a1f);color:#f0e9db;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px">💰 Зарплатная ведомость · ${getFilialName(currentFilial)}</button>`
+      : '';
+    const toggleBtn = `<div style="padding:0 4px 10px"><button onclick="hrShowAll=!hrShowAll;loadHR()" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${hrShowAll?'📍 Показать только этот филиал':'👥 Показать всех сотрудников'}</button></div>`;
+    if(!emps||emps.length===0) { list.innerHTML=toggleBtn+'<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Нет сотрудников для этого филиала</div></div>'; return; }
+    list.innerHTML = toggleBtn + emps.map(e=>`
       <div class="list-item">
         <div class="avatar ${getColor(e.name)}">${getInitials(e.name)}</div>
-        <div class="item-info"><div class="item-name">${e.name}</div><div class="item-sub">${e.role||''} · ${e.phone||''}</div>${canSeeSalary&&e.salary?`<div class="item-sub">${formatNum(e.salary)} сум</div>`:''}</div>
+        <div class="item-info"><div class="item-name">${e.name}</div><div class="item-sub">${e.role||''} · ${e.phone||''}</div><div class="item-sub">${(e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).map(getFilialName).join(', ')}</div>${canSeeSalary&&e.salary?`<div class="item-sub">${formatNum(e.salary)} сум</div>`:''}</div>
         ${canSeeSalary?`<span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}">${e.status||'Активен'}</span>`:''}
       </div>`).join('');
   } catch(e) { document.getElementById('hr-list').innerHTML='<div class="loading">Ошибка</div>'; }
+}
+
+// Зарплатная ведомость за текущий месяц (admin/manager)
+async function openPayroll() {
+  const role = currentProfile?.role;
+  if(role!=='admin' && role!=='manager') return;
+  openModal('modal-payroll');
+  const body = document.getElementById('payroll-body');
+  body.innerHTML = '<div class="loading">Считаю...</div>';
+  try {
+    const now = new Date();
+    const firstStr = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+    const lastStr = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
+    document.getElementById('payroll-title').textContent = `💰 Ведомость · ${now.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})} · ${getFilialName(currentFilial)}`;
+
+    // Сотрудники этого филиала
+    const { data: allEmps } = await sb.from('employees').select('*').order('name');
+    const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
+
+    // Явка за месяц по этому филиалу
+    const { data: att } = await sb.from('attendance').select('*').eq('filial', currentFilial).gte('date', firstStr).lte('date', lastStr);
+    const byEmp = {};
+    (att||[]).forEach(a=>{
+      const k = a.employee_id;
+      if(!byEmp[k]) byEmp[k] = { shifts:0, penalty:0 };
+      if(a.check_in_time) byEmp[k].shifts++;
+      byEmp[k].penalty += Number(a.penalty)||0;
+    });
+
+    let grandTotal = 0;
+    const rows = emps.map(e=>{
+      const rate = Number(e.salary)||0;
+      const d = byEmp[e.id] || { shifts:0, penalty:0 };
+      const earned = d.shifts * rate;
+      const total = earned - d.penalty;
+      grandTotal += total;
+      return { name:e.name, rate, shifts:d.shifts, earned, penalty:d.penalty, total };
+    }).filter(r=>r.shifts>0 || r.rate>0);
+
+    if(rows.length===0) { body.innerHTML = '<div class="empty"><div class="empty-text">Нет данных за месяц</div></div>'; return; }
+
+    body.innerHTML = `
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Смены × ставка − штрафы за опоздания. Данные по филиалу «${getFilialName(currentFilial)}».</div>
+      ${rows.map(r=>`
+        <div class="list-item">
+          <div class="item-info">
+            <div class="item-name">${r.name}</div>
+            <div class="item-sub">${r.shifts} смен × ${formatNum(r.rate)} = ${formatNum(r.earned)}${r.penalty>0?` · <span style="color:#A13C3C">штраф −${formatNum(r.penalty)}</span>`:''}</div>
+          </div>
+          <div style="font-weight:700;color:var(--text-primary);white-space:nowrap">${formatNum(r.total)}</div>
+        </div>`).join('')}
+      <div class="list-item" style="border-top:2px solid var(--border);margin-top:6px">
+        <div class="item-info"><div class="item-name">ИТОГО фонд оплаты</div></div>
+        <div style="font-weight:700;font-size:16px;color:var(--gold-dark);white-space:nowrap">${formatNum(grandTotal)}</div>
+      </div>`;
+  } catch(e) { body.innerHTML = '<div class="empty"><div class="empty-text">Ошибка: '+e.message+'</div></div>'; }
 }
 
 async function addEmployee() {
@@ -1001,7 +1226,8 @@ async function addEmployee() {
   if(!email||!password) return showToast('Введите email и пароль');
   if(password.length<6) return showToast('Пароль минимум 6 символов');
   try {
-    const { data: emp } = await sb.from('employees').insert({ name, role: document.getElementById('emp-role').value, department: document.getElementById('emp-department').value, phone: document.getElementById('emp-phone').value, salary: document.getElementById('emp-salary').value||null, status:'Активен' }).select().single();
+    const empFilials = Array.from(document.querySelectorAll('.emp-filial-checkbox:checked')).map(c=>c.value);
+    const { data: emp } = await sb.from('employees').insert({ name, role: document.getElementById('emp-role').value, department: document.getElementById('emp-department').value, phone: document.getElementById('emp-phone').value, salary: document.getElementById('emp-salary').value||null, status:'Активен', filials: empFilials.length?empFilials:['istikbol','chekhov'] }).select().single();
     const { data: authData, error: authError } = await sb.auth.signUp({ email, password });
     if(authError) { showToast('Ошибка: '+authError.message); return; }
     if(authData.user) {
@@ -1011,6 +1237,7 @@ async function addEmployee() {
     }
     closeModal('modal-add-employee');
     ['emp-name','emp-phone','emp-salary','emp-email','emp-password'].forEach(id=>document.getElementById(id).value='');
+    document.querySelectorAll('.emp-filial-checkbox').forEach(c=>c.checked=true);
     showToast('✅ Сотрудник добавлен');
     loadHR();
   } catch(e) { showToast('Ошибка: '+e.message); }
@@ -1021,6 +1248,7 @@ async function loadTasks() {
     const role = currentProfile?.role;
     let query = sb.from('tasks').select('*').order('due_date');
     if(role==='employee') query = query.eq('assigned_to_id', currentUser.id);
+    else query = query.eq('filial', currentFilial);
     const { data: tasks } = await query;
     const done = (tasks||[]).filter(t=>t.status==='done').length;
     document.getElementById('tasks-count').textContent = `${done} из ${(tasks||[]).length} выполнено`;
@@ -1037,9 +1265,12 @@ async function toggleTask(id, status) {
 }
 
 async function loadTaskEmployees() {
-  const { data: emps } = await sb.from('employees').select('id,name,department').order('name');
+  const el = document.getElementById('task-filial-display');
+  if(el) el.textContent = '📍 Задача для филиала: ' + getFilialName(currentFilial);
+  const { data: allEmps } = await sb.from('employees').select('id,name,department,filials').order('name');
+  const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
   const list = document.getElementById('task-assigned-list');
-  if(!emps || emps.length===0) { list.innerHTML='<div style="padding:10px;color:#999;font-size:13px">Нет сотрудников</div>'; return; }
+  if(!emps || emps.length===0) { list.innerHTML='<div style="padding:10px;color:#999;font-size:13px">Нет сотрудников для филиала «' + getFilialName(currentFilial) + '»</div>'; return; }
   list.innerHTML = emps.map(e=>`
     <label style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer">
       <input type="checkbox" class="task-emp-checkbox" value="${e.id}" data-name="${e.name}" style="width:18px;height:18px">
@@ -1068,7 +1299,8 @@ async function addTask() {
       await sb.from('tasks').insert({
         title, description, assigned_to_name: empName,
         assigned_to_id: profile?.user_id||null,
-        due_date: dueDate, status:'pending', created_by: currentUser.id
+        due_date: dueDate, status:'pending', created_by: currentUser.id,
+        filial: currentFilial
       });
 
       await logActivity('add_task', title + ' → ' + empName);
@@ -1154,7 +1386,7 @@ function viewReport(url, type) {
 
 async function loadFinance() {
   try {
-    const { data: fins } = await sb.from('finances').select('*').order('date',{ascending:false});
+    const { data: fins } = await sb.from('finances').select('*').eq('filial', currentFilial).order('date',{ascending:false});
     const income = (fins||[]).filter(f=>f.type==='income').reduce((s,f)=>s+Number(f.amount),0);
     const expense = (fins||[]).filter(f=>f.type==='expense').reduce((s,f)=>s+Number(f.amount),0);
     document.getElementById('finance-income').textContent = formatNum(income);
@@ -1178,7 +1410,7 @@ async function addFinance() {
   const amount = document.getElementById('fin-amount').value;
   if(!amount) return showToast('Введите сумму');
   try {
-    await sb.from('finances').insert({ type:document.getElementById('fin-type').value, amount:parseFloat(amount), category:document.getElementById('fin-category').value, description:document.getElementById('fin-desc').value, date:today() });
+    await sb.from('finances').insert({ type:document.getElementById('fin-type').value, amount:parseFloat(amount), category:document.getElementById('fin-category').value, description:document.getElementById('fin-desc').value, date:today(), filial: currentFilial });
     closeModal('modal-add-finance');
     ['fin-amount','fin-desc'].forEach(id=>document.getElementById(id).value='');
     showToast('✅ Операция добавлена');
@@ -1188,8 +1420,8 @@ async function addFinance() {
 
 async function loadCRM() {
   try {
-    const { data: books } = await sb.from('bookings').select('*').order('date',{ascending:false});
-    document.getElementById('crm-count').textContent = `${(books||[]).length} броней`;
+    const { data: books } = await sb.from('bookings').select('*').eq('filial', currentFilial).order('date',{ascending:false});
+    document.getElementById('crm-count').textContent = `${(books||[]).length} броней · ${getFilialName(currentFilial)}`;
     const list = document.getElementById('crm-list');
     if(!books||books.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Броней пока нет</div></div>'; return; }
     list.innerHTML = books.map(b=>`
@@ -1205,7 +1437,7 @@ async function addBooking() {
   const name = document.getElementById('book-name').value.trim();
   if(!name) return showToast('Введите имя гостя');
   try {
-    await sb.from('bookings').insert({ guest_name:name, phone:document.getElementById('book-phone').value, date:document.getElementById('book-date').value||today(), time:document.getElementById('book-time').value, guests_count:parseInt(document.getElementById('book-guests').value)||1, zone:document.getElementById('book-zone').value, status:'Ожидание' });
+    await sb.from('bookings').insert({ guest_name:name, phone:document.getElementById('book-phone').value, date:document.getElementById('book-date').value||today(), time:document.getElementById('book-time').value, guests_count:parseInt(document.getElementById('book-guests').value)||1, zone:document.getElementById('book-zone').value, status:'Ожидание', filial: currentFilial });
     closeModal('modal-add-booking');
     ['book-name','book-phone','book-date','book-time','book-guests'].forEach(id=>document.getElementById(id).value='');
     showToast('✅ Бронь добавлена');
@@ -1214,6 +1446,14 @@ async function addBooking() {
 }
 
 document.querySelector('[onclick="openModal(\'modal-add-task\')"]')?.addEventListener('click', loadTaskEmployees);
+document.querySelector('[onclick="openModal(\'modal-add-finance\')"]')?.addEventListener('click', ()=>{
+  const el = document.getElementById('fin-filial-display');
+  if(el) el.textContent = '📍 Операция для филиала: ' + getFilialName(currentFilial);
+});
+document.querySelector('[onclick="openModal(\'modal-add-booking\')"]')?.addEventListener('click', ()=>{
+  const el = document.getElementById('book-filial-display');
+  if(el) el.textContent = '📍 Бронь на филиал: ' + getFilialName(currentFilial);
+});
 
 
 
@@ -1229,7 +1469,9 @@ async function logActivity(action, details) {
 }
 
 // ADMIN TABS
+let currentAdminTab = 'employees';
 function switchAdminTab(tab, btn) {
+  currentAdminTab = tab;
   ['employees','tasks','analytics','activity','checklists'].forEach(t=>{
     const el = document.getElementById('admin-tab-'+t);
     const b = document.getElementById('atab-'+t);
@@ -1246,7 +1488,7 @@ function switchAdminTab(tab, btn) {
 async function loadAdminChecklists() {
   try {
     const dateFilter = document.getElementById('admin-checklist-date-filter').value;
-    let query = sb.from('checklist_logs').select('*').order('date',{ascending:false}).order('created_at',{ascending:false});
+    let query = sb.from('checklist_logs').select('*').eq('filial', currentFilial).order('date',{ascending:false}).order('created_at',{ascending:false});
     if(dateFilter) query = query.eq('date', dateFilter);
     const { data: logs } = await query;
 
@@ -1349,6 +1591,8 @@ async function openEditEmployee(id) {
   const sysRoleEl = document.getElementById('edit-emp-system-role');
   const sysRole = profile?.role||'employee';
   for(let o of sysRoleEl.options) if(o.value===sysRole) { o.selected=true; break; }
+  const empFilials = emp.filials && emp.filials.length ? emp.filials : ['istikbol','chekhov'];
+  document.querySelectorAll('.edit-emp-filial-checkbox').forEach(c=>{ c.checked = empFilials.includes(c.value); });
   openModal('modal-edit-employee');
 }
 
@@ -1361,8 +1605,9 @@ async function saveEmployee() {
   const salary = document.getElementById('edit-emp-salary').value;
   const status = document.getElementById('edit-emp-status').value;
   const sysRole = document.getElementById('edit-emp-system-role').value;
+  const empFilials = Array.from(document.querySelectorAll('.edit-emp-filial-checkbox:checked')).map(c=>c.value);
   try {
-    await sb.from('employees').update({name,role,department,phone,salary:salary||null,status}).eq('id',id);
+    await sb.from('employees').update({name,role,department,phone,salary:salary||null,status,filials:empFilials.length?empFilials:['istikbol','chekhov']}).eq('id',id);
     await sb.from('profiles').update({role:sysRole,name}).eq('employee_id',id);
     await logActivity('edit_employee', name + ' → ' + role + ', ' + status);
     closeModal('modal-edit-employee');
@@ -1378,9 +1623,30 @@ async function changePassword() {
   const { data: profile } = await sb.from('profiles').select('user_id').eq('employee_id',id).single();
   if(!profile?.user_id) return showToast('Аккаунт не найден');
   showToast('⏳ Меняем пароль...');
-  // Use admin API via edge function would be needed for real password change
-  // For now update via signUp workaround
-  showToast('Функция в разработке');
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if(!accessToken) return showToast('Сессия истекла, войдите заново');
+    const res = await fetch('https://omeomdkurvtvirhfkffu.supabase.co/functions/v1/admin-reset-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + accessToken
+      },
+      body: JSON.stringify({ targetUserId: profile.user_id, newPassword: pass })
+    });
+    const result = await res.json();
+    if(!res.ok || result.error) {
+      showToast('Ошибка: ' + (result.error || 'не удалось сменить пароль'));
+      return;
+    }
+    document.getElementById('edit-emp-password').value = '';
+    await logActivity('change_password', document.getElementById('edit-emp-name').value);
+    showToast('✅ Пароль изменён');
+  } catch(e) {
+    showToast('Ошибка: ' + e.message);
+  }
 }
 
 async function deleteEmployee(id, name) {
@@ -1396,7 +1662,7 @@ async function deleteEmployee(id, name) {
 let taskFilters = {};
 async function loadAdminTasks(filters={}) {
   try {
-    let query = sb.from('tasks').select('*').order('created_at',{ascending:false});
+    let query = sb.from('tasks').select('*').eq('filial', currentFilial).order('created_at',{ascending:false});
     if(filters.employee) query = query.eq('assigned_to_name', filters.employee);
     if(filters.status) query = query.eq('status', filters.status);
     if(filters.dateFrom) query = query.gte('due_date', filters.dateFrom);
@@ -1489,7 +1755,7 @@ async function loadAnalytics() {
     }
 
     // Finance by weeks
-    const { data: fins } = await sb.from('finances').select('amount,type,date').order('date');
+    const { data: fins } = await sb.from('finances').select('amount,type,date').eq('filial', currentFilial).order('date');
     const weeks = {};
     (fins||[]).forEach(f=>{
       if(!f.date) return;
@@ -1599,11 +1865,12 @@ async function loadScheduleGrid() {
   content.innerHTML = '<div class="loading">Загрузка...</div>';
 
   try {
-    // Get employees in this department
-    const { data: emps } = await sb.from('employees').select('*').eq('department', currentDept).order('name');
+    // Get employees in this department, eligible for the selected filial
+    const { data: allEmps } = await sb.from('employees').select('*').eq('department', currentDept).order('name');
+    const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
     
     if(!emps || emps.length===0) {
-      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📅</div><div class="empty-text">В этом отделе пока нет сотрудников</div></div></div>';
+      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📅</div><div class="empty-text">В этом отделе нет сотрудников для филиала «' + getFilialName(currentFilial) + '»</div></div></div>';
       return;
     }
 
@@ -1616,9 +1883,9 @@ async function loadScheduleGrid() {
     }
     const dateStrs = weekDates.map(fmtDate);
 
-    // Get all schedules for this week for these employees
+    // Get all schedules for this week for these employees, on the selected filial
     const empIds = emps.map(e=>e.id);
-    const { data: schedules } = await sb.from('schedules').select('*').in('employee_id', empIds).gte('date', dateStrs[0]).lte('date', dateStrs[6]);
+    const { data: schedules } = await sb.from('schedules').select('*').in('employee_id', empIds).eq('filial', currentFilial).gte('date', dateStrs[0]).lte('date', dateStrs[6]);
 
     // Build map: date+empId -> schedule
     const schedMap = {};
@@ -1698,6 +1965,7 @@ function quickEditSchedule(empId, empName, date) {
   quickEditEmpId = empId; quickEditEmpName = empName; quickEditDate = date;
   document.getElementById('sch-employee-display').textContent = empName;
   document.getElementById('sch-date-display').textContent = new Date(date).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('sch-filial-display').textContent = '📍 ' + getFilialName(currentFilial);
   document.getElementById('sch-dayoff').checked = false;
   document.getElementById('sch-time-fields').style.display = 'block';
   document.getElementById('sch-start').value = '11:00';
@@ -1715,8 +1983,9 @@ async function loadScheduleEmployees() {
 }
 
 async function pickEmployeeForSchedule() {
-  const { data: emps } = await sb.from('employees').select('id,name').eq('department', currentDept).order('name');
-  if(!emps || emps.length===0) return showToast('В этом отделе нет сотрудников');
+  const { data: allEmps } = await sb.from('employees').select('id,name,filials').eq('department', currentDept).order('name');
+  const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
+  if(!emps || emps.length===0) return showToast('В этом отделе нет сотрудников для филиала «' + getFilialName(currentFilial) + '»');
   const names = emps.map((e,i)=>`${i+1}. ${e.name}`).join('\n');
   const choice = prompt('Выбери сотрудника (введи номер):\n\n' + names);
   const idx = parseInt(choice) - 1;
@@ -1728,10 +1997,12 @@ async function pickEmployeeForSchedule() {
 // WEEK FILL
 let weekFillDates = [];
 async function openWeekFillPicker() {
-  const { data: emps } = await sb.from('employees').select('id,name').eq('department', currentDept).order('name');
-  if(!emps || emps.length===0) return showToast('В этом отделе нет сотрудников');
+  const { data: allEmps } = await sb.from('employees').select('id,name,filials').eq('department', currentDept).order('name');
+  const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
+  if(!emps || emps.length===0) return showToast('В этом отделе нет сотрудников для филиала «' + getFilialName(currentFilial) + '»');
   const sel = document.getElementById('week-employee');
   sel.innerHTML = emps.map(e=>`<option value="${e.id}" data-name="${e.name}">${e.name}</option>`).join('');
+  document.getElementById('wf-filial-display').textContent = '📍 ' + getFilialName(currentFilial);
   await renderWeekFillDays();
   openModal('modal-week-fill');
 }
@@ -1749,7 +2020,7 @@ async function renderWeekFillDays() {
 
   // Load existing schedule for this employee this week
   const dateStrs = weekFillDates.map(fmtDate);
-  const { data: existing } = await sb.from('schedules').select('*').eq('employee_id', empId).in('date', dateStrs);
+  const { data: existing } = await sb.from('schedules').select('*').eq('employee_id', empId).eq('filial', currentFilial).in('date', dateStrs);
   const existingMap = {};
   (existing||[]).forEach(s => { existingMap[s.date] = s; });
 
@@ -1806,11 +2077,11 @@ async function saveWeekFill() {
       const start = document.querySelector(`.wf-start[data-idx="${i}"]`).value;
       const end = document.querySelector(`.wf-end[data-idx="${i}"]`).value;
 
-      await sb.from('schedules').delete().eq('employee_id', empId).eq('date', dateStr);
+      await sb.from('schedules').delete().eq('employee_id', empId).eq('date', dateStr).eq('filial', currentFilial);
       await sb.from('schedules').insert({
         employee_id: parseInt(empId), employee_name: empName, date: dateStr,
         shift_start: isOff ? null : start, shift_end: isOff ? null : end,
-        is_day_off: isOff
+        is_day_off: isOff, filial: currentFilial
       });
     }
 
@@ -1837,11 +2108,11 @@ async function addSchedule() {
   if(!empId) return showToast('Выберите ячейку в таблице');
 
   try {
-    await sb.from('schedules').delete().eq('employee_id', empId).eq('date', date);
+    await sb.from('schedules').delete().eq('employee_id', empId).eq('date', date).eq('filial', currentFilial);
     await sb.from('schedules').insert({
       employee_id: parseInt(empId), employee_name: empName, date,
       shift_start: isDayOff ? null : start, shift_end: isDayOff ? null : end,
-      is_day_off: isDayOff, note
+      is_day_off: isDayOff, note, filial: currentFilial
     });
 
     const { data: profile } = await sb.from('profiles').select('telegram_id').eq('employee_id', empId).single();
@@ -1896,7 +2167,8 @@ async function loadChecklist(type) {
       .select('*')
       .eq('template_id', template.id)
       .eq('date', todayStr)
-      .eq('user_id', currentUser.id);
+      .eq('user_id', currentUser.id)
+      .eq('filial', currentFilial);
     
     currentChecklistLog = logs && logs.length > 0 ? logs[0] : null;
     const donItems = currentChecklistLog?.items_done || [];
@@ -2006,7 +2278,7 @@ async function uploadChecklistMedia() {
       const { data: newLog } = await sb.from('checklist_logs').insert({
         template_id: templateId, date: dateStr, user_id: currentUser.id,
         user_name: currentProfile?.name || currentUser?.email,
-        items_done: [], items_media: itemsMedia
+        items_done: [], items_media: itemsMedia, filial: currentFilial
       }).select().single();
       currentChecklistLog = newLog;
     }
@@ -2041,7 +2313,8 @@ async function toggleChecklistItem(itemId, templateId, date) {
         user_id: currentUser.id,
         user_name: currentProfile?.name || currentUser?.email,
         items_done: donItems,
-        completed
+        completed,
+        filial: currentFilial
       }).select().single();
       currentChecklistLog = newLog;
     }
@@ -2153,6 +2426,210 @@ async function sendTaskComment() {
         await notifyAdmin(`💬 <b>Новый комментарий к задаче</b>\n\n📋 ${task.title}\n👤 ${currentProfile?.name||''}: ${text}`);
       }
     }
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+// ============ KNOWLEDGE BASE ============
+let kbCurrentBookId = null;
+
+function kbCanEdit() { return currentProfile?.role === 'admin'; }
+
+function escapeHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function loadKnowledgeBase() {
+  kbCurrentBookId = null;
+  document.getElementById('kb-title').textContent = '📚 База знаний';
+  document.getElementById('kb-subtitle').textContent = 'Регламенты и стандарты';
+  const addBtn = document.getElementById('kb-add-book-btn');
+  if(addBtn) { addBtn.style.display = kbCanEdit() ? 'block' : 'none'; addBtn.onclick = openKbBookModal; addBtn.textContent = '+ Книга'; }
+
+  const content = document.getElementById('kb-content');
+  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  try {
+    const { data: books } = await sb.from('kb_books').select('*').order('sort_order').order('created_at');
+    if(!books || books.length===0) {
+      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📚</div><div class="empty-text">Пока нет ни одной книги'+(kbCanEdit()?'.<br>Нажми «+ Книга», чтобы создать первую.':'')+'</div></div></div>';
+      return;
+    }
+    // Count articles per book
+    const { data: allArticles } = await sb.from('kb_articles').select('book_id');
+    const counts = {};
+    (allArticles||[]).forEach(a=>{ counts[a.book_id]=(counts[a.book_id]||0)+1; });
+
+    content.innerHTML = books.map(b=>`
+      <div class="card" style="cursor:pointer;display:flex;align-items:center;gap:14px" onclick="openKbBook(${b.id})">
+        <div style="font-size:32px">${b.icon||'📖'}</div>
+        <div style="flex:1">
+          <div style="font-size:16px;font-weight:600;color:var(--text-primary)">${escapeHtml(b.title)}</div>
+          <div style="font-size:13px;color:var(--text-muted)">${counts[b.id]||0} ${pluralArticles(counts[b.id]||0)}</div>
+        </div>
+        <div style="font-size:20px;color:var(--text-muted)">›</div>
+      </div>`).join('');
+  } catch(e) { content.innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка загрузки. Возможно, база знаний ещё не настроена в Supabase.</div></div></div>'; }
+}
+
+function pluralArticles(n) {
+  const n10 = n%10, n100 = n%100;
+  if(n10===1 && n100!==11) return 'статья';
+  if(n10>=2 && n10<=4 && (n100<10||n100>=20)) return 'статьи';
+  return 'статей';
+}
+
+async function openKbBook(bookId) {
+  kbCurrentBookId = bookId;
+  const content = document.getElementById('kb-content');
+  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  try {
+    const { data: book } = await sb.from('kb_books').select('*').eq('id', bookId).single();
+    document.getElementById('kb-title').textContent = (book?.icon||'📖') + ' ' + (book?.title||'Книга');
+    document.getElementById('kb-subtitle').textContent = 'Нажми на статью, чтобы открыть';
+    const addBtn = document.getElementById('kb-add-book-btn');
+    if(addBtn) {
+      addBtn.style.display = kbCanEdit() ? 'block' : 'none';
+      addBtn.textContent = '+ Статья';
+      addBtn.onclick = () => openKbArticleModal(bookId);
+    }
+
+    const { data: articles } = await sb.from('kb_articles').select('*').eq('book_id', bookId).order('sort_order').order('created_at');
+
+    let html = `<div style="margin-bottom:12px"><button onclick="loadKnowledgeBase()" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">← Все книги</button>`;
+    if(kbCanEdit()) html += ` <button onclick="openKbBookModal(${book.id})" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">✏️ Изменить книгу</button>`;
+    html += `</div>`;
+
+    if(!articles || articles.length===0) {
+      html += '<div class="card"><div class="empty"><div class="empty-icon">📄</div><div class="empty-text">В этой книге пока нет статей'+(kbCanEdit()?'.<br>Нажми «+ Статья».':'')+'</div></div></div>';
+    } else {
+      html += articles.map(a=>`
+        <div class="card" style="cursor:pointer" onclick="openKbArticle(${a.id})">
+          <div style="font-size:15px;font-weight:600;color:var(--text-primary)">${escapeHtml(a.title)}</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:4px">${escapeHtml((a.content||'').slice(0,80))}${(a.content||'').length>80?'…':''}</div>
+        </div>`).join('');
+    }
+    content.innerHTML = html;
+  } catch(e) { content.innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка загрузки</div></div></div>'; }
+}
+
+async function openKbArticle(articleId) {
+  const content = document.getElementById('kb-content');
+  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  try {
+    const { data: a } = await sb.from('kb_articles').select('*').eq('id', articleId).single();
+    document.getElementById('kb-title').textContent = escapeHtml(a.title);
+    document.getElementById('kb-subtitle').textContent = '';
+    const addBtn = document.getElementById('kb-add-book-btn');
+    if(addBtn) addBtn.style.display = 'none';
+
+    let html = `<div style="margin-bottom:12px"><button onclick="openKbBook(${a.book_id})" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">← Назад</button>`;
+    if(kbCanEdit()) html += ` <button onclick="openKbArticleModal(${a.book_id}, ${a.id})" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">✏️ Редактировать</button>`;
+    html += `</div>`;
+    html += `<div class="card"><div style="font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:12px">${escapeHtml(a.title)}</div>
+      <div style="font-size:15px;color:var(--text-primary);line-height:1.7;white-space:pre-wrap">${escapeHtml(a.content||'')}</div></div>`;
+    content.innerHTML = html;
+  } catch(e) { content.innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка загрузки</div></div></div>'; }
+}
+
+// --- Book create/edit ---
+function openKbBookModal(bookId) {
+  if(!kbCanEdit()) return;
+  document.getElementById('kb-book-id').value = bookId || '';
+  const delBtn = document.getElementById('kb-book-delete-btn');
+  if(bookId) {
+    document.getElementById('kb-book-modal-title').textContent = 'Изменить книгу';
+    delBtn.style.display = 'block';
+    sb.from('kb_books').select('*').eq('id', bookId).single().then(({data})=>{
+      document.getElementById('kb-book-icon').value = data?.icon || '';
+      document.getElementById('kb-book-title').value = data?.title || '';
+    });
+  } else {
+    document.getElementById('kb-book-modal-title').textContent = 'Новая книга';
+    document.getElementById('kb-book-icon').value = '';
+    document.getElementById('kb-book-title').value = '';
+    delBtn.style.display = 'none';
+  }
+  openModal('modal-kb-book');
+}
+
+async function saveKbBook() {
+  const id = document.getElementById('kb-book-id').value;
+  const icon = document.getElementById('kb-book-icon').value.trim() || '📖';
+  const title = document.getElementById('kb-book-title').value.trim();
+  if(!title) return showToast('Введите название');
+  try {
+    if(id) {
+      await sb.from('kb_books').update({icon, title}).eq('id', id);
+    } else {
+      await sb.from('kb_books').insert({icon, title});
+    }
+    closeModal('modal-kb-book');
+    showToast('✅ Сохранено');
+    loadKnowledgeBase();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+async function deleteKbBook() {
+  const id = document.getElementById('kb-book-id').value;
+  if(!id) return;
+  if(!confirm('Удалить книгу вместе со всеми статьями? Это действие необратимо.')) return;
+  try {
+    await sb.from('kb_books').delete().eq('id', id);
+    closeModal('modal-kb-book');
+    showToast('✅ Книга удалена');
+    loadKnowledgeBase();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+// --- Article create/edit ---
+function openKbArticleModal(bookId, articleId) {
+  if(!kbCanEdit()) return;
+  document.getElementById('kb-article-book-id').value = bookId || '';
+  document.getElementById('kb-article-id').value = articleId || '';
+  const delBtn = document.getElementById('kb-article-delete-btn');
+  if(articleId) {
+    document.getElementById('kb-article-modal-title').textContent = 'Редактировать статью';
+    delBtn.style.display = 'block';
+    sb.from('kb_articles').select('*').eq('id', articleId).single().then(({data})=>{
+      document.getElementById('kb-article-title').value = data?.title || '';
+      document.getElementById('kb-article-content').value = data?.content || '';
+    });
+  } else {
+    document.getElementById('kb-article-modal-title').textContent = 'Новая статья';
+    document.getElementById('kb-article-title').value = '';
+    document.getElementById('kb-article-content').value = '';
+    delBtn.style.display = 'none';
+  }
+  openModal('modal-kb-article');
+}
+
+async function saveKbArticle() {
+  const id = document.getElementById('kb-article-id').value;
+  const bookId = document.getElementById('kb-article-book-id').value;
+  const title = document.getElementById('kb-article-title').value.trim();
+  const contentText = document.getElementById('kb-article-content').value;
+  if(!title) return showToast('Введите заголовок');
+  try {
+    if(id) {
+      await sb.from('kb_articles').update({title, content: contentText, updated_at: new Date().toISOString()}).eq('id', id);
+    } else {
+      await sb.from('kb_articles').insert({book_id: parseInt(bookId), title, content: contentText});
+    }
+    closeModal('modal-kb-article');
+    showToast('✅ Сохранено');
+    openKbBook(parseInt(bookId));
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+async function deleteKbArticle() {
+  const id = document.getElementById('kb-article-id').value;
+  const bookId = document.getElementById('kb-article-book-id').value;
+  if(!id) return;
+  if(!confirm('Удалить статью? Это действие необратимо.')) return;
+  try {
+    await sb.from('kb_articles').delete().eq('id', id);
+    closeModal('modal-kb-article');
+    showToast('✅ Статья удалена');
+    openKbBook(parseInt(bookId));
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
 
@@ -2352,18 +2829,24 @@ sb.auth.getSession().then(({ data }) => {
     <input type="hidden" id="edit-emp-id">
     <div class="form-group"><label class="form-label">Имя и фамилия</label><input class="form-input" id="edit-emp-name" placeholder="Алиша Каримова"></div>
     <div class="form-group"><label class="form-label">Должность</label>
-      <select class="form-select" id="edit-emp-role"><option>Бармен</option><option>Кальянный мастер</option><option>Официант</option><option>Администратор</option><option>Менеджер</option><option>Охранник</option><option>Уборщик</option><option>Старший кальянный мастер</option><option>Старший Бармен</option><option>Шеф повар</option><option>Су-шеф</option><option>Бар менеджер</option><option>Шеф бармен</option><option>Шеф кальянной станции</option></select>
+      <select class="form-select" id="edit-emp-role"><option>Бармен</option><option>Кальянщик</option><option>Официант</option><option>Администратор</option><option>Менеджер</option><option>Охранник</option><option>Уборщик</option></select>
     </div>
     <div class="form-group"><label class="form-label">Отдел (для графика)</label>
       <select class="form-select" id="edit-emp-department"><option>Официанты</option><option>Бармены</option><option>Кальянные мастера</option><option>Повара</option><option>Техперсонал</option><option>Менеджеры</option></select>
     </div>
     <div class="form-group"><label class="form-label">Телефон</label><input class="form-input" id="edit-emp-phone" placeholder="+998 90 123 45 67"></div>
-    <div class="form-group"><label class="form-label">Зарплата (сум)</label><input class="form-input" id="edit-emp-salary" type="number"></div>
+    <div class="form-group"><label class="form-label">Ставка за смену (сум)</label><input class="form-input" id="edit-emp-salary" type="number"></div>
     <div class="form-group"><label class="form-label">Статус</label>
       <select class="form-select" id="edit-emp-status"><option>Активен</option><option>Отпуск</option><option>Уволен</option></select>
     </div>
     <div class="form-group"><label class="form-label">Роль в системе</label>
       <select class="form-select" id="edit-emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option><option value="admin">Управляющий</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">На каких филиалах может работать</label>
+      <div class="filial-checkbox-group" id="edit-emp-filials-group">
+        <label><input type="checkbox" class="edit-emp-filial-checkbox" value="istikbol"> Истикбол</label>
+        <label><input type="checkbox" class="edit-emp-filial-checkbox" value="chekhov"> Чехов</label>
+      </div>
     </div>
     <button class="btn btn-primary" onclick="saveEmployee()">Сохранить</button>
     <div class="form-group" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
@@ -2401,6 +2884,7 @@ sb.auth.getSession().then(({ data }) => {
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-week-fill')">✕</button>
     <div class="modal-title">📆 Заполнить неделю</div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="wf-filial-display">—</div>
     <div class="form-group"><label class="form-label">Сотрудник</label>
       <select class="form-select" id="week-employee" onchange="renderWeekFillDays()"></select>
     </div>
@@ -2427,6 +2911,7 @@ sb.auth.getSession().then(({ data }) => {
     <div class="card" style="background:var(--surface-2);margin-bottom:16px">
       <div style="font-size:15px;font-weight:600;color:var(--text-primary)" id="sch-employee-display">—</div>
       <div style="font-size:13px;color:#999;margin-top:2px" id="sch-date-display">—</div>
+      <div style="font-size:12px;color:var(--gold-dark);margin-top:4px" id="sch-filial-display">—</div>
     </div>
     <div class="form-group">
       <label class="form-label">
