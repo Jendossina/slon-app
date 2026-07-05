@@ -64,6 +64,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .filial-checkbox-group { display: flex; gap: 16px; padding: 8px 4px; }
 .filial-checkbox-group label { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text-primary); cursor: pointer; }
 .filial-checkbox-group input { width: 18px; height: 18px; }
+
+/* Режим наблюдателя (BOSS): прячем все элементы создания/редактирования */
+body.boss-readonly .fab { display: none !important; }
+body.boss-readonly [data-edit-only] { display: none !important; }
 .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px 8px; border: none; background: none; color: var(--text-muted); font-size: 10px; cursor: pointer; }
 .nav-btn.active { color: var(--gold-dark); }
 [data-theme="dark"] .nav-btn.active { color: var(--gold); }
@@ -560,7 +564,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="form-group"><label class="form-label">Логин (без @slon.uz)</label><input class="form-input" id="emp-email" placeholder="alisha" type="text"></div>
     <div class="form-group"><label class="form-label">Пароль</label><input class="form-input" id="emp-password" placeholder="минимум 6 символов"></div>
     <div class="form-group"><label class="form-label">Роль в системе</label>
-      <select class="form-select" id="emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option></select>
+      <select class="form-select" id="emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option><option value="admin">Управляющий</option><option value="boss">Владелец (наблюдатель)</option></select>
     </div>
     <div class="form-group"><label class="form-label">На каких филиалах может работать</label>
       <div class="filial-checkbox-group" id="emp-filials-group">
@@ -732,6 +736,22 @@ let currentFilial = localStorage.getItem('slon-filial') || FILIALS[0].id;
 
 function getFilialName(id) { return FILIALS.find(f=>f.id===id)?.name || id; }
 
+// ===== РОЛИ И ПРАВА =====
+// employee — сотрудник (своё), manager — менеджер (всё кроме финансов и админки, но зарплаты видит),
+// admin — управляющий (всё), boss — владелец (видит всё как admin, но только чтение)
+function currentRole() { return currentProfile?.role || 'employee'; }
+function isBoss() { return currentRole() === 'boss'; }
+function isAdmin() { return currentRole() === 'admin'; }
+function isManager() { return currentRole() === 'manager'; }
+// Может ли реально что-то менять (BOSS — нет, только смотрит)
+function canEditData() { const r = currentRole(); return r === 'admin' || r === 'manager'; }
+// Видит финансы (доходы/расходы): управляющий и владелец
+function canSeeFinance() { const r = currentRole(); return r === 'admin' || r === 'boss'; }
+// Видит зарплаты: менеджер, управляющий, владелец
+function canSeeSalaryRole() { const r = currentRole(); return r === 'manager' || r === 'admin' || r === 'boss'; }
+// Видит админ-панель: управляющий и владелец (владелец — только смотрит)
+function canSeeAdminPanel() { const r = currentRole(); return r === 'admin' || r === 'boss'; }
+
 function renderFilialSwitcher() {
   const el = document.getElementById('filial-switcher');
   if(!el) return;
@@ -846,30 +866,39 @@ function showApp() {
 }
 
 function applyRolePermissions() {
-  const role = currentProfile?.role;
-  if(role === 'admin') {
-    ['fab-hr','fab-tasks','fab-finance','fab-crm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
-    const navAdmin = document.getElementById('nav-admin'); if(navAdmin) navAdmin.style.display='flex';
-  } else if(role === 'manager') {
-    ['fab-tasks','fab-crm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
+  const role = currentRole();
+  // FAB-кнопки (плавающие "+") — только тем, кто реально может редактировать
+  const fabAll = ['fab-hr','fab-tasks','fab-finance','fab-crm'];
+  fabAll.forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
+  if(canEditData()) {
+    if(role === 'admin') {
+      ['fab-hr','fab-tasks','fab-finance','fab-crm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
+    } else if(role === 'manager') {
+      ['fab-tasks','fab-crm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
+    }
   }
+  // Кнопка админ-панели в нижней навигации
+  const navAdmin = document.getElementById('nav-admin');
+  if(navAdmin) navAdmin.style.display = canSeeAdminPanel() ? 'flex' : 'none';
+
   if(role === 'employee') {
     const statsGrid = document.getElementById('home-stats-grid');
     if(statsGrid) statsGrid.style.display='none';
   }
+  // Пометка "режим наблюдателя" для владельца
+  document.body.classList.toggle('boss-readonly', isBoss());
 }
 
 function openMoreMenu() {
-  const role = currentProfile?.role;
   const items = [
     {id:'profile', label:'📄 Личный кабинет', show: true},
     {id:'knowledge', label:'📚 База знаний', show: true},
     {id:'supply', label:'🧴 Хозчасть', show: true},
     {id:'hr', label:'👥 Сотрудники', show: true},
     {id:'teamchat', label:'💬 Общий чат', show: true},
-    {id:'finance', label:'💰 Финансы', show: role!=='employee'},
+    {id:'finance', label:'💰 Финансы', show: canSeeFinance()},
     {id:'crm', label:'📋 Брони', show: true},
-    {id:'admin', label:'⚙️ Админ-панель', show: role==='admin'}
+    {id:'admin', label:'⚙️ Админ-панель', show: canSeeAdminPanel()}
   ];
   const menu = document.getElementById('more-menu-items');
   menu.innerHTML = items.filter(i=>i.show).map(i=>`
@@ -905,7 +934,7 @@ async function loadHome() {
   const role = currentProfile?.role;
   const name = currentProfile?.name || currentUser?.email;
   document.getElementById('home-welcome-text').textContent = `Привет, ${name}!`;
-  const roleLabels = { admin: '👑 Управляющий', manager: '📋 Менеджер', employee: '👤 Сотрудник' };
+  const roleLabels = { admin: '👑 Управляющий', manager: '📋 Менеджер', employee: '👤 Сотрудник', boss: '🦉 Владелец (наблюдатель)' };
   document.getElementById('home-role-text').textContent = roleLabels[role] || '';
   try {
     const todayStr = today();
@@ -975,8 +1004,16 @@ async function loadHome() {
     if(role !== 'employee') {
       const { data: books } = await sb.from('bookings').select('id').eq('date', todayStr).eq('filial', currentFilial);
       document.getElementById('home-bookings').textContent = (books||[]).length;
-      const { data: fins } = await sb.from('finances').select('amount').eq('date', todayStr).eq('type','income').eq('filial', currentFilial);
-      document.getElementById('home-revenue').textContent = formatNum((fins||[]).reduce((s,f)=>s+Number(f.amount),0));
+      const revEl = document.getElementById('home-revenue');
+      const revCard = revEl ? revEl.closest('.card') : null;
+      if(canSeeFinance()) {
+        const { data: fins } = await sb.from('finances').select('amount').eq('date', todayStr).eq('type','income').eq('filial', currentFilial);
+        revEl.textContent = formatNum((fins||[]).reduce((s,f)=>s+Number(f.amount),0));
+        if(revCard) revCard.style.display = '';
+      } else {
+        // менеджер не видит финансы — прячем карточку выручки
+        if(revCard) revCard.style.display = 'none';
+      }
     }
   } catch(e) { console.error(e); }
 }
@@ -1107,7 +1144,7 @@ async function loadProfile2() {
   const name = currentProfile?.name || currentUser?.email;
   document.getElementById('profile-name-label').textContent = name;
   const role = currentProfile?.role;
-  const roleLabels = { admin: '👑 Управляющий', manager: '📋 Менеджер', employee: '👤 Сотрудник' };
+  const roleLabels = { admin: '👑 Управляющий', manager: '📋 Менеджер', employee: '👤 Сотрудник', boss: '🦉 Владелец (наблюдатель)' };
 
   try {
     let html = `<div class="welcome" style="text-align:center">
@@ -1119,8 +1156,8 @@ async function loadProfile2() {
     if(currentProfile?.employee_id) {
       const { data: emp } = await sb.from('employees').select('*').eq('id', currentProfile.employee_id).single();
 
-      // Ставка за смену (видят только admin/manager)
-      if(emp?.salary && (role==='admin'||role==='manager')) {
+      // Ставка за смену (видят менеджер/управляющий/владелец)
+      if(emp?.salary && canSeeSalaryRole()) {
         html += `<div class="card"><div class="card-title">Ставка за смену</div><div class="stat-val">${formatNum(emp.salary)} сум</div></div>`;
       }
 
@@ -1214,7 +1251,7 @@ let hrShowAll = false;
 async function loadHR() {
   try {
     const role = currentProfile?.role;
-    const canSeeSalary = role === 'admin' || role === 'manager';
+    const canSeeSalary = canSeeSalaryRole();
     const { data: allEmps } = await sb.from('employees').select('*').order('name');
     const emps = hrShowAll ? (allEmps||[]) : (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
     document.getElementById('hr-count').textContent = hrShowAll
@@ -1238,8 +1275,7 @@ async function loadHR() {
 
 // Зарплатная ведомость за текущий месяц (admin/manager)
 async function openPayroll() {
-  const role = currentProfile?.role;
-  if(role!=='admin' && role!=='manager') return;
+  if(!canSeeSalaryRole()) return;
   openModal('modal-payroll');
   const body = document.getElementById('payroll-body');
   body.innerHTML = '<div class="loading">Считаю...</div>';
@@ -1293,6 +1329,7 @@ async function openPayroll() {
 }
 
 async function addEmployee() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const name = document.getElementById('emp-name').value.trim();
   const loginVal = document.getElementById('emp-email').value.trim();
   const email = loginVal.includes('@') ? loginVal : loginVal + '@slon.uz';
@@ -1334,6 +1371,7 @@ async function loadTasks() {
 }
 
 async function toggleTask(id, status) {
+  if(isBoss()) return showToast('Режим наблюдателя — редактирование недоступно');
   const newStatus = status==='done'?'pending':'done';
   await sb.from('tasks').update({status:newStatus}).eq('id',id);
   loadTasks(); loadHome();
@@ -1355,6 +1393,7 @@ async function loadTaskEmployees() {
 }
 
 async function addTask() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const title = document.getElementById('task-title').value.trim();
   const description = document.getElementById('task-description').value.trim();
   if(!title) return showToast('Введите задачу');
@@ -1482,6 +1521,7 @@ async function loadFinance() {
 }
 
 async function addFinance() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const amount = document.getElementById('fin-amount').value;
   if(!amount) return showToast('Введите сумму');
   try {
@@ -1509,6 +1549,7 @@ async function loadCRM() {
 }
 
 async function addBooking() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const name = document.getElementById('book-name').value.trim();
   if(!name) return showToast('Введите имя гостя');
   try {
@@ -1642,7 +1683,7 @@ async function loadAdminEmployees() {
           <div class="item-sub">${e.role||''} · <span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}" style="font-size:10px">${e.status||'Активен'}</span></div>
           <div class="item-sub">${e.salary?formatNum(e.salary)+' сум':''}</div>
         </div>
-        <button onclick="openEditEmployee(${e.id})" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">✏️</button>
+        ${!isBoss()?`<button onclick="openEditEmployee(${e.id})" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">✏️</button>`:''}
       </div>`).join('');
   } catch(e) { console.error(e); }
 }
@@ -1672,6 +1713,7 @@ async function openEditEmployee(id) {
 }
 
 async function saveEmployee() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const id = document.getElementById('edit-emp-id').value;
   const name = document.getElementById('edit-emp-name').value.trim();
   const role = document.getElementById('edit-emp-role').value;
@@ -1692,6 +1734,7 @@ async function saveEmployee() {
 }
 
 async function changePassword() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const pass = document.getElementById('edit-emp-password').value.trim();
   if(!pass || pass.length<6) return showToast('Пароль минимум 6 символов');
   const id = document.getElementById('edit-emp-id').value;
@@ -1725,6 +1768,7 @@ async function changePassword() {
 }
 
 async function deleteEmployee(id, name) {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   if(!confirm('Удалить сотрудника ' + name + '?')) return;
   await sb.from('profiles').delete().eq('employee_id', id);
   await sb.from('employees').delete().eq('id', id);
@@ -1735,6 +1779,7 @@ async function deleteEmployee(id, name) {
 
 // Удаление из карточки редактирования (берёт id/имя из открытой модалки)
 async function deleteEmployeeFromCard() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const id = document.getElementById('edit-emp-id').value;
   const name = document.getElementById('edit-emp-name').value || 'сотрудника';
   if(!id) return;
@@ -1798,12 +1843,14 @@ function clearTaskFilter() {
 }
 
 async function deleteTask(id) {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   await sb.from('tasks').delete().eq('id', id);
   showToast('✅ Задача удалена');
   loadAdminTasks(taskFilters);
 }
 
 async function deleteCompletedTasks() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   if(!confirm('Удалить все выполненные задачи?')) return;
   await sb.from('tasks').delete().eq('status','done');
   await logActivity('delete_tasks', 'Удалены все выполненные задачи');
@@ -1918,7 +1965,7 @@ async function loadSchedule() {
   const role = currentProfile?.role;
   const fabBtn = document.getElementById('fab-schedule-btn');
   const fabWeekBtn = document.getElementById('fab-week-btn');
-  const canEdit = (role==='admin'||role==='manager');
+  const canEdit = canEditData();
   if(fabBtn) fabBtn.style.display = canEdit ? 'block' : 'none';
   if(fabWeekBtn) fabWeekBtn.style.display = canEdit ? 'block' : 'none';
 
@@ -2157,6 +2204,7 @@ function applyToAllDays() {
 }
 
 async function saveWeekFill() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const sel = document.getElementById('week-employee');
   const empId = sel.value;
   const empName = sel.options[sel.selectedIndex]?.getAttribute('data-name') || '';
@@ -2189,6 +2237,7 @@ async function saveWeekFill() {
 }
 
 async function addSchedule() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const empId = quickEditEmpId;
   const empName = quickEditEmpName;
   const date = quickEditDate || today();
@@ -2222,6 +2271,7 @@ async function addSchedule() {
 }
 
 async function deleteSchedule(id) {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   await sb.from('schedules').delete().eq('id', id);
   showToast('✅ Удалено');
   loadScheduleGrid();
@@ -2524,7 +2574,7 @@ async function sendTaskComment() {
 // ============ KNOWLEDGE BASE ============
 let kbCurrentBookId = null;
 
-function kbCanEdit() { return currentProfile?.role === 'admin'; }
+function kbCanEdit() { return currentRole() === 'admin'; }
 
 function escapeHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -2644,6 +2694,7 @@ function openKbBookModal(bookId) {
 }
 
 async function saveKbBook() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const id = document.getElementById('kb-book-id').value;
   const icon = document.getElementById('kb-book-icon').value.trim() || '📖';
   const title = document.getElementById('kb-book-title').value.trim();
@@ -2661,6 +2712,7 @@ async function saveKbBook() {
 }
 
 async function deleteKbBook() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const id = document.getElementById('kb-book-id').value;
   if(!id) return;
   if(!confirm('Удалить книгу вместе со всеми статьями? Это действие необратимо.')) return;
@@ -2695,6 +2747,7 @@ function openKbArticleModal(bookId, articleId) {
 }
 
 async function saveKbArticle() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const id = document.getElementById('kb-article-id').value;
   const bookId = document.getElementById('kb-article-book-id').value;
   const title = document.getElementById('kb-article-title').value.trim();
@@ -2713,6 +2766,7 @@ async function saveKbArticle() {
 }
 
 async function deleteKbArticle() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const id = document.getElementById('kb-article-id').value;
   const bookId = document.getElementById('kb-article-book-id').value;
   if(!id) return;
@@ -2727,7 +2781,7 @@ async function deleteKbArticle() {
 
 // ============ ХОЗЧАСТЬ (SUPPLY) ============
 let supplyTab = 'stock';
-function supplyCanManage() { return currentProfile?.role === 'admin' || currentProfile?.role === 'manager'; }
+function supplyCanManage() { return canEditData(); }
 
 function switchSupplyTab(tab) {
   supplyTab = tab;
@@ -2777,7 +2831,7 @@ async function loadSupplyStock() {
           <div style="font-size:15px;font-weight:600;color:var(--text-primary)">${escapeHtml(it.name)}</div>
           <div style="font-size:13px;color:${low?'#A32D2D':'var(--text-muted)'}">Остаток: <b>${formatSupplyQty(q)} ${escapeHtml(it.unit)}</b>${supplyCanManage()&&val>0?` · ${formatNum(Math.round(val))} сум`:''}</div>
         </div>
-        <button onclick="openSupplyOut(${it.id})" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer">Взять</button>
+        ${!isBoss()?`<button onclick="openSupplyOut(${it.id})" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer">Взять</button>`:''}
         ${supplyCanManage()?`<button onclick="openSupplyIn(${it.id})" style="background:#e2efda;color:#3B6D11;border:none;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer">+ Приход</button>`:''}
       </div>`;
     }).join('');
@@ -2798,6 +2852,7 @@ function openSupplyItemModal() {
   openModal('modal-supply-item');
 }
 async function saveSupplyItem() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const name = document.getElementById('supply-item-name').value.trim();
   const unit = document.getElementById('supply-item-unit').value;
   if(!name) return showToast('Введите название');
@@ -2823,6 +2878,7 @@ async function openSupplyIn(itemId) {
   openModal('modal-supply-in');
 }
 async function saveSupplyIn() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const itemId = document.getElementById('supply-in-item-id').value;
   const qty = parseFloat(document.getElementById('supply-in-qty').value);
   const price = parseFloat(document.getElementById('supply-in-price').value);
@@ -2854,6 +2910,7 @@ async function openSupplyOut(itemId) {
   openModal('modal-supply-out');
 }
 async function saveSupplyOut() {
+  if(isBoss()) return showToast('Режим наблюдателя — редактирование недоступно');
   const itemId = parseInt(document.getElementById('supply-out-item-id').value);
   let qty = parseFloat(document.getElementById('supply-out-qty').value);
   const note = document.getElementById('supply-out-note').value.trim();
@@ -2981,7 +3038,7 @@ async function initTeamChat() {
 
   const nav = document.getElementById('teamchat-channels-nav');
   let visibleChannels;
-  if(role === 'admin') {
+  if(role === 'admin' || role === 'boss') {
     visibleChannels = CHAT_CHANNELS;
   } else if(role === 'manager') {
     visibleChannels = myDept && CHAT_CHANNELS.includes(myDept) ? [myDept, 'Управляющий состав'] : ['Управляющий состав'];
@@ -3083,6 +3140,7 @@ function pickTeamChatMedia() {
 }
 
 async function sendTeamChat() {
+  if(isBoss()) return showToast('Режим наблюдателя — вы можете только читать чат');
   const input = document.getElementById('teamchat-input');
   const text = input.value.trim();
   if(!text && !teamChatMediaFile) return;
@@ -3169,7 +3227,7 @@ sb.auth.getSession().then(({ data }) => {
       <select class="form-select" id="edit-emp-status"><option>Активен</option><option>Отпуск</option><option>Уволен</option></select>
     </div>
     <div class="form-group"><label class="form-label">Роль в системе</label>
-      <select class="form-select" id="edit-emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option><option value="admin">Управляющий</option></select>
+      <select class="form-select" id="edit-emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option><option value="admin">Управляющий</option><option value="boss">Владелец (наблюдатель)</option></select>
     </div>
     <div class="form-group"><label class="form-label">На каких филиалах может работать</label>
       <div class="filial-checkbox-group" id="edit-emp-filials-group">
