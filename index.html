@@ -1031,7 +1031,8 @@ function showScreen(name, btn) {
   closeModal('modal-more-menu');
   if(name==='home') loadHome();
   if(name==='hr') loadHR();
-  if(name==='tasks') loadTasks();
+  if(name==='tasks') { loadTasks(); startTasksPolling(); }
+  else { if(typeof stopTasksPolling === 'function') stopTasksPolling(); }
   if(name==='finance') loadFinance();
   if(name==='crm') loadCRM();
   if(name==='admin') loadAdmin();
@@ -3456,6 +3457,23 @@ function startTeamChatPolling() {
 }
 function stopTeamChatPolling() {
   if(teamChatPollInterval) { clearInterval(teamChatPollInterval); teamChatPollInterval = null; }
+}
+
+// Автообновление списка задач (чтобы фото-отчёты и статусы появлялись без перезагрузки)
+let tasksPollInterval = null;
+function startTasksPolling() {
+  stopTasksPolling();
+  tasksPollInterval = setInterval(() => {
+    const active = document.getElementById('screen-tasks')?.classList.contains('active');
+    if(!active) { stopTasksPolling(); return; }
+    // не обновляем, если открыта какая-либо модалка (чтобы не мешать)
+    const modalOpen = document.querySelector('.modal-overlay.open');
+    if(modalOpen) return;
+    loadTasks();
+  }, 8000);
+}
+function stopTasksPolling() {
+  if(tasksPollInterval) { clearInterval(tasksPollInterval); tasksPollInterval = null; }
 }
 
 async function loadTeamChat(isPoll) {
