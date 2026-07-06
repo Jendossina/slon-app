@@ -268,6 +268,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 
   <div class="screen" id="screen-tasks">
     <div class="header"><h1>Задачи</h1><p id="tasks-count">Загрузка...</p></div>
+    <div style="display:flex;gap:6px;padding:8px 12px 0;overflow-x:auto" id="tasks-day-switcher"></div>
     <div class="content"><div class="card" id="tasks-list"><div class="loading">Загрузка...</div></div></div>
     <button class="fab" id="fab-tasks" onclick="openModal('modal-add-task')" style="display:none">+</button>
   </div>
@@ -1535,17 +1536,51 @@ async function addEmployee() {
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
 
+let tasksSelectedDay = new Date().toISOString().slice(0,10); // по умолчанию сегодня; null = "Все дни"
+
+function renderTasksDaySwitcher() {
+  const el = document.getElementById('tasks-day-switcher');
+  if(!el) return;
+  const now = new Date();
+  const days = [];
+  // Вчера, сегодня, +5 дней вперёд
+  for(let i=-1; i<=5; i++) {
+    const d = new Date(now); d.setDate(now.getDate()+i);
+    const ds = d.toISOString().slice(0,10);
+    let label;
+    if(i===0) label = 'Сегодня';
+    else if(i===1) label = 'Завтра';
+    else if(i===-1) label = 'Вчера';
+    else label = d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+    days.push({ ds, label });
+  }
+  const chip = (active, onclick, label) =>
+    `<button onclick="${onclick}" style="flex:0 0 auto;padding:7px 13px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${active?'#A6803F':'var(--surface-2)'};color:${active?'#fff':'var(--text-primary)'}">${label}</button>`;
+  let html = chip(tasksSelectedDay===null, "selectTaskDay(null)", 'Все');
+  html += days.map(d=>chip(tasksSelectedDay===d.ds, `selectTaskDay('${d.ds}')`, d.label)).join('');
+  el.innerHTML = html;
+}
+
+function selectTaskDay(ds) {
+  tasksSelectedDay = ds;
+  renderTasksDaySwitcher();
+  loadTasks();
+}
+
 async function loadTasks() {
   try {
+    renderTasksDaySwitcher();
     const role = currentProfile?.role;
     let query = sb.from('tasks').select('*').order('due_date');
     if(role==='employee') query = query.eq('assigned_to_id', currentUser.id);
     else query = query.eq('filial', currentFilial);
+    if(tasksSelectedDay) query = query.eq('due_date', tasksSelectedDay);
     const { data: tasks } = await query;
     const done = (tasks||[]).filter(t=>t.status==='done').length;
-    document.getElementById('tasks-count').textContent = `${done} из ${(tasks||[]).length} выполнено`;
+    const dayLabel = tasksSelectedDay ? new Date(tasksSelectedDay).toLocaleDateString('ru-RU',{day:'numeric',month:'long'}) : 'все дни';
+    document.getElementById('tasks-count').textContent = `${dayLabel}: ${done} из ${(tasks||[]).length} выполнено`;
     const list = document.getElementById('tasks-list');
-    if(!tasks||tasks.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Задач нет</div></div>'; return; }
+    if(!tasks||tasks.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">На этот день задач нет</div></div>'; return; }
     list.innerHTML = tasks.map(t=>taskHTML(t)).join('');
   } catch(e) { document.getElementById('tasks-list').innerHTML='<div class="loading">Ошибка</div>'; }
 }
@@ -1609,6 +1644,7 @@ async function addTask() {
     ['task-title','task-description','task-due'].forEach(id=>document.getElementById(id).value='');
     document.querySelectorAll('.task-emp-checkbox').forEach(cb=>cb.checked=false);
     showToast(`✅ Задача назначена ${successCount} сотрудник${successCount>1?'ам':'у'}`);
+    tasksSelectedDay = dueDate; // показать день, на который создали задачу
     loadTasks();
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
