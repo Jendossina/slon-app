@@ -457,6 +457,20 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     </div>
   </div>
 
+  <!-- REVIEWS SCREEN -->
+  <div class="screen" id="screen-reviews">
+    <div class="header">
+      <div class="header-row">
+        <div><h1>⭐ Отзывы</h1><p id="reviews-subtitle">Отзывы гостей</p></div>
+        <button onclick="openReviewModal()" style="background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Отзыв</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;padding:10px 12px 0;overflow-x:auto" id="reviews-filters"></div>
+    <div class="content" id="reviews-content" style="padding:12px">
+      <div class="loading">Загрузка...</div>
+    </div>
+  </div>
+
     <nav class="bottom-nav">
     <button class="nav-btn active" onclick="showScreen('home',this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Главная
@@ -505,6 +519,38 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <button class="modal-close" onclick="closeModal('modal-more-menu')">✕</button>
     <div class="modal-title">Ещё</div>
     <div id="more-menu-items"></div>
+  </div>
+</div>
+
+<!-- REVIEW MODAL -->
+<div class="modal-overlay" id="modal-review">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-review')">✕</button>
+    <div class="modal-title">Новый отзыв</div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="review-filial-display">—</div>
+    <div class="form-group"><label class="form-label">Имя гостя (необязательно)</label><input class="form-input" id="review-guest" placeholder="Например: Акбар"></div>
+    <div class="form-group"><label class="form-label">Текст отзыва</label>
+      <textarea class="form-input" id="review-text" placeholder="Что сказал гость..." style="min-height:120px;resize:vertical;font-family:inherit;line-height:1.5"></textarea>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">🤖 Категория (бар/кухня) и тон определятся автоматически. После сохранения можно поправить вручную.</div>
+    <button class="btn btn-primary" onclick="saveReview()">Сохранить отзыв</button>
+  </div>
+</div>
+
+<!-- REVIEW EDIT MODAL -->
+<div class="modal-overlay" id="modal-review-edit">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-review-edit')">✕</button>
+    <div class="modal-title">Поправить отзыв</div>
+    <input type="hidden" id="review-edit-id">
+    <div class="form-group"><label class="form-label">Категория</label>
+      <select class="form-select" id="review-edit-category"><option value="bar">🍹 Бар</option><option value="kitchen">🍽️ Кухня</option><option value="other">💬 Прочее</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">Тональность</label>
+      <select class="form-select" id="review-edit-sentiment"><option value="positive">👍 Положительный</option><option value="negative">👎 Отрицательный</option><option value="neutral">😐 Нейтральный</option></select>
+    </div>
+    <button class="btn btn-primary" onclick="saveReviewEdit()">Сохранить</button>
+    <button class="btn btn-secondary" onclick="deleteReview()" style="margin-top:8px;background:#FCEBEB;color:#A32D2D">Удалить отзыв</button>
   </div>
 </div>
 
@@ -868,6 +914,7 @@ function switchFilial(id) {
   if(document.getElementById('screen-hr')?.classList.contains('active') && typeof loadHR === 'function') loadHR();
   if(document.getElementById('screen-supply')?.classList.contains('active') && typeof loadSupply === 'function') loadSupply();
   if(document.getElementById('screen-crm')?.classList.contains('active') && typeof loadCRM === 'function') loadCRM();
+  if(document.getElementById('screen-reviews')?.classList.contains('active') && typeof loadReviews === 'function') loadReviews();
   if(document.getElementById('screen-admin')?.classList.contains('active')) {
     if(currentAdminTab==='tasks' && typeof loadAdminTasks === 'function') loadAdminTasks(taskFilters||{});
     if(currentAdminTab==='checklists' && typeof loadAdminChecklists === 'function') loadAdminChecklists();
@@ -1010,6 +1057,7 @@ function openMoreMenu() {
     {id:'knowledge', label:'📚 База знаний', show: true},
     {id:'supply', label:'🧴 Хозчасть', show: true},
     {id:'directory', label:'📇 Справочник', show: canEditData() || isBoss()},
+    {id:'reviews', label:'⭐ Отзывы', show: true},
     {id:'hr', label:'👥 Сотрудники', show: true},
     {id:'teamchat', label:'💬 Общий чат', show: true},
     {id:'finance', label:'💰 Финансы', show: canSeeFinance()},
@@ -1043,6 +1091,7 @@ function showScreen(name, btn) {
   if(name==='knowledge') loadKnowledgeBase();
   if(name==='supply') loadSupply();
   if(name==='directory') loadDirectory();
+  if(name==='reviews') loadReviews();
 }
 
 async function loadHome() {
@@ -3388,6 +3437,141 @@ async function deleteDirectory() {
     closeModal('modal-directory');
     showToast('✅ Удалено');
     loadDirectory();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+// ============ ОТЗЫВЫ (REVIEWS) ============
+let reviewFilter = 'all';
+
+const REVIEW_CATS = { bar:'🍹 Бар', kitchen:'🍽️ Кухня', other:'💬 Прочее' };
+const REVIEW_SENT = { positive:'👍', negative:'👎', neutral:'😐' };
+const REVIEW_SENT_LABEL = { positive:'Положительный', negative:'Отрицательный', neutral:'Нейтральный' };
+
+function openReviewModal() {
+  document.getElementById('review-guest').value = '';
+  document.getElementById('review-text').value = '';
+  document.getElementById('review-filial-display').textContent = '📍 Отзыв по филиалу: ' + getFilialName(currentFilial);
+  openModal('modal-review');
+}
+
+async function saveReview() {
+  const text = document.getElementById('review-text').value.trim();
+  const guest = document.getElementById('review-guest').value.trim();
+  if(!text) return showToast('Введите текст отзыва');
+  showToast('🤖 Анализирую отзыв...');
+  let category = 'other', sentiment = 'neutral';
+  // Пробуем разобрать через ИИ
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    const res = await fetch('https://omeomdkurvtvirhfkffu.supabase.co/functions/v1/analyze-review', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_KEY, 'Authorization':'Bearer '+(accessToken||SUPABASE_KEY) },
+      body: JSON.stringify({ text })
+    });
+    const result = await res.json();
+    if(result.category) category = result.category;
+    if(result.sentiment) sentiment = result.sentiment;
+  } catch(e) { /* если ИИ недоступен — сохраним с значениями по умолчанию, поправят вручную */ }
+
+  try {
+    await sb.from('reviews').insert({
+      text, guest_name: guest||null, category, sentiment, filial: currentFilial,
+      created_by: currentUser.id, created_by_name: currentProfile?.name || currentUser?.email
+    });
+    closeModal('modal-review');
+    showToast('✅ Отзыв сохранён');
+    loadReviews();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+async function loadReviews() {
+  document.getElementById('reviews-subtitle').textContent = 'Филиал: ' + getFilialName(currentFilial);
+  // Фильтры
+  const filters = [
+    { id:'all', label:'Все' },
+    { id:'bar', label:'🍹 Бар' },
+    { id:'kitchen', label:'🍽️ Кухня' },
+    { id:'positive', label:'👍 Хорошие' },
+    { id:'negative', label:'👎 Плохие' }
+  ];
+  document.getElementById('reviews-filters').innerHTML = filters.map(f=>`<button onclick="setReviewFilter('${f.id}')" style="flex:0 0 auto;padding:7px 13px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${f.id===reviewFilter?'#A6803F':'var(--surface-2)'};color:${f.id===reviewFilter?'#fff':'var(--text-primary)'}">${f.label}</button>`).join('');
+
+  const content = document.getElementById('reviews-content');
+  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  try {
+    let query = sb.from('reviews').select('*').eq('filial', currentFilial).order('created_at',{ascending:false});
+    if(['bar','kitchen','other'].includes(reviewFilter)) query = query.eq('category', reviewFilter);
+    if(['positive','negative','neutral'].includes(reviewFilter)) query = query.eq('sentiment', reviewFilter);
+    const { data: reviews } = await query;
+
+    if(!reviews || reviews.length===0) {
+      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">⭐</div><div class="empty-text">Отзывов пока нет</div></div></div>';
+      return;
+    }
+
+    // Сводка сверху (только для all)
+    let summary = '';
+    if(reviewFilter==='all') {
+      const pos = reviews.filter(r=>r.sentiment==='positive').length;
+      const neg = reviews.filter(r=>r.sentiment==='negative').length;
+      const bar = reviews.filter(r=>r.category==='bar').length;
+      const kit = reviews.filter(r=>r.category==='kitchen').length;
+      summary = `<div class="card" style="display:flex;justify-content:space-around;text-align:center;padding:14px">
+        <div><div style="font-size:20px;font-weight:700;color:#3B6D11">${pos}</div><div style="font-size:11px;color:var(--text-muted)">👍 хороших</div></div>
+        <div><div style="font-size:20px;font-weight:700;color:#A32D2D">${neg}</div><div style="font-size:11px;color:var(--text-muted)">👎 плохих</div></div>
+        <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">${bar}</div><div style="font-size:11px;color:var(--text-muted)">🍹 бар</div></div>
+        <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">${kit}</div><div style="font-size:11px;color:var(--text-muted)">🍽️ кухня</div></div>
+      </div>`;
+    }
+
+    content.innerHTML = summary + reviews.map(r=>{
+      const border = r.sentiment==='positive'?'#3B6D11':r.sentiment==='negative'?'#A32D2D':'var(--border)';
+      return `<div class="card" style="border-left:3px solid ${border}">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:8px;margin-bottom:6px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span style="background:var(--surface-2);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600">${REVIEW_CATS[r.category]||'💬'}</span>
+            <span style="background:var(--surface-2);border-radius:6px;padding:2px 8px;font-size:11px">${REVIEW_SENT[r.sentiment]||''} ${REVIEW_SENT_LABEL[r.sentiment]||''}</span>
+          </div>
+          ${canEditData()?`<button onclick="openReviewEdit(${r.id},'${r.category}','${r.sentiment}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px">✏️</button>`:''}
+        </div>
+        <div style="font-size:14px;color:var(--text-primary);line-height:1.5">${escapeHtml(r.text)}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${r.guest_name?escapeHtml(r.guest_name)+' · ':''}${new Date(r.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}${r.created_by_name?' · записал '+escapeHtml(r.created_by_name):''}</div>
+      </div>`;
+    }).join('');
+  } catch(e) { content.innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка. Возможно, отзывы ещё не настроены в Supabase.</div></div></div>'; }
+}
+
+function setReviewFilter(f) { reviewFilter = f; loadReviews(); }
+
+function openReviewEdit(id, category, sentiment) {
+  if(!canEditData()) return;
+  document.getElementById('review-edit-id').value = id;
+  document.getElementById('review-edit-category').value = category;
+  document.getElementById('review-edit-sentiment').value = sentiment;
+  openModal('modal-review-edit');
+}
+
+async function saveReviewEdit() {
+  const id = document.getElementById('review-edit-id').value;
+  const category = document.getElementById('review-edit-category').value;
+  const sentiment = document.getElementById('review-edit-sentiment').value;
+  try {
+    await sb.from('reviews').update({category, sentiment}).eq('id', id);
+    closeModal('modal-review-edit');
+    showToast('✅ Обновлено');
+    loadReviews();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+async function deleteReview() {
+  const id = document.getElementById('review-edit-id').value;
+  if(!confirm('Удалить отзыв?')) return;
+  try {
+    await sb.from('reviews').delete().eq('id', id);
+    closeModal('modal-review-edit');
+    showToast('✅ Удалено');
+    loadReviews();
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
 
