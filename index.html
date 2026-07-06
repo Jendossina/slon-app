@@ -544,7 +544,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="modal-title">Поправить отзыв</div>
     <input type="hidden" id="review-edit-id">
     <div class="form-group"><label class="form-label">Категория</label>
-      <select class="form-select" id="review-edit-category"><option value="bar">🍹 Бар</option><option value="kitchen">🍽️ Кухня</option><option value="other">💬 Прочее</option></select>
+      <select class="form-select" id="review-edit-category"><option value="bar">🍹 Бар</option><option value="kitchen">🍽️ Кухня</option><option value="hookah">💨 Кальян</option><option value="other">💬 Прочее</option></select>
     </div>
     <div class="form-group"><label class="form-label">Тональность</label>
       <select class="form-select" id="review-edit-sentiment"><option value="positive">👍 Положительный</option><option value="negative">👎 Отрицательный</option><option value="neutral">😐 Нейтральный</option></select>
@@ -3443,7 +3443,7 @@ async function deleteDirectory() {
 // ============ ОТЗЫВЫ (REVIEWS) ============
 let reviewFilter = 'all';
 
-const REVIEW_CATS = { bar:'🍹 Бар', kitchen:'🍽️ Кухня', other:'💬 Прочее' };
+const REVIEW_CATS = { bar:'🍹 Бар', kitchen:'🍽️ Кухня', hookah:'💨 Кальян', other:'💬 Прочее' };
 const REVIEW_SENT = { positive:'👍', negative:'👎', neutral:'😐' };
 const REVIEW_SENT_LABEL = { positive:'Положительный', negative:'Отрицательный', neutral:'Нейтральный' };
 
@@ -3492,6 +3492,7 @@ async function loadReviews() {
     { id:'all', label:'Все' },
     { id:'bar', label:'🍹 Бар' },
     { id:'kitchen', label:'🍽️ Кухня' },
+    { id:'hookah', label:'💨 Кальян' },
     { id:'positive', label:'👍 Хорошие' },
     { id:'negative', label:'👎 Плохие' }
   ];
@@ -3501,7 +3502,7 @@ async function loadReviews() {
   content.innerHTML = '<div class="loading">Загрузка...</div>';
   try {
     let query = sb.from('reviews').select('*').eq('filial', currentFilial).order('created_at',{ascending:false});
-    if(['bar','kitchen','other'].includes(reviewFilter)) query = query.eq('category', reviewFilter);
+    if(['bar','kitchen','hookah','other'].includes(reviewFilter)) query = query.eq('category', reviewFilter);
     if(['positive','negative','neutral'].includes(reviewFilter)) query = query.eq('sentiment', reviewFilter);
     const { data: reviews } = await query;
 
@@ -3510,18 +3511,42 @@ async function loadReviews() {
       return;
     }
 
-    // Сводка сверху (только для all)
+    // Рейтинг-соревнование отделов (только на вкладке "Все")
     let summary = '';
     if(reviewFilter==='all') {
-      const pos = reviews.filter(r=>r.sentiment==='positive').length;
-      const neg = reviews.filter(r=>r.sentiment==='negative').length;
-      const bar = reviews.filter(r=>r.category==='bar').length;
-      const kit = reviews.filter(r=>r.category==='kitchen').length;
-      summary = `<div class="card" style="display:flex;justify-content:space-around;text-align:center;padding:14px">
-        <div><div style="font-size:20px;font-weight:700;color:#3B6D11">${pos}</div><div style="font-size:11px;color:var(--text-muted)">👍 хороших</div></div>
-        <div><div style="font-size:20px;font-weight:700;color:#A32D2D">${neg}</div><div style="font-size:11px;color:var(--text-muted)">👎 плохих</div></div>
-        <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">${bar}</div><div style="font-size:11px;color:var(--text-muted)">🍹 бар</div></div>
-        <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">${kit}</div><div style="font-size:11px;color:var(--text-muted)">🍽️ кухня</div></div>
+      // Считаем баллы по всем отзывам филиала (не только показанным)
+      const { data: allRev } = await sb.from('reviews').select('category,sentiment').eq('filial', currentFilial);
+      const depts = [
+        { id:'bar', label:'🍹 Бар' },
+        { id:'kitchen', label:'🍽️ Кухня' },
+        { id:'hookah', label:'💨 Кальян' }
+      ];
+      const scores = depts.map(d=>{
+        const list = (allRev||[]).filter(r=>r.category===d.id);
+        const pos = list.filter(r=>r.sentiment==='positive').length;
+        const neg = list.filter(r=>r.sentiment==='negative').length;
+        return { ...d, pos, neg, score: pos-neg, total: list.length };
+      }).sort((a,b)=>b.score-a.score);
+
+      const medals = ['🥇','🥈','🥉'];
+      const maxAbs = Math.max(1, ...scores.map(s=>Math.abs(s.score)));
+      summary = `<div class="card" style="background:linear-gradient(135deg,#2d2416,#4a3a1f);border:none;color:#f0e9db">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px">🏆 Битва отделов</div>
+        ${scores.map((s,i)=>{
+          const barW = Math.round(Math.abs(s.score)/maxAbs*100);
+          const barColor = s.score>=0 ? '#7ec850' : '#e06666';
+          return `<div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span style="font-size:14px;font-weight:600">${medals[i]||''} ${s.label}</span>
+              <span style="font-size:15px;font-weight:700;color:${s.score>=0?'#a3e07a':'#ff9b9b'}">${s.score>0?'+':''}${s.score} балл.</span>
+            </div>
+            <div style="background:rgba(255,255,255,0.12);border-radius:6px;height:8px;overflow:hidden">
+              <div style="width:${barW}%;height:100%;background:${barColor};border-radius:6px"></div>
+            </div>
+            <div style="font-size:11px;opacity:0.65;margin-top:3px">👍 ${s.pos} · 👎 ${s.neg} · всего ${s.total}</div>
+          </div>`;
+        }).join('')}
+        <div style="font-size:11px;opacity:0.55;margin-top:4px">Балл = хорошие минус плохие отзывы. За всё время.</div>
       </div>`;
     }
 
