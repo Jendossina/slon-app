@@ -242,6 +242,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
         <h3 id="home-welcome-text">Добро пожаловать!</h3>
         <p id="home-role-text"></p>
       </div>
+      <div id="home-announcements"></div>
       <div id="home-shift-card"></div>
       <div id="home-attendance-card"></div>
       <div id="home-salary-card"></div>
@@ -422,6 +423,9 @@ body.boss-readonly [data-edit-only] { display: none !important; }
         <button id="kb-add-book-btn" onclick="openKbBookModal()" style="display:none;background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Книга</button>
       </div>
     </div>
+    <div style="padding:10px 12px 0">
+      <input class="form-input" id="kb-search" placeholder="🔍 Поиск по базе знаний..." oninput="kbSearch(this.value)" style="margin:0">
+    </div>
     <div class="content" id="kb-content" style="padding:12px">
       <div class="loading">Загрузка...</div>
     </div>
@@ -468,6 +472,19 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     </div>
     <div style="display:flex;gap:6px;padding:10px 12px 0;overflow-x:auto" id="reviews-filters"></div>
     <div class="content" id="reviews-content" style="padding:12px">
+      <div class="loading">Загрузка...</div>
+    </div>
+  </div>
+
+  <!-- ANNOUNCEMENTS SCREEN -->
+  <div class="screen" id="screen-announcements">
+    <div class="header">
+      <div class="header-row">
+        <div><h1>📢 Объявления</h1><p id="ann-subtitle">Новости и важное</p></div>
+        <button id="ann-add-btn" onclick="openAnnouncementModal()" style="display:none;background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Объявление</button>
+      </div>
+    </div>
+    <div class="content" id="announcements-content" style="padding:12px">
       <div class="loading">Загрузка...</div>
     </div>
   </div>
@@ -520,6 +537,26 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <button class="modal-close" onclick="closeModal('modal-more-menu')">✕</button>
     <div class="modal-title">Ещё</div>
     <div id="more-menu-items"></div>
+  </div>
+</div>
+
+<!-- ANNOUNCEMENT MODAL -->
+<div class="modal-overlay" id="modal-announcement">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-announcement')">✕</button>
+    <div class="modal-title">Новое объявление</div>
+    <div class="form-group"><label class="form-label">Заголовок</label><input class="form-input" id="ann-title" placeholder="Например: Завтра проверка СЭС"></div>
+    <div class="form-group"><label class="form-label">Текст</label>
+      <textarea class="form-input" id="ann-text" placeholder="Подробности..." style="min-height:100px;resize:vertical;font-family:inherit;line-height:1.5"></textarea>
+    </div>
+    <div class="form-group"><label class="form-label">Для какого филиала</label>
+      <select class="form-select" id="ann-filial"><option value="">Все филиалы</option><option value="istikbol">Истикбол</option><option value="chekhov">Чехов</option></select>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text-primary);cursor:pointer;margin-bottom:14px">
+      <input type="checkbox" id="ann-important" style="width:18px;height:18px">
+      🔴 Важное (закрепить вверху и на главной)
+    </label>
+    <button class="btn btn-primary" onclick="saveAnnouncement()">Опубликовать</button>
   </div>
 </div>
 
@@ -916,6 +953,7 @@ function switchFilial(id) {
   if(document.getElementById('screen-supply')?.classList.contains('active') && typeof loadSupply === 'function') loadSupply();
   if(document.getElementById('screen-crm')?.classList.contains('active') && typeof loadCRM === 'function') loadCRM();
   if(document.getElementById('screen-reviews')?.classList.contains('active') && typeof loadReviews === 'function') loadReviews();
+  if(document.getElementById('screen-announcements')?.classList.contains('active') && typeof loadAnnouncements === 'function') loadAnnouncements();
   if(document.getElementById('screen-admin')?.classList.contains('active')) {
     if(currentAdminTab==='tasks' && typeof loadAdminTasks === 'function') loadAdminTasks(taskFilters||{});
     if(currentAdminTab==='checklists' && typeof loadAdminChecklists === 'function') loadAdminChecklists();
@@ -1059,6 +1097,7 @@ function openMoreMenu() {
     {id:'supply', label:'🧴 Хозчасть', show: true},
     {id:'directory', label:'📇 Справочник', show: canEditData() || isBoss()},
     {id:'reviews', label:'⭐ Отзывы', show: true},
+    {id:'announcements', label:'📢 Объявления', show: true},
     {id:'hr', label:'👥 Сотрудники', show: true},
     {id:'teamchat', label:'💬 Общий чат', show: true},
     {id:'finance', label:'💰 Финансы', show: canSeeFinance()},
@@ -1093,6 +1132,7 @@ function showScreen(name, btn) {
   if(name==='supply') loadSupply();
   if(name==='directory') loadDirectory();
   if(name==='reviews') loadReviews();
+  if(name==='announcements') loadAnnouncements();
 }
 
 async function loadHome() {
@@ -1104,6 +1144,7 @@ async function loadHome() {
   document.getElementById('home-welcome-text').textContent = `Привет, ${name}!`;
   const roleLabels = { admin: '👑 Управляющий', manager: '📋 Менеджер', employee: '👤 Сотрудник', boss: '🦉 Владелец (наблюдатель)' };
   document.getElementById('home-role-text').textContent = roleLabels[role] || '';
+  loadHomeAnnouncements();
   try {
     const todayStr = today();
     let tasksQuery = sb.from('tasks').select('*').eq('due_date', todayStr);
@@ -2914,6 +2955,8 @@ function escapeHtml(s) {
 
 async function loadKnowledgeBase() {
   kbCurrentBookId = null;
+  const searchEl = document.getElementById('kb-search');
+  if(searchEl && document.activeElement !== searchEl) searchEl.value = '';
   document.getElementById('kb-title').textContent = '📚 База знаний';
   document.getElementById('kb-subtitle').textContent = 'Регламенты и стандарты';
   const addBtn = document.getElementById('kb-add-book-btn');
@@ -2949,6 +2992,55 @@ function pluralArticles(n) {
   if(n10===1 && n100!==11) return 'статья';
   if(n10>=2 && n10<=4 && (n100<10||n100>=20)) return 'статьи';
   return 'статей';
+}
+
+// Поиск по базе знаний (по заголовкам и тексту всех статей)
+let kbSearchTimer = null;
+function kbSearch(q) {
+  clearTimeout(kbSearchTimer);
+  kbSearchTimer = setTimeout(()=>runKbSearch(q), 300);
+}
+
+async function runKbSearch(q) {
+  q = (q||'').trim().toLowerCase();
+  const content = document.getElementById('kb-content');
+  if(q.length < 2) { loadKnowledgeBase(); return; }
+  document.getElementById('kb-title').textContent = '🔍 Поиск';
+  document.getElementById('kb-subtitle').textContent = 'Результаты по запросу «'+q+'»';
+  const addBtn = document.getElementById('kb-add-book-btn');
+  if(addBtn) addBtn.style.display = 'none';
+  content.innerHTML = '<div class="loading">Ищу...</div>';
+  try {
+    const { data: books } = await sb.from('kb_books').select('id,title,icon');
+    const bookMap = {}; (books||[]).forEach(b=>bookMap[b.id]=b);
+    const { data: articles } = await sb.from('kb_articles').select('*');
+    const results = (articles||[]).filter(a=>
+      (a.title||'').toLowerCase().includes(q) || (a.content||'').toLowerCase().includes(q)
+    );
+    if(results.length===0) {
+      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">Ничего не найдено</div></div></div>';
+      return;
+    }
+    content.innerHTML = `<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Найдено: ${results.length}</div>` +
+      results.map(a=>{
+        const book = bookMap[a.book_id] || {};
+        // короткий фрагмент вокруг найденного слова
+        const lc = (a.content||'').toLowerCase();
+        const pos = lc.indexOf(q);
+        let snippet = '';
+        if(pos>=0) {
+          const start = Math.max(0, pos-40);
+          snippet = (start>0?'…':'') + (a.content||'').slice(start, pos+q.length+60) + '…';
+        } else {
+          snippet = (a.content||'').slice(0,100);
+        }
+        return `<div class="card" style="cursor:pointer" onclick="openKbArticle(${a.id})">
+          <div style="font-size:11px;color:var(--gold-dark);margin-bottom:2px">${book.icon||'📖'} ${escapeHtml(book.title||'')}</div>
+          <div style="font-size:15px;font-weight:600;color:var(--text-primary)">${escapeHtml(a.title)}</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:4px">${escapeHtml(snippet)}</div>
+        </div>`;
+      }).join('');
+  } catch(e) { content.innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка поиска</div></div></div>'; }
 }
 
 async function openKbBook(bookId) {
@@ -3474,6 +3566,95 @@ async function deleteDirectory() {
     showToast('✅ Удалено');
     loadDirectory();
   } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+// ============ ОБЪЯВЛЕНИЯ (ANNOUNCEMENTS) ============
+function openAnnouncementModal() {
+  if(!canEditData()) return;
+  ['ann-title','ann-text'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('ann-filial').value = '';
+  document.getElementById('ann-important').checked = false;
+  openModal('modal-announcement');
+}
+
+async function saveAnnouncement() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
+  const title = document.getElementById('ann-title').value.trim();
+  const text = document.getElementById('ann-text').value.trim();
+  const filial = document.getElementById('ann-filial').value || null;
+  const important = document.getElementById('ann-important').checked;
+  if(!title) return showToast('Введите заголовок');
+  try {
+    await sb.from('announcements').insert({
+      title, text, is_important: important, filial,
+      created_by: currentUser.id, created_by_name: currentProfile?.name || currentUser?.email
+    });
+    closeModal('modal-announcement');
+    showToast('✅ Объявление опубликовано');
+    loadAnnouncements();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+async function loadAnnouncements() {
+  const addBtn = document.getElementById('ann-add-btn');
+  if(addBtn) addBtn.style.display = canEditData() ? 'block' : 'none';
+  const content = document.getElementById('announcements-content');
+  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  try {
+    // объявления для текущего филиала ИЛИ общие (filial null)
+    const { data: anns } = await sb.from('announcements').select('*')
+      .or(`filial.eq.${currentFilial},filial.is.null`)
+      .order('is_important',{ascending:false}).order('created_at',{ascending:false});
+    if(!anns || anns.length===0) {
+      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📢</div><div class="empty-text">Объявлений пока нет</div></div></div>';
+      return;
+    }
+    content.innerHTML = anns.map(a=>annCard(a)).join('');
+  } catch(e) { content.innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка. Возможно, объявления ещё не настроены в Supabase.</div></div></div>'; }
+}
+
+function annCard(a) {
+  const imp = a.is_important;
+  const scope = a.filial ? getFilialName(a.filial) : 'Все филиалы';
+  return `<div class="card" style="${imp?'border-left:3px solid #A32D2D;':''}">
+    <div style="display:flex;justify-content:space-between;align-items:start;gap:8px">
+      <div style="font-size:16px;font-weight:700;color:var(--text-primary)">${imp?'🔴 ':''}${escapeHtml(a.title)}</div>
+      ${canEditData()?`<button onclick="deleteAnnouncement(${a.id})" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px">🗑</button>`:''}
+    </div>
+    ${a.text?`<div style="font-size:14px;color:var(--text-primary);line-height:1.6;margin-top:6px;white-space:pre-wrap">${escapeHtml(a.text)}</div>`:''}
+    <div style="font-size:12px;color:var(--text-muted);margin-top:8px">${new Date(a.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'long'})} · ${escapeHtml(a.created_by_name||'')} · 📍 ${scope}</div>
+  </div>`;
+}
+
+async function deleteAnnouncement(id) {
+  if(!canEditData()) return;
+  if(!confirm('Удалить объявление?')) return;
+  try {
+    await sb.from('announcements').delete().eq('id', id);
+    showToast('✅ Удалено');
+    loadAnnouncements();
+    if(typeof loadHome==='function' && document.getElementById('screen-home')?.classList.contains('active')) loadHome();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+// Важные объявления на главном экране
+async function loadHomeAnnouncements() {
+  const el = document.getElementById('home-announcements');
+  if(!el) return;
+  el.innerHTML = '';
+  try {
+    const { data: anns } = await sb.from('announcements').select('*')
+      .eq('is_important', true)
+      .or(`filial.eq.${currentFilial},filial.is.null`)
+      .order('created_at',{ascending:false}).limit(3);
+    if(!anns || anns.length===0) return;
+    el.innerHTML = anns.map(a=>`
+      <div class="card" style="background:linear-gradient(135deg,#3a1f1f,#5a2d2d);border:none;color:#f5e9e9;margin-bottom:12px;cursor:pointer" onclick="showScreen('announcements',null)">
+        <div style="font-size:11px;opacity:0.7;margin-bottom:4px">📢 ВАЖНОЕ ОБЪЯВЛЕНИЕ</div>
+        <div style="font-size:16px;font-weight:700">${escapeHtml(a.title)}</div>
+        ${a.text?`<div style="font-size:13px;opacity:0.9;margin-top:4px;line-height:1.5">${escapeHtml(a.text.slice(0,120))}${a.text.length>120?'…':''}</div>`:''}
+      </div>`).join('');
+  } catch(e) { /* тихо */ }
 }
 
 // ============ ОТЗЫВЫ (REVIEWS) ============
