@@ -489,6 +489,19 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     </div>
   </div>
 
+  <!-- POLLS SCREEN -->
+  <div class="screen" id="screen-polls">
+    <div class="header">
+      <div class="header-row">
+        <div><h1>📊 Опросы</h1><p id="polls-subtitle">Мнение команды</p></div>
+        <button id="polls-add-btn" onclick="openPollModal()" style="display:none;background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Опрос</button>
+      </div>
+    </div>
+    <div class="content" id="polls-content" style="padding:12px">
+      <div class="loading">Загрузка...</div>
+    </div>
+  </div>
+
     <nav class="bottom-nav">
     <button class="nav-btn active" onclick="showScreen('home',this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Главная
@@ -537,6 +550,27 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <button class="modal-close" onclick="closeModal('modal-more-menu')">✕</button>
     <div class="modal-title">Ещё</div>
     <div id="more-menu-items"></div>
+  </div>
+</div>
+
+<!-- POLL MODAL -->
+<div class="modal-overlay" id="modal-poll">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-poll')">✕</button>
+    <div class="modal-title">Новый опрос</div>
+    <div class="form-group"><label class="form-label">Вопрос</label><input class="form-input" id="poll-question" placeholder="Например: Какой график удобнее?"></div>
+    <div class="form-group"><label class="form-label">Варианты ответа</label>
+      <div id="poll-options-list"></div>
+      <button onclick="addPollOption()" style="background:var(--surface-2);color:var(--text-primary);border:1px dashed var(--border);border-radius:8px;padding:8px;width:100%;font-size:13px;cursor:pointer;margin-top:6px">+ Добавить вариант</button>
+    </div>
+    <div class="form-group"><label class="form-label">Для какого филиала</label>
+      <select class="form-select" id="poll-filial"><option value="">Все филиалы</option><option value="istikbol">Истикбол</option><option value="chekhov">Чехов</option></select>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text-primary);cursor:pointer;margin-bottom:14px">
+      <input type="checkbox" id="poll-anonymous" checked style="width:18px;height:18px">
+      Анонимный опрос (не видно, кто как проголосовал)
+    </label>
+    <button class="btn btn-primary" onclick="savePoll()">Опубликовать опрос</button>
   </div>
 </div>
 
@@ -954,6 +988,7 @@ function switchFilial(id) {
   if(document.getElementById('screen-crm')?.classList.contains('active') && typeof loadCRM === 'function') loadCRM();
   if(document.getElementById('screen-reviews')?.classList.contains('active') && typeof loadReviews === 'function') loadReviews();
   if(document.getElementById('screen-announcements')?.classList.contains('active') && typeof loadAnnouncements === 'function') loadAnnouncements();
+  if(document.getElementById('screen-polls')?.classList.contains('active') && typeof loadPolls === 'function') loadPolls();
   if(document.getElementById('screen-admin')?.classList.contains('active')) {
     if(currentAdminTab==='tasks' && typeof loadAdminTasks === 'function') loadAdminTasks(taskFilters||{});
     if(currentAdminTab==='checklists' && typeof loadAdminChecklists === 'function') loadAdminChecklists();
@@ -1098,6 +1133,7 @@ function openMoreMenu() {
     {id:'directory', label:'📇 Справочник', show: canEditData() || isBoss()},
     {id:'reviews', label:'⭐ Отзывы', show: true},
     {id:'announcements', label:'📢 Объявления', show: true},
+    {id:'polls', label:'📊 Опросы', show: true},
     {id:'hr', label:'👥 Сотрудники', show: true},
     {id:'teamchat', label:'💬 Общий чат', show: true},
     {id:'finance', label:'💰 Финансы', show: canSeeFinance()},
@@ -1133,6 +1169,7 @@ function showScreen(name, btn) {
   if(name==='directory') loadDirectory();
   if(name==='reviews') loadReviews();
   if(name==='announcements') loadAnnouncements();
+  if(name==='polls') loadPolls();
 }
 
 async function loadHome() {
@@ -3565,6 +3602,135 @@ async function deleteDirectory() {
     closeModal('modal-directory');
     showToast('✅ Удалено');
     loadDirectory();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+// ============ ОПРОСЫ (POLLS) ============
+function openPollModal() {
+  if(!canEditData()) return;
+  document.getElementById('poll-question').value = '';
+  document.getElementById('poll-filial').value = '';
+  document.getElementById('poll-anonymous').checked = true;
+  // Два пустых варианта по умолчанию
+  document.getElementById('poll-options-list').innerHTML = '';
+  addPollOption(); addPollOption();
+  openModal('modal-poll');
+}
+
+function addPollOption() {
+  const list = document.getElementById('poll-options-list');
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;align-items:center';
+  div.innerHTML = `<input class="form-input poll-option-input" placeholder="Вариант" style="margin:0;flex:1">
+    <button onclick="this.parentElement.remove()" style="background:#FCEBEB;color:#A32D2D;border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;flex:0 0 auto">✕</button>`;
+  list.appendChild(div);
+}
+
+async function savePoll() {
+  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
+  const question = document.getElementById('poll-question').value.trim();
+  const options = Array.from(document.querySelectorAll('.poll-option-input')).map(i=>i.value.trim()).filter(Boolean);
+  const filial = document.getElementById('poll-filial').value || null;
+  const isAnon = document.getElementById('poll-anonymous').checked;
+  if(!question) return showToast('Введите вопрос');
+  if(options.length < 2) return showToast('Нужно минимум 2 варианта');
+  try {
+    await sb.from('polls').insert({
+      question, options, is_anonymous: isAnon, filial,
+      created_by: currentUser.id, created_by_name: currentProfile?.name || currentUser?.email
+    });
+    closeModal('modal-poll');
+    showToast('✅ Опрос опубликован');
+    loadPolls();
+  } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+async function loadPolls() {
+  const addBtn = document.getElementById('polls-add-btn');
+  if(addBtn) addBtn.style.display = canEditData() ? 'block' : 'none';
+  const content = document.getElementById('polls-content');
+  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  try {
+    const { data: polls } = await sb.from('polls').select('*')
+      .or(`filial.eq.${currentFilial},filial.is.null`)
+      .order('created_at',{ascending:false});
+    if(!polls || polls.length===0) {
+      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Опросов пока нет</div></div></div>';
+      return;
+    }
+    // Голоса текущего пользователя и все голоса
+    const pollIds = polls.map(p=>p.id);
+    const { data: votes } = await sb.from('poll_votes').select('*').in('poll_id', pollIds);
+    const html = [];
+    for(const p of polls) {
+      html.push(await pollCard(p, votes||[]));
+    }
+    content.innerHTML = html.join('');
+  } catch(e) { content.innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка. Возможно, опросы ещё не настроены в Supabase.</div></div></div>'; }
+}
+
+async function pollCard(p, allVotes) {
+  const votes = allVotes.filter(v=>v.poll_id===p.id);
+  const myVote = votes.find(v=>v.user_id===currentUser.id);
+  const total = votes.length;
+  const opts = Array.isArray(p.options) ? p.options : [];
+  const counts = opts.map((_,i)=>votes.filter(v=>v.option_index===i).length);
+  const voted = !!myVote;
+  const showResults = voted || p.is_closed || !canEditData()===false; // проголосовавшие и создатели видят результаты
+
+  let optionsHtml = opts.map((opt,i)=>{
+    const cnt = counts[i];
+    const pct = total>0 ? Math.round(cnt/total*100) : 0;
+    const isMine = myVote && myVote.option_index===i;
+    if(voted || p.is_closed) {
+      // Показать результат — полоска
+      return `<div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:3px">
+          <span style="color:var(--text-primary)">${isMine?'✓ ':''}${escapeHtml(opt)}</span>
+          <span style="color:var(--text-muted);font-weight:600">${pct}% (${cnt})</span>
+        </div>
+        <div style="background:var(--surface-2);border-radius:6px;height:8px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${isMine?'#A6803F':'var(--gold)'};border-radius:6px"></div>
+        </div>
+      </div>`;
+    } else {
+      // Кнопка голосования
+      return `<button onclick="votePoll(${p.id},${i})" style="display:block;width:100%;text-align:left;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;font-size:14px;color:var(--text-primary);cursor:pointer">${escapeHtml(opt)}</button>`;
+    }
+  }).join('');
+
+  return `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:start;gap:8px;margin-bottom:10px">
+      <div style="font-size:16px;font-weight:700;color:var(--text-primary)">${escapeHtml(p.question)}</div>
+      ${canEditData()?`<button onclick="deletePoll(${p.id})" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px">🗑</button>`:''}
+    </div>
+    ${optionsHtml}
+    <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${total} голос${total%10===1&&total%100!==11?'':total%10>=2&&total%10<=4&&(total%100<10||total%100>=20)?'а':'ов'} · ${p.is_anonymous?'🔒 анонимный':'открытый'}${voted?' · вы проголосовали':''}</div>
+  </div>`;
+}
+
+async function votePoll(pollId, optionIndex) {
+  if(isBoss()) return showToast('Режим наблюдателя — голосовать нельзя');
+  try {
+    await sb.from('poll_votes').insert({
+      poll_id: pollId, option_index: optionIndex,
+      user_id: currentUser.id, user_name: currentProfile?.name || currentUser?.email
+    });
+    showToast('✅ Голос учтён');
+    loadPolls();
+  } catch(e) {
+    if(String(e.message).includes('duplicate')) showToast('Вы уже голосовали');
+    else showToast('Ошибка: '+e.message);
+  }
+}
+
+async function deletePoll(id) {
+  if(!canEditData()) return;
+  if(!confirm('Удалить опрос вместе с голосами?')) return;
+  try {
+    await sb.from('polls').delete().eq('id', id);
+    showToast('✅ Удалено');
+    loadPolls();
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
 
