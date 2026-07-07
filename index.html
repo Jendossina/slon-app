@@ -4124,6 +4124,11 @@ function renderReviewsDaySwitcher() {
     `<button onclick="${onclick}" style="flex:0 0 auto;padding:6px 12px;border-radius:16px;border:none;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:${active?'#4a3a1f':'var(--surface-2)'};color:${active?'#fff':'var(--text-primary)'}">${label}</button>`;
   let html = chip(reviewsSelectedDay===null, "selectReviewDay(null)", 'Все дни');
   html += days.map(d=>chip(reviewsSelectedDay===d.ds, `selectReviewDay('${d.ds}')`, d.label)).join('');
+  // Кнопка выбора произвольной даты
+  const isCustom = reviewsSelectedDay && !days.find(d=>d.ds===reviewsSelectedDay);
+  const customLabel = isCustom ? '📅 ' + new Date(reviewsSelectedDay).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}) : '📅 Дата';
+  html += `<button onclick="document.getElementById('reviews-date-picker').showPicker?document.getElementById('reviews-date-picker').showPicker():document.getElementById('reviews-date-picker').click()" style="flex:0 0 auto;padding:6px 12px;border-radius:16px;border:none;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:${isCustom?'#4a3a1f':'var(--surface-2)'};color:${isCustom?'#fff':'var(--text-primary)'}">${customLabel}</button>`;
+  html += `<input type="date" id="reviews-date-picker" onchange="selectReviewDay(this.value)" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none">`;
   el.innerHTML = html;
 }
 
