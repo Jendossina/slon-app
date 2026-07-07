@@ -470,7 +470,8 @@ body.boss-readonly [data-edit-only] { display: none !important; }
         <button onclick="openReviewModal()" style="background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Отзыв</button>
       </div>
     </div>
-    <div style="display:flex;gap:6px;padding:10px 12px 0;overflow-x:auto" id="reviews-filters"></div>
+    <div style="display:flex;gap:6px;padding:8px 12px 0;overflow-x:auto" id="reviews-day-switcher"></div>
+    <div style="display:flex;gap:6px;padding:8px 12px 0;overflow-x:auto" id="reviews-filters"></div>
     <div class="content" id="reviews-content" style="padding:12px">
       <div class="loading">Загрузка...</div>
     </div>
@@ -4103,6 +4104,33 @@ async function loadHomeAnnouncements() {
 
 // ============ ОТЗЫВЫ (REVIEWS) ============
 let reviewFilter = 'all';
+let reviewsSelectedDay = null; // null = все дни
+
+function renderReviewsDaySwitcher() {
+  const el = document.getElementById('reviews-day-switcher');
+  if(!el) return;
+  const now = new Date();
+  const days = [];
+  for(let i=0; i>=-6; i--) { // сегодня и 6 дней назад
+    const d = new Date(now); d.setDate(now.getDate()+i);
+    const ds = d.toISOString().slice(0,10);
+    let label;
+    if(i===0) label = 'Сегодня';
+    else if(i===-1) label = 'Вчера';
+    else label = d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+    days.push({ ds, label });
+  }
+  const chip = (active, onclick, label) =>
+    `<button onclick="${onclick}" style="flex:0 0 auto;padding:6px 12px;border-radius:16px;border:none;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:${active?'#4a3a1f':'var(--surface-2)'};color:${active?'#fff':'var(--text-primary)'}">${label}</button>`;
+  let html = chip(reviewsSelectedDay===null, "selectReviewDay(null)", 'Все дни');
+  html += days.map(d=>chip(reviewsSelectedDay===d.ds, `selectReviewDay('${d.ds}')`, d.label)).join('');
+  el.innerHTML = html;
+}
+
+function selectReviewDay(ds) {
+  reviewsSelectedDay = ds;
+  loadReviews();
+}
 
 const REVIEW_CATS = { bar:'🍹 Бар', kitchen:'🍽️ Кухня', hookah:'💨 Кальян', other:'💬 Прочее' };
 const REVIEW_SENT = { positive:'👍', negative:'👎', neutral:'😐' };
@@ -4148,6 +4176,7 @@ async function saveReview() {
 
 async function loadReviews() {
   document.getElementById('reviews-subtitle').textContent = 'Филиал: ' + getFilialName(currentFilial);
+  renderReviewsDaySwitcher();
   // Фильтры
   const filters = [
     { id:'all', label:'Все' },
@@ -4165,16 +4194,17 @@ async function loadReviews() {
     let query = sb.from('reviews').select('*').eq('filial', currentFilial).order('created_at',{ascending:false});
     if(['bar','kitchen','hookah','other'].includes(reviewFilter)) query = query.eq('category', reviewFilter);
     if(['positive','negative','neutral'].includes(reviewFilter)) query = query.eq('sentiment', reviewFilter);
+    if(reviewsSelectedDay) query = query.gte('created_at', reviewsSelectedDay+'T00:00:00').lte('created_at', reviewsSelectedDay+'T23:59:59');
     const { data: reviews } = await query;
 
     if(!reviews || reviews.length===0) {
-      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">⭐</div><div class="empty-text">Отзывов пока нет</div></div></div>';
+      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">⭐</div><div class="empty-text">'+(reviewsSelectedDay?'За этот день отзывов нет':'Отзывов пока нет')+'</div></div></div>';
       return;
     }
 
     // Рейтинг-соревнование отделов (только на вкладке "Все")
     let summary = '';
-    if(reviewFilter==='all') {
+    if(reviewFilter==='all' && !reviewsSelectedDay) {
       // Считаем баллы по всем отзывам филиала (не только показанным)
       const { data: allRev } = await sb.from('reviews').select('category,sentiment').eq('filial', currentFilial);
       const depts = [
