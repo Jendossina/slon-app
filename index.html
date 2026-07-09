@@ -263,6 +263,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 
   <div class="screen" id="screen-hr">
     <div class="header"><h1>Сотрудники</h1><p id="hr-count">Загрузка...</p></div>
+    <div style="padding:8px 12px 0"><input class="form-input" id="hr-search" placeholder="🔍 Поиск по имени, должности..." oninput="hrSearch(this.value)" style="margin:0"></div>
     <div class="content"><div id="hr-payroll-btn"></div><div class="card" id="hr-list"><div class="loading">Загрузка...</div></div></div>
     <button class="fab" id="fab-hr" onclick="openModal('modal-add-employee')" style="display:none">+</button>
   </div>
@@ -1169,6 +1170,16 @@ const colors = ['av-purple','av-teal','av-coral','av-amber'];
 function getColor(s) { if(!s) return colors[0]; let h=0; for(let c of s) h+=c.charCodeAt(0); return colors[h%4]; }
 function getInitials(n) { if(!n) return '?'; return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
 function formatNum(n) { return Number(n).toLocaleString('ru-RU'); }
+
+// Единый формат даты: "2026-01-15" → "15 янв". Пустое/битое — как есть.
+function fmtDate(d, opts) {
+  if(!d) return '';
+  try {
+    const dt = new Date(d);
+    if(isNaN(dt)) return d;
+    return dt.toLocaleDateString('ru-RU', opts || {day:'numeric', month:'short'});
+  } catch(e) { return d; }
+}
 function today() { return new Date().toISOString().split('T')[0]; }
 
 // THEME
@@ -1859,7 +1870,7 @@ function taskHTML(t) {
     <div class="task-body">
       <div class="task-text" style="${isDone?'text-decoration:line-through;color:#999':''}">${t.title}</div>
       ${t.description?`<div style="font-size:12px;color:#666;margin-top:2px">${t.description}</div>`:''}
-      <div class="task-meta">👤 ${t.assigned_to_name||'—'} ${t.due_date?'· до '+t.due_date:''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">Моя</span>':''}</div>
+      <div class="task-meta">👤 ${t.assigned_to_name||'—'} ${t.due_date?'· до '+fmtDate(t.due_date):''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">Моя</span>':''}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
         ${reportSection}
         <button class="report-btn" onclick="event.stopPropagation();openTaskComments(${t.id},'${(t.title||'').replace(/'/g,"\\'")}')">💬 Обсудить</button>
@@ -1869,22 +1880,41 @@ function taskHTML(t) {
 }
 
 let hrShowAll = false;
+let hrSearchQuery = '';
+let _hrSearchTimer = null;
+function hrSearch(v) {
+  hrSearchQuery = v;
+  clearTimeout(_hrSearchTimer);
+  _hrSearchTimer = setTimeout(loadHR, 250);
+}
 async function loadHR() {
   try {
     const role = currentProfile?.role;
     const canSeeSalary = canSeeSalaryRole();
     const { data: allEmps } = await sb.from('employees').select('*').order('name');
-    const emps = hrShowAll ? (allEmps||[]) : (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
-    document.getElementById('hr-count').textContent = hrShowAll
-      ? `${(allEmps||[]).length} человек в штате (все филиалы)`
-      : `${emps.length} на филиале «${getFilialName(currentFilial)}» · всего ${(allEmps||[]).length}`;
+    let emps = hrShowAll ? (allEmps||[]) : (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
+    // Фильтр по поиску (имя, должность, телефон)
+    const q = (hrSearchQuery||'').trim().toLowerCase();
+    if(q) {
+      emps = emps.filter(e =>
+        (e.name||'').toLowerCase().includes(q) ||
+        (e.role||'').toLowerCase().includes(q) ||
+        (e.department||'').toLowerCase().includes(q) ||
+        (e.phone||'').toLowerCase().includes(q)
+      );
+    }
+    document.getElementById('hr-count').textContent = q
+      ? `Найдено: ${emps.length}`
+      : (hrShowAll
+        ? `${(allEmps||[]).length} человек в штате (все филиалы)`
+        : `${emps.length} на филиале «${getFilialName(currentFilial)}» · всего ${(allEmps||[]).length}`);
     const list = document.getElementById('hr-list');
     const payrollBtnEl = document.getElementById('hr-payroll-btn');
-    if(payrollBtnEl) payrollBtnEl.innerHTML = canSeeSalary
+    if(payrollBtnEl) payrollBtnEl.innerHTML = (canSeeSalary && !q)
       ? `<button onclick="openPayroll()" style="width:100%;background:linear-gradient(135deg,#2d2416,#4a3a1f);color:#f0e9db;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px">💰 Зарплатная ведомость · ${getFilialName(currentFilial)}</button>`
       : '';
-    const toggleBtn = `<div style="padding:0 4px 10px"><button onclick="hrShowAll=!hrShowAll;loadHR()" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${hrShowAll?'📍 Показать только этот филиал':'👥 Показать всех сотрудников'}</button></div>`;
-    if(!emps||emps.length===0) { list.innerHTML=toggleBtn+'<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Нет сотрудников для этого филиала</div></div>'; return; }
+    const toggleBtn = q ? '' : `<div style="padding:0 4px 10px"><button onclick="hrShowAll=!hrShowAll;loadHR()" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${hrShowAll?'📍 Показать только этот филиал':'👥 Показать всех сотрудников'}</button></div>`;
+    if(!emps||emps.length===0) { list.innerHTML=toggleBtn+'<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">'+(q?'Никто не найден':'Нет сотрудников для этого филиала')+'</div></div>'; return; }
 
     // Группировка по отделам
     const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара','Техперсонал'];
@@ -5169,7 +5199,10 @@ async function loadTeamChat(isPoll) {
   const list = document.getElementById('teamchat-list');
   if(!isPoll) list.innerHTML = '<div class="loading">Загрузка...</div>';
   try {
-    const { data: messages } = await sb.from('team_chat').select('*').eq('channel', currentChatChannel).order('created_at').limit(100);
+    // Берём последние 50 (по убыванию), затем разворачиваем в хронологический порядок.
+    // Так свежие сообщения всегда видны, а старая история не грузится и не тормозит.
+    const { data: recent } = await sb.from('team_chat').select('*').eq('channel', currentChatChannel).order('created_at',{ascending:false}).limit(50);
+    const messages = (recent||[]).slice().reverse();
     if(!messages || messages.length===0) {
       if(!isPoll || lastTeamChatCount!==0) list.innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div class="empty-text">Пока нет сообщений.<br>Начни общение первым!</div></div>';
       lastTeamChatCount = 0;
