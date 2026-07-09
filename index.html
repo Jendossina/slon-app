@@ -247,7 +247,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <div id="home-attendance-card"></div>
       <div id="home-salary-card"></div>
       <div id="telegram-link-card"></div>
-      <div class="grid2" id="home-stats-grid">
+      <div class="grid2" id="home-stats-grid" style="display:none">
         <div class="card"><div class="card-title">Выручка сегодня</div><div class="stat-val" id="home-revenue">—</div><div class="stat-sub">сум</div></div>
         <div class="card"><div class="card-title">Брони</div><div class="stat-val" id="home-bookings">—</div><div class="stat-sub">на сегодня</div></div>
       </div>
@@ -495,29 +495,24 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </div>
 
   <!-- ANNOUNCEMENTS SCREEN -->
-  <div class="screen" id="screen-announcements">
+  <!-- FEED SCREEN (Лента: объявления + опросы) -->
+  <div class="screen" id="screen-feed">
     <div class="header">
       <div class="header-row">
-        <div><h1>📢 Объявления</h1><p id="ann-subtitle">Новости и важное</p></div>
-        <button id="ann-add-btn" onclick="openAnnouncementModal()" style="display:none;background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Объявление</button>
+        <div><h1>📢 Лента</h1><p id="feed-subtitle">Новости и опросы</p></div>
+        <button id="feed-add-btn" style="display:none;background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Добавить</button>
       </div>
     </div>
-    <div class="content" id="announcements-content" style="padding:12px">
+    <div style="display:flex;gap:8px;padding:10px 12px 0">
+      <button id="feed-tab-ann" onclick="switchFeedTab('ann')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:#A6803F;color:#fff">📢 Объявления</button>
+      <button id="feed-tab-polls" onclick="switchFeedTab('polls')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)">📊 Опросы</button>
+    </div>
+    <div class="content" id="feed-content" style="padding:12px">
       <div class="loading">Загрузка...</div>
     </div>
-  </div>
-
-  <!-- POLLS SCREEN -->
-  <div class="screen" id="screen-polls">
-    <div class="header">
-      <div class="header-row">
-        <div><h1>📊 Опросы</h1><p id="polls-subtitle">Мнение команды</p></div>
-        <button id="polls-add-btn" onclick="openPollModal()" style="display:none;background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Опрос</button>
-      </div>
-    </div>
-    <div class="content" id="polls-content" style="padding:12px">
-      <div class="loading">Загрузка...</div>
-    </div>
+    <!-- скрытые контейнеры для переиспользования старой логики -->
+    <div id="announcements-content" style="display:none"></div>
+    <div id="polls-content" style="display:none"></div>
   </div>
 
   <!-- CALENDAR SCREEN -->
@@ -1161,8 +1156,7 @@ function switchFilial(id) {
   if(document.getElementById('screen-dishware')?.classList.contains('active') && typeof loadDishware === 'function') loadDishware();
   if(document.getElementById('screen-crm')?.classList.contains('active') && typeof loadCRM === 'function') loadCRM();
   if(document.getElementById('screen-reviews')?.classList.contains('active') && typeof loadReviews === 'function') loadReviews();
-  if(document.getElementById('screen-announcements')?.classList.contains('active') && typeof loadAnnouncements === 'function') loadAnnouncements();
-  if(document.getElementById('screen-polls')?.classList.contains('active') && typeof loadPolls === 'function') loadPolls();
+  if(document.getElementById('screen-feed')?.classList.contains('active') && typeof loadFeed === 'function') loadFeed();
   if(document.getElementById('screen-calendar')?.classList.contains('active') && typeof loadCalendar === 'function') loadCalendar();
   if(document.getElementById('screen-admin')?.classList.contains('active')) {
     if(currentAdminTab==='tasks' && typeof loadAdminTasks === 'function') loadAdminTasks(taskFilters||{});
@@ -1301,43 +1295,51 @@ function applyRolePermissions() {
 }
 
 function openMoreMenu() {
-  const items = [
-    {id:'profile', label:'📄 Личный кабинет', show: true},
-    {id:'dashboard', label:'📈 Дашборд', show: canSeeAdminPanel()},
-    {id:'mynotes', label:'📝 Мой задачник', show: canEditData() || isBoss()},
-    {id:'knowledge', label:'📚 База знаний', show: true},
-    {id:'supply', label:'🧴 Хозчасть', show: true},
-    {id:'dishware', label:'🍽️ Посуда', show: true},
-    {id:'directory', label:'📇 Справочник', show: canEditData() || isBoss()},
-    {id:'reviews', label:'⭐ Отзывы', show: true},
-    {id:'announcements', label:'📢 Объявления', show: true},
-    {id:'polls', label:'📊 Опросы', show: true},
-    {id:'calendar', label:'📅 Календарь', show: true},
-    {id:'hr', label:'👥 Сотрудники', show: true},
-    {id:'teamchat', label:'💬 Общий чат', show: true},
-    {id:'finance', label:'💰 Финансы', show: canSeeFinance()},
-    {id:'crm', label:'📋 Брони', show: true},
-    {id:'admin', label:'⚙️ Админ-панель', show: canSeeAdminPanel()}
+  // Группы разделов. show определяет, кому пункт виден.
+  const groups = [
+    { title:'Личное', items:[
+      {id:'profile', label:'📄 Личный кабинет', show:true},
+      {id:'mynotes', label:'📝 Мой задачник', show: canEditData() || isBoss()},
+    ]},
+    { title:'Работа', items:[
+      {id:'knowledge', label:'📚 База знаний', show:true},
+      {id:'supply', label:'🧴 Хозчасть', show:true},
+      {id:'dishware', label:'🍽️ Посуда', show:true},
+      {id:'calendar', label:'📅 Календарь', show:true},
+    ]},
+    { title:'Команда', items:[
+      {id:'hr', label:'👥 Сотрудники', show:true},
+      {id:'teamchat', label:'💬 Общий чат', show:true},
+      {id:'feed', label:'📢 Лента', show:true},
+      {id:'reviews', label:'⭐ Отзывы', show:true},
+    ]},
+    { title:'Управление', items:[
+      {id:'dashboard', label:'📈 Дашборд', show: canSeeAdminPanel()},
+      {id:'directory', label:'📇 Справочник', show: canEditData() || isBoss()},
+      {id:'admin', label:'⚙️ Админ-панель', show: canSeeAdminPanel()},
+    ]},
   ];
   const menu = document.getElementById('more-menu-items');
-  menu.innerHTML = items.filter(i=>i.show).map(i=>`
-    <button onclick="showScreen('${i.id}', null)" style="width:100%;text-align:left;background:var(--surface-2);border:none;border-radius:12px;padding:14px 16px;font-size:15px;color:var(--text-primary);margin-bottom:8px;cursor:pointer;display:block">${i.label}</button>
-  `).join('');
+  menu.innerHTML = groups.map(g=>{
+    const visible = g.items.filter(i=>i.show);
+    if(visible.length===0) return '';
+    return `<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:14px 4px 8px">${g.title}</div>` +
+      visible.map(i=>`<button onclick="showScreen('${i.id}', null)" style="width:100%;text-align:left;background:var(--surface-2);border:none;border-radius:12px;padding:14px 16px;font-size:15px;color:var(--text-primary);margin-bottom:8px;cursor:pointer;display:block">${i.label}</button>`).join('');
+  }).join('');
   openModal('modal-more-menu');
 }
 
 function showScreen(name, btn) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('screen-'+name).classList.add('active');
+  const scr = document.getElementById('screen-'+name);
+  if(scr) scr.classList.add('active');
   if(btn) btn.classList.add('active');
   closeModal('modal-more-menu');
   if(name==='home') loadHome();
   if(name==='hr') loadHR();
   if(name==='tasks') { loadTasks(); startTasksPolling(); }
   else { if(typeof stopTasksPolling === 'function') stopTasksPolling(); }
-  if(name==='finance') loadFinance();
-  if(name==='crm') loadCRM();
   if(name==='admin') loadAdmin();
   if(name==='checklist') { initChecklistScreen(); }
   if(name==='schedule') loadSchedule();
@@ -1348,8 +1350,7 @@ function showScreen(name, btn) {
   if(name==='dishware') loadDishware();
   if(name==='directory') loadDirectory();
   if(name==='reviews') loadReviews();
-  if(name==='announcements') loadAnnouncements();
-  if(name==='polls') loadPolls();
+  if(name==='feed') loadFeed();
   if(name==='calendar') loadCalendar();
   if(name==='dashboard') loadDashboard();
   if(name==='mynotes') loadMyNotes();
@@ -4363,6 +4364,21 @@ function dashDateRange() {
 }
 
 async function loadDashboard() {
+  // Раздел заморожен — показываем заглушку. Рабочая версия сохранена в loadDashboardFull().
+  const sw = document.getElementById('dash-period-switcher');
+  if(sw) sw.innerHTML = '';
+  const content = document.getElementById('dashboard-content');
+  if(content) content.innerHTML = `
+    <div class="card" style="text-align:center;padding:36px 20px">
+      <div style="font-size:48px;margin-bottom:12px">🚧</div>
+      <div style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:6px">Дашборд в разработке</div>
+      <div style="font-size:14px;color:var(--text-muted);line-height:1.5">Раздел скоро заработает.<br>Сводная аналитика по обоим филиалам появится здесь.</div>
+    </div>`;
+  const sub = document.getElementById('dash-subtitle');
+  if(sub) sub.textContent = 'В разработке';
+}
+
+async function loadDashboardFull() {
   const sw = document.getElementById('dash-period-switcher');
   const periods = [{id:'today',label:'Сегодня'},{id:'week',label:'Неделя'},{id:'month',label:'Месяц'}];
   sw.innerHTML = periods.map(p=>`<button onclick="setDashPeriod('${p.id}')" style="flex:1;padding:9px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:${p.id===dashPeriod?'#A6803F':'var(--surface-2)'};color:${p.id===dashPeriod?'#fff':'var(--text-primary)'}">${p.label}</button>`).join('');
@@ -4573,6 +4589,49 @@ async function loadCalendar() {
   } catch(e) { content.innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка. Возможно, календарь ещё не настроен в Supabase.</div></div></div>'; }
 }
 
+// ============ ЛЕНТА (FEED: объявления + опросы) ============
+let feedTab = 'ann';
+
+function switchFeedTab(tab) {
+  feedTab = tab;
+  const a = document.getElementById('feed-tab-ann');
+  const p = document.getElementById('feed-tab-polls');
+  if(a&&p){
+    a.style.background = tab==='ann' ? '#A6803F' : 'var(--surface-2)';
+    a.style.color = tab==='ann' ? '#fff' : 'var(--text-primary)';
+    p.style.background = tab==='polls' ? '#A6803F' : 'var(--surface-2)';
+    p.style.color = tab==='polls' ? '#fff' : 'var(--text-primary)';
+  }
+  loadFeed();
+}
+
+async function loadFeed() {
+  const addBtn = document.getElementById('feed-add-btn');
+  const content = document.getElementById('feed-content');
+  document.getElementById('feed-subtitle').textContent = feedTab==='ann' ? 'Новости и важное' : 'Мнение команды';
+
+  // Кнопка добавления — своя для каждой вкладки
+  if(addBtn) {
+    if(canEditData()) {
+      addBtn.style.display = 'block';
+      addBtn.textContent = feedTab==='ann' ? '+ Объявление' : '+ Опрос';
+      addBtn.onclick = feedTab==='ann' ? openAnnouncementModal : openPollModal;
+    } else {
+      addBtn.style.display = 'none';
+    }
+  }
+
+  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  // Рендерим в скрытый контейнер, затем переносим в видимый
+  if(feedTab==='ann') {
+    await loadAnnouncements();
+    content.innerHTML = document.getElementById('announcements-content').innerHTML;
+  } else {
+    await loadPolls();
+    content.innerHTML = document.getElementById('polls-content').innerHTML;
+  }
+}
+
 // ============ ОПРОСЫ (POLLS) ============
 function openPollModal() {
   if(!canEditData()) return;
@@ -4634,7 +4693,8 @@ async function loadPolls() {
       html.push(await pollCard(p, votes||[]));
     }
     content.innerHTML = html.join('');
-  } catch(e) { content.innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка. Возможно, опросы ещё не настроены в Supabase.</div></div></div>'; }
+    syncFeedView('polls');
+  } catch(e) { content.innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка. Возможно, опросы ещё не настроены в Supabase.</div></div></div>'; syncFeedView('polls'); }
 }
 
 async function pollCard(p, allVotes) {
@@ -4744,7 +4804,18 @@ async function loadAnnouncements() {
       return;
     }
     content.innerHTML = anns.map(a=>annCard(a)).join('');
-  } catch(e) { content.innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка. Возможно, объявления ещё не настроены в Supabase.</div></div></div>'; }
+    syncFeedView('ann');
+  } catch(e) { content.innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка. Возможно, объявления ещё не настроены в Supabase.</div></div></div>'; syncFeedView('ann'); }
+}
+
+// Переносит контент скрытого контейнера в видимую ленту, если она открыта на нужной вкладке
+function syncFeedView(which) {
+  const feedScreen = document.getElementById('screen-feed');
+  if(!feedScreen || !feedScreen.classList.contains('active')) return;
+  if(feedTab !== which) return;
+  const src = document.getElementById(which==='ann'?'announcements-content':'polls-content');
+  const dst = document.getElementById('feed-content');
+  if(src && dst) dst.innerHTML = src.innerHTML;
 }
 
 function annCard(a) {
