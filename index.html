@@ -1177,7 +1177,7 @@ function getInitials(n) { if(!n) return '?'; return n.split(' ').map(w=>w[0]).jo
 function formatNum(n) { return Number(n).toLocaleString('ru-RU'); }
 
 // Единый формат даты: "2026-01-15" → "15 янв". Пустое/битое — как есть.
-function fmtDate(d, opts) {
+function fmtDateShort(d, opts) {
   if(!d) return '';
   try {
     const dt = new Date(d);
@@ -1487,8 +1487,9 @@ async function loadAttendanceCard(dateStr, myShift) {
     if(!record) {
       attEl.innerHTML = `<div class="card" style="margin-bottom:12px">
         <div class="card-title">Отметка на смену</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Смена начинается в ${myShift.shift_start}</div>
-        <button class="btn btn-primary" onclick="checkIn()">🕐 Отметить приход</button>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Смена начинается в ${myShift.shift_start}. Для отметки нужно снять короткое видео на месте.</div>
+        <input type="file" accept="video/*" capture="user" id="checkin-video-file" style="display:none" onchange="onCheckInVideo(this)">
+        <button class="btn btn-primary" onclick="startCheckIn()">🎥 Снять видео и отметить приход</button>
       </div>`;
     } else if(!record.check_out_time) {
       const lateBadge = record.is_late ? '<span class="badge badge-red" style="margin-left:6px">Опоздание</span>' : '<span class="badge badge-green" style="margin-left:6px">Вовремя</span>';
@@ -1549,8 +1550,34 @@ function calcLatePenalty(lateMin) {
   return 100000;
 }
 
-async function checkIn() {
+function startCheckIn() {
+  const input = document.getElementById('checkin-video-file');
+  if(!input) return;
+  input.value = '';
+  input.click();
+}
+
+async function onCheckInVideo(input) {
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(!file.type || !file.type.startsWith('video')) { showToast('Нужно именно видео с камеры'); return; }
+  await checkIn(file);
+}
+
+async function checkIn(videoFile) {
   try {
+    // Видео обязательно — защита от отметки не на рабочем месте
+    if(!videoFile) { startCheckIn(); return; }
+
+    showToast('⏳ Загружаю видео...');
+    let videoUrl = null;
+    const ext = (file => { const p=(file.name||'').split('.'); return p.length>1?p.pop():'mp4'; })(videoFile);
+    const path = `checkin-${currentProfile.employee_id}-${Date.now()}.${ext}`;
+    const { error: upErr } = await sb.storage.from('task-reports').upload(path, videoFile);
+    if(upErr) { showToast('Ошибка загрузки видео: '+upErr.message); return; }
+    const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
+    videoUrl = urlData.publicUrl;
+
     const todayStr = today();
     const timeStr = getCurrentTimeStr();
     const { data: myShifts } = await sb.from('schedules').select('*').eq('date', todayStr).eq('employee_id', currentProfile.employee_id);
@@ -1564,12 +1591,13 @@ async function checkIn() {
       user_name: currentProfile?.name || currentUser?.email,
       date: todayStr, check_in_time: timeStr, is_late: isLate,
       late_minutes: lateMin, penalty: penalty,
-      filial: myShift?.filial || currentFilial
+      filial: myShift?.filial || currentFilial,
+      checkin_video: videoUrl
     });
 
     showToast(isLate ? `⏰ Опоздание ${lateMin} мин · штраф ${formatNum(penalty)} сум` : '✅ Отмечено вовремя!');
     if(isLate) {
-      await notifyAdmin(`⏰ <b>Опоздание на смену</b>\n\n👤 ${currentProfile?.name||''}\n🕐 Пришёл в ${timeStr} (смена с ${myShift?.shift_start||''})\n⏱ Опоздание: ${lateMin} мин\n💸 Штраф: ${formatNum(penalty)} сум`);
+      await notifyAdmin(`⏰ <b>Опоздание на смену</b>\n\n👤 ${tgEscape(currentProfile?.name||'')}\n🕐 Пришёл в ${timeStr} (смена с ${myShift?.shift_start||''})\n⏱ Опоздание: ${lateMin} мин\n💸 Штраф: ${formatNum(penalty)} сум`);
     }
     loadHome();
   } catch(e) { showToast('Ошибка: '+e.message); }
@@ -1762,7 +1790,8 @@ async function leaderTeamTodayBlock() {
       if(!a) status = '<span style="color:var(--text-muted)">не отметился</span>';
       else if(a.is_late) status = `<span style="color:#A13C3C">опоздал ${a.late_minutes||''}м</span>`;
       else status = '<span style="color:#3B6D11">на смене</span>';
-      return `<div class="list-item"><div class="item-info"><div class="item-name">${escapeHtml(s.employee_name||'')}</div><div class="item-sub">🕐 ${s.shift_start}–${s.shift_end}</div></div><div style="font-size:13px;font-weight:600">${status}</div></div>`;
+      const vidBtn = (a && a.checkin_video) ? ` <button onclick="viewReport('${a.checkin_video}','video')" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:6px;padding:2px 6px;font-size:11px;cursor:pointer">🎥</button>` : '';
+      return `<div class="list-item"><div class="item-info"><div class="item-name">${escapeHtml(s.employee_name||'')}</div><div class="item-sub">🕐 ${s.shift_start}–${s.shift_end}</div></div><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:4px">${status}${vidBtn}</div></div>`;
     }).join('');
     return `<div class="section-label">Команда сегодня · ${getFilialName(currentFilial)}</div><div class="card">${rows}</div>`;
   } catch(e) { return ''; }
@@ -1875,7 +1904,7 @@ function taskHTML(t) {
     <div class="task-body">
       <div class="task-text" style="${isDone?'text-decoration:line-through;color:#999':''}">${t.title}</div>
       ${t.description?`<div style="font-size:12px;color:#666;margin-top:2px">${t.description}</div>`:''}
-      <div class="task-meta">👤 ${t.assigned_to_name||'—'} ${t.due_date?'· до '+fmtDate(t.due_date):''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">Моя</span>':''}</div>
+      <div class="task-meta">👤 ${t.assigned_to_name||'—'} ${t.due_date?'· до '+fmtDateShort(t.due_date):''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">Моя</span>':''}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
         ${reportSection}
         <button class="report-btn" onclick="event.stopPropagation();openTaskComments(${t.id},'${(t.title||'').replace(/'/g,"\\'")}')">💬 Обсудить</button>
@@ -2098,8 +2127,11 @@ async function loadTasks() {
     document.getElementById('tasks-count').textContent = `${dayLabel}: ${done} из ${(tasks||[]).length} выполнено`;
     const list = document.getElementById('tasks-list');
     if(!tasks||tasks.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">На этот день задач нет</div></div>'; return; }
-    list.innerHTML = tasks.map(t=>taskHTML(t)).join('');
-  } catch(e) { document.getElementById('tasks-list').innerHTML='<div class="loading">Ошибка</div>'; }
+    list.innerHTML = tasks.map(t=>{
+      try { return taskHTML(t); }
+      catch(err) { console.error('Ошибка отрисовки задачи', t?.id, t?.title, err); return ''; }
+    }).join('');
+  } catch(e) { console.error('loadTasks error:', e); document.getElementById('tasks-list').innerHTML='<div class="loading">Ошибка: '+(e?.message||e)+'</div>'; }
 }
 
 async function toggleTask(id, status) {
