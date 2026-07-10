@@ -4839,6 +4839,11 @@ async function saveAnnouncement() {
     });
     closeModal('modal-announcement');
     showToast('✅ Объявление опубликовано');
+    // Уведомляем руководство о важном объявлении
+    if(important) {
+      const scope = filial ? getFilialName(filial) : 'Все филиалы';
+      await notifyAdmin(`📢 <b>Важное объявление</b> · ${scope}\n\n🔴 ${title}${text?'\n\n'+text:''}\n\nОпубликовал: ${currentProfile?.name||''}`);
+    }
     loadAnnouncements();
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
@@ -4989,6 +4994,11 @@ async function saveReview() {
     });
     closeModal('modal-review');
     showToast('✅ Отзыв сохранён');
+    // Уведомляем руководство о негативном отзыве
+    if(sentiment === 'negative') {
+      const catLabel = {bar:'🍹 Бар', kitchen:'🍽️ Кухня', hookah:'💨 Кальян', other:'💬 Прочее'}[category] || '💬';
+      await notifyAdmin(`⚠️ <b>Негативный отзыв</b> · ${getFilialName(currentFilial)}\n\n${catLabel}\n${guest?'👤 Гость: '+guest+'\n':''}💬 «${text}»\n\nЗаписал: ${currentProfile?.name||''}`);
+    }
     loadReviews();
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
