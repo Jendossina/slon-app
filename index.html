@@ -1048,6 +1048,11 @@ async function notifyAdmin(text) {
   await sendTelegram(TG_ADMIN_ID, text);
 }
 
+// Экранирует спецсимволы, чтобы они не ломали HTML-разметку в Telegram-сообщении
+function tgEscape(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 async function notifyEmployee(userId, text) {
   const { data } = await sb.from('profiles').select('telegram_id').eq('user_id', userId).single();
   if(data?.telegram_id) await sendTelegram(data.telegram_id, text);
@@ -4842,7 +4847,7 @@ async function saveAnnouncement() {
     // Уведомляем руководство о важном объявлении
     if(important) {
       const scope = filial ? getFilialName(filial) : 'Все филиалы';
-      await notifyAdmin(`📢 <b>Важное объявление</b> · ${scope}\n\n🔴 ${title}${text?'\n\n'+text:''}\n\nОпубликовал: ${currentProfile?.name||''}`);
+      await notifyAdmin(`📢 <b>Важное объявление</b> · ${scope}\n\n🔴 ${tgEscape(title)}${text?'\n\n'+tgEscape(text):''}\n\nОпубликовал: ${tgEscape(currentProfile?.name||'')}`);
     }
     loadAnnouncements();
   } catch(e) { showToast('Ошибка: '+e.message); }
@@ -4997,7 +5002,7 @@ async function saveReview() {
     // Уведомляем руководство о негативном отзыве
     if(sentiment === 'negative') {
       const catLabel = {bar:'🍹 Бар', kitchen:'🍽️ Кухня', hookah:'💨 Кальян', other:'💬 Прочее'}[category] || '💬';
-      await notifyAdmin(`⚠️ <b>Негативный отзыв</b> · ${getFilialName(currentFilial)}\n\n${catLabel}\n${guest?'👤 Гость: '+guest+'\n':''}💬 «${text}»\n\nЗаписал: ${currentProfile?.name||''}`);
+      await notifyAdmin(`⚠️ <b>Негативный отзыв</b> · ${getFilialName(currentFilial)}\n\n${catLabel}\n${guest?'👤 Гость: '+tgEscape(guest)+'\n':''}💬 «${tgEscape(text)}»\n\nЗаписал: ${tgEscape(currentProfile?.name||'')}`);
     }
     loadReviews();
   } catch(e) { showToast('Ошибка: '+e.message); }
