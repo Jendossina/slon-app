@@ -2947,15 +2947,22 @@ async function loadScheduleEmployees() {
 }
 
 async function pickEmployeeForSchedule() {
-  const { data: allEmps } = await sb.from('employees').select('id,name,filials').eq('department', currentDept).order('name');
-  const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
+  const { data: allEmps } = await sb.from('employees').select('id,name,filials,status').eq('department', currentDept).order('name');
+  const emps = (allEmps||[]).filter(e => (e.status!=='Уволен') && (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
   if(!emps || emps.length===0) return showToast('В этом отделе нет сотрудников для филиала «' + getFilialName(currentFilial) + '»');
-  const names = emps.map((e,i)=>`${i+1}. ${e.name}`).join('\n');
-  const choice = prompt('Выбери сотрудника (введи номер):\n\n' + names);
-  const idx = parseInt(choice) - 1;
-  if(idx < 0 || idx >= emps.length || isNaN(idx)) return;
-  const emp = emps[idx];
-  quickEditSchedule(emp.id, emp.name, today());
+
+  document.getElementById('pick-emp-subtitle').textContent = '📍 ' + getFilialName(currentFilial) + ' · ' + currentDept;
+  document.getElementById('pick-emp-list').innerHTML = emps.map(e=>`
+    <button onclick="choosePickedEmployee(${e.id}, '${escapeHtml(e.name).replace(/'/g,"\\'")}')" style="width:100%;display:flex;align-items:center;gap:12px;text-align:left;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer">
+      <div class="avatar ${getColor(e.name)}" style="width:36px;height:36px;font-size:12px">${getInitials(e.name)}</div>
+      <span style="font-size:15px;color:var(--text-primary);font-weight:500">${escapeHtml(e.name)}</span>
+    </button>`).join('');
+  openModal('modal-pick-employee');
+}
+
+function choosePickedEmployee(id, name) {
+  closeModal('modal-pick-employee');
+  quickEditSchedule(id, name, today());
 }
 
 // WEEK FILL
@@ -5430,6 +5437,16 @@ sb.auth.getSession().then(({ data }) => {
 
 
 <!-- ADD SCHEDULE MODAL -->
+<!-- PICK EMPLOYEE FOR SCHEDULE MODAL -->
+<div class="modal-overlay" id="modal-pick-employee">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-pick-employee')">✕</button>
+    <div class="modal-title">Кому назначить смену?</div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:12px" id="pick-emp-subtitle">—</div>
+    <div id="pick-emp-list"></div>
+  </div>
+</div>
+
 <!-- WEEK FILL MODAL -->
 <div class="modal-overlay" id="modal-week-fill">
   <div class="modal">
