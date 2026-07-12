@@ -197,14 +197,12 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 
 /* ===== ВИЗУАЛЬНЫЕ ЭФФЕКТЫ И ПЕРЕХОДЫ ===== */
 @keyframes screenIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes popIn { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes overlayIn { from { background: rgba(0,0,0,0); } to { background: rgba(0,0,0,0.45); } }
 @keyframes sheetIn { from { transform: translateY(40px); opacity: 0.5; } to { transform: translateY(0); opacity: 1; } }
 
 .screen.active { animation: screenIn 0.28s cubic-bezier(.25,.8,.35,1); }
-.card, .list-item, .task-row { animation: cardIn 0.25s cubic-bezier(.25,.8,.35,1); }
 
 .btn, .nav-btn, .fab, .report-btn, .check, .badge { transition: transform 0.12s ease, opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.18s ease; }
 .btn:active { transform: scale(0.97); }
@@ -233,22 +231,20 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 
 .progress-fill { transition: width 0.45s cubic-bezier(.25,.8,.35,1); }
 
-/* ===== ФИРМЕННЫЙ АКЦЕНТ: тёплое золотое свечение в духе лаунж-кальянной ===== */
-@keyframes floatGlow { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(24px,-16px) scale(1.12); } }
-@keyframes fabPulse { 0% { transform: scale(0.92); opacity: 0.55; } 100% { transform: scale(1.5); opacity: 0; } }
-@keyframes badgePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(161,60,60,0.35); } 50% { box-shadow: 0 0 0 5px rgba(161,60,60,0); } }
+/* ===== ФИРМЕННЫЙ АКЦЕНТ: тёплое золотое свечение в духе лаунж-кальянной =====
+   Никаких бесконечных (infinite) анимаций здесь больше нет — они грузят
+   процессор постоянно, даже когда с экраном никто не взаимодействует. */
 @keyframes rippleAnim { to { transform: scale(2.6); opacity: 0; } }
 
-/* Экран входа: два мягко плавающих золотых пятна на фоне */
+/* Экран входа: два статичных тёплых пятна на фоне (без анимации) */
 .login-screen { position: relative; overflow: hidden; }
 .login-screen::before, .login-screen::after {
   content: ''; position: absolute; width: 320px; height: 320px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(201,164,104,0.22), transparent 70%);
-  filter: blur(6px); z-index: 0; pointer-events: none;
-  animation: floatGlow 11s ease-in-out infinite;
+  background: radial-gradient(circle, rgba(201,164,104,0.18), transparent 70%);
+  z-index: 0; pointer-events: none;
 }
 .login-screen::before { top: -90px; left: -90px; }
-.login-screen::after { bottom: -110px; right: -70px; animation-delay: -5.5s; animation-duration: 13s; }
+.login-screen::after { bottom: -110px; right: -70px; }
 .login-screen > * { position: relative; z-index: 1; }
 
 /* Карточка приветствия на главной: лёгкий тёплый блик */
@@ -258,15 +254,6 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   background: radial-gradient(circle, rgba(201,164,104,0.28), transparent 70%);
   pointer-events: none;
 }
-
-/* Кнопка "+": пульсирующее золотое кольцо-приглашение к действию */
-.fab { position: fixed; } /* уточняем контекст для ::before, остальные свойства заданы выше */
-.fab::before {
-  content: ''; position: absolute; inset: -6px; border-radius: 50%;
-  border: 2px solid var(--gold-dark); opacity: 0; pointer-events: none;
-  animation: fabPulse 2.6s ease-out infinite;
-}
-[data-theme="dark"] .fab::before { border-color: var(--gold); }
 
 /* Аватары: градиент вместо плоского цвета — больше глубины */
 .av-purple { background: linear-gradient(135deg, #f5ecd9, #e8d4ac); }
@@ -285,16 +272,12 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 /* Карточки в тёмной теме: тёплый отклик при нажатии */
 [data-theme="dark"] .card:active { box-shadow: 0 0 0 1px rgba(201,164,104,0.35), 0 4px 16px rgba(201,164,104,0.18); }
 
-/* Срочные/просроченные бейджи — мягкая пульсация, привлекает внимание */
-.badge-red { animation: badgePulse 2.2s ease-in-out infinite; }
-
 /* Риппл-эффект от нажатия на кнопки */
 .btn, .report-btn, .nav-btn, .more-menu-item { position: relative; overflow: hidden; }
 .ripple { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.4); transform: scale(0); animation: rippleAnim 0.6s ease-out; pointer-events: none; }
 [data-theme="dark"] .ripple { background: rgba(255,255,255,0.22); }
 
 /* ===== ЕЩЁ СЛОЙ ПОЛИРОВКИ ===== */
-@keyframes emptyFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 
 /* Едва заметная точечная текстура на шапке — фактура вместо плоской заливки */
 .header { position: relative; overflow: hidden; }
@@ -311,8 +294,6 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 .btn-primary { background: linear-gradient(135deg, var(--gold-dark), #8f6a30); }
 [data-theme="dark"] .btn-primary { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); }
 
-/* Пустые состояния — иконка едва заметно "дышит" */
-.empty-icon { display: inline-block; animation: emptyFloat 3.2s ease-in-out infinite; }
 
 /* Тонкий золотистый скроллбар и цвет выделения текста */
 ::selection { background: rgba(201,164,104,0.35); color: inherit; }
