@@ -1425,7 +1425,7 @@ async function loadHome() {
           if(myShift.is_day_off) {
             shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#EAF3DE,#d4edda);border:none;margin-bottom:12px"><div style="text-align:center;padding:8px"><div style="font-size:28px">🌴</div><div style="font-size:15px;font-weight:600;color:#3B6D11;margin-top:4px">Сегодня выходной</div></div></div>`;
           } else {
-            shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2b6b);border:none;color:#fff;margin-bottom:12px"><div style="font-size:11px;opacity:0.7;margin-bottom:4px">ТВОЯ СМЕНА СЕГОДНЯ · ${getFilialName(myShift.filial||'istikbol')}</div><div style="font-size:24px;font-weight:700">🕐 ${myShift.shift_start||''} — ${myShift.shift_end||''}</div>${myShift.note?`<div style="font-size:12px;opacity:0.7;margin-top:4px">${myShift.note}</div>`:''}</div>`;
+            shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2b6b);border:none;color:#fff;margin-bottom:12px"><div style="font-size:11px;opacity:0.7;margin-bottom:4px">ТВОЯ СМЕНА СЕГОДНЯ · ${getFilialName(myShift.filial||'istikbol')}</div><div style="font-size:24px;font-weight:700">🕐 ${myShift.shift_start||''} — ${myShift.shift_end||''}</div>${myShift.note?`<div style="font-size:12px;opacity:0.7;margin-top:4px">${escapeHtml(myShift.note)}</div>`:''}</div>`;
           }
         } else { shiftEl.innerHTML = ''; }
       }
@@ -1807,7 +1807,7 @@ async function leaderTeamTodayBlock() {
       if(!a) status = '<span style="color:var(--text-muted)">не отметился</span>';
       else if(a.is_late) status = `<span style="color:#A13C3C">опоздал ${a.late_minutes||''}м</span>`;
       else status = '<span style="color:#3B6D11">на смене</span>';
-      const vidBtn = (a && a.checkin_video) ? ` <button onclick="viewReport('${a.checkin_video}','video')" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:6px;padding:2px 6px;font-size:11px;cursor:pointer">🎥</button>` : '';
+      const vidBtn = (a && a.checkin_video) ? ` <button onclick="viewReport('${escJsAttr(a.checkin_video)}','video')" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:6px;padding:2px 6px;font-size:11px;cursor:pointer">🎥</button>` : '';
       return `<div class="list-item"><div class="item-info"><div class="item-name">${escapeHtml(s.employee_name||'')}</div><div class="item-sub">🕐 ${s.shift_start}–${s.shift_end}</div></div><div style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:4px">${status}${vidBtn}</div></div>`;
     }).join('');
     return `<div class="section-label">Команда сегодня · ${getFilialName(currentFilial)}</div><div class="card">${rows}</div>`;
@@ -1907,7 +1907,7 @@ function taskHTML(t) {
   if(t.report_url) {
     const isVideo = t.report_type === 'video';
     reportSection = `
-      <button class="report-btn done-report" onclick="viewReport('${t.report_url}','${t.report_type||'image'}')">
+      <button class="report-btn done-report" onclick="viewReport('${escJsAttr(t.report_url)}','${escJsAttr(t.report_type||'image')}')">
         ${isVideo ? '🎥' : '📸'} Смотреть отчёт
       </button>`;
   } else if(isMyTask && !isDone) {
@@ -1917,14 +1917,14 @@ function taskHTML(t) {
   }
 
   return `<div class="task-row">
-    <div class="check ${isDone?'done':''}" onclick="toggleTask(${t.id},'${t.status}')"></div>
+    <div class="check ${isDone?'done':''}" onclick="toggleTask(${t.id},'${escJsAttr(t.status)}')"></div>
     <div class="task-body">
-      <div class="task-text" style="${isDone?'text-decoration:line-through;color:#999':''}">${t.title}</div>
-      ${t.description?`<div style="font-size:12px;color:#666;margin-top:2px">${t.description}</div>`:''}
-      <div class="task-meta">👤 ${t.assigned_to_name||'—'} ${t.due_date?'· до '+fmtDateShort(t.due_date):''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">Моя</span>':''}</div>
+      <div class="task-text" style="${isDone?'text-decoration:line-through;color:#999':''}">${escapeHtml(t.title)}</div>
+      ${t.description?`<div style="font-size:12px;color:#666;margin-top:2px">${escapeHtml(t.description)}</div>`:''}
+      <div class="task-meta">👤 ${escapeHtml(t.assigned_to_name||'—')} ${t.due_date?'· до '+fmtDateShort(t.due_date):''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">Моя</span>':''}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
         ${reportSection}
-        <button class="report-btn" onclick="event.stopPropagation();openTaskComments(${t.id},'${(t.title||'').replace(/'/g,"\\'")}')">💬 Обсудить</button>
+        <button class="report-btn" onclick="event.stopPropagation();openTaskComments(${t.id},'${escJsAttr(t.title||'')}')">💬 Обсудить</button>
       </div>
     </div>
   </div>`;
@@ -1976,9 +1976,9 @@ async function loadHR() {
 
     const empCard = e => `
       <div class="list-item">
-        <div class="avatar ${getColor(e.name)}">${getInitials(e.name)}</div>
-        <div class="item-info"><div class="item-name">${e.name}</div><div class="item-sub">${e.role||''} · ${e.phone||''}</div><div class="item-sub">${(e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).map(getFilialName).join(', ')}</div>${canSeeSalary&&e.salary?`<div class="item-sub">${formatNum(e.salary)} сум</div>`:''}</div>
-        ${canSeeSalary?`<span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}">${e.status||'Активен'}</span>`:''}
+        <div class="avatar ${getColor(e.name)}">${escapeHtml(getInitials(e.name))}</div>
+        <div class="item-info"><div class="item-name">${escapeHtml(e.name)}</div><div class="item-sub">${escapeHtml(e.role||'')} · ${escapeHtml(e.phone||'')}</div><div class="item-sub">${(e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).map(getFilialName).join(', ')}</div>${canSeeSalary&&e.salary?`<div class="item-sub">${formatNum(e.salary)} сум</div>`:''}</div>
+        ${canSeeSalary?`<span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}">${escapeHtml(e.status||'Активен')}</span>`:''}
       </div>`;
 
     list.innerHTML = toggleBtn + orderedDepts.map(dept=>`
@@ -2031,7 +2031,7 @@ async function openPayroll() {
       ${rows.map(r=>`
         <div class="list-item">
           <div class="item-info">
-            <div class="item-name">${r.name}</div>
+            <div class="item-name">${escapeHtml(r.name)}</div>
             <div class="item-sub">${r.shifts} смен × ${formatNum(r.rate)} = ${formatNum(r.earned)}${r.penalty>0?` · <span style="color:#A13C3C">штраф −${formatNum(r.penalty)}</span>`:''}</div>
           </div>
           <div style="font-weight:700;color:var(--text-primary);white-space:nowrap">${formatNum(r.total)}</div>
@@ -2167,9 +2167,9 @@ async function loadTaskEmployees() {
   if(!emps || emps.length===0) { list.innerHTML='<div style="padding:10px;color:#999;font-size:13px">Нет сотрудников для филиала «' + getFilialName(currentFilial) + '»</div>'; return; }
   list.innerHTML = emps.map(e=>`
     <label style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer">
-      <input type="checkbox" class="task-emp-checkbox" value="${e.id}" data-name="${e.name}" style="width:18px;height:18px">
-      <span style="font-size:14px;color:var(--text-primary)">${e.name}</span>
-      <span style="font-size:11px;color:#999;margin-left:auto">${e.department||''}</span>
+      <input type="checkbox" class="task-emp-checkbox" value="${e.id}" data-name="${escapeHtml(e.name)}" style="width:18px;height:18px">
+      <span style="font-size:14px;color:var(--text-primary)">${escapeHtml(e.name)}</span>
+      <span style="font-size:11px;color:#999;margin-left:auto">${escapeHtml(e.department||'')}</span>
     </label>`).join('');
 }
 
@@ -2297,7 +2297,7 @@ async function loadFinance() {
     list.innerHTML = fins.slice(0,20).map(f=>`
       <div class="list-item">
         <div class="avatar ${f.type==='income'?'av-teal':'av-coral'}">${f.type==='income'?'↑':'↓'}</div>
-        <div class="item-info"><div class="item-name">${f.category||''}</div><div class="item-sub">${f.description||''} · ${f.date||''}</div></div>
+        <div class="item-info"><div class="item-name">${escapeHtml(f.category||'')}</div><div class="item-sub">${escapeHtml(f.description||'')} · ${f.date||''}</div></div>
         <span style="font-weight:600;font-size:14px" class="${f.type==='income'?'finance-positive':'finance-negative'}">${f.type==='income'?'+':'−'}${formatNum(f.amount)}</span>
       </div>`).join('');
   } catch(e) { console.error(e); }
@@ -2324,9 +2324,9 @@ async function loadCRM() {
     if(!books||books.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Броней пока нет</div></div>'; return; }
     list.innerHTML = books.map(b=>`
       <div class="list-item">
-        <div class="avatar ${getColor(b.guest_name)}">${getInitials(b.guest_name)}</div>
-        <div class="item-info"><div class="item-name">${b.guest_name}</div><div class="item-sub">${b.date||''} ${b.time||''} · ${b.zone||''} · ${b.guests_count||''} чел.</div><div class="item-sub">${b.phone||''}</div></div>
-        <span class="badge ${b.status==='Подтверждена'?'badge-green':b.status==='Отменена'?'badge-red':'badge-amber'}">${b.status||'Ожидание'}</span>
+        <div class="avatar ${getColor(b.guest_name)}">${escapeHtml(getInitials(b.guest_name))}</div>
+        <div class="item-info"><div class="item-name">${escapeHtml(b.guest_name)}</div><div class="item-sub">${escapeHtml(b.date||'')} ${escapeHtml(b.time||'')} · ${escapeHtml(b.zone||'')} · ${b.guests_count||''} чел.</div><div class="item-sub">${escapeHtml(b.phone||'')}</div></div>
+        <span class="badge ${b.status==='Подтверждена'?'badge-green':b.status==='Отменена'?'badge-red':'badge-amber'}">${escapeHtml(b.status||'Ожидание')}</span>
       </div>`).join('');
   } catch(e) { console.error(e); }
 }
@@ -2460,14 +2460,14 @@ async function loadAdminChecklists() {
       return `<div class="card" style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
-            <div style="font-size:14px;font-weight:600;color:var(--text-primary)">${template?.name||'Чек-лист'}</div>
-            <div style="font-size:12px;color:#999;margin-top:2px">👤 ${log.user_name||''} · ${new Date(log.date).toLocaleDateString('ru-RU')}</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text-primary)">${escapeHtml(template?.name||'Чек-лист')}</div>
+            <div style="font-size:12px;color:#999;margin-top:2px">👤 ${escapeHtml(log.user_name||'')} · ${new Date(log.date).toLocaleDateString('ru-RU')}</div>
           </div>
           <span class="badge ${pct===100?'badge-green':'badge-amber'}">${pct}%</span>
         </div>
         <div class="progress-track" style="margin-top:8px"><div class="progress-fill" style="width:${pct}%"></div></div>
         <div style="font-size:12px;color:#999;margin-top:6px">${doneCount} из ${totalItems} пунктов · ${mediaCount} фото/видео прикреплено</div>
-        ${mediaCount>0?`<button onclick='viewChecklistMedia(${JSON.stringify(log.items_media)}, ${JSON.stringify(template?.items||[])})' style="margin-top:8px;background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer;width:100%">📸 Смотреть все фото (${mediaCount})</button>`:''}
+        ${mediaCount>0?`<button onclick='viewChecklistMedia(${JSON.stringify(log.items_media).replace(/'/g,"&#39;")}, ${JSON.stringify(template?.items||[]).replace(/'/g,"&#39;")})' style="margin-top:8px;background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer;width:100%">📸 Смотреть все фото (${mediaCount})</button>`:''}
       </div>`;
     }).join('');
   } catch(e) { console.error(e); }
@@ -2481,8 +2481,8 @@ function viewChecklistMedia(itemsMedia, items) {
   Object.entries(itemsMedia).forEach(([itemId, media]) => {
     const isVideo = media.type === 'video';
     html += `<div>
-      <div style="font-size:13px;color:#666;margin-bottom:6px">${itemMap[itemId]||''}</div>
-      ${isVideo ? `<video src="${media.url}" controls style="width:100%;border-radius:12px"></video>` : `<img src="${media.url}" style="width:100%;border-radius:12px">`}
+      <div style="font-size:13px;color:#666;margin-bottom:6px">${escapeHtml(itemMap[itemId]||'')}</div>
+      ${isVideo ? `<video src="${escapeHtml(media.url)}" controls style="width:100%;border-radius:12px"></video>` : `<img src="${escapeHtml(media.url)}" style="width:100%;border-radius:12px">`}
     </div>`;
   });
   html += '</div>';
@@ -2504,10 +2504,10 @@ async function loadAdminEmployees() {
     if(!emps||emps.length===0) { empList.innerHTML='<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Сотрудников нет</div></div>'; return; }
     empList.innerHTML = emps.map(e=>`
       <div class="list-item">
-        <div class="avatar ${getColor(e.name)}">${getInitials(e.name)}</div>
+        <div class="avatar ${getColor(e.name)}">${escapeHtml(getInitials(e.name))}</div>
         <div class="item-info">
-          <div class="item-name">${e.name}</div>
-          <div class="item-sub">${e.role||''} · <span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}" style="font-size:10px">${e.status||'Активен'}</span></div>
+          <div class="item-name">${escapeHtml(e.name)}</div>
+          <div class="item-sub">${escapeHtml(e.role||'')} · <span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}" style="font-size:10px">${escapeHtml(e.status||'Активен')}</span></div>
           <div class="item-sub">${e.salary?formatNum(e.salary)+' сум':''}</div>
         </div>
         ${!isBoss()?`<button onclick="openEditEmployee(${e.id})" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">✏️</button>`:''}
@@ -2652,8 +2652,8 @@ async function loadAdminTasks(filters={}) {
     taskList.innerHTML = '<div class="card">'+tasks.map(t=>`
       <div class="list-item">
         <div class="item-info">
-          <div class="item-name" style="${t.status==='done'?'text-decoration:line-through;color:#999':''}">${t.title}</div>
-          <div class="item-sub">👤 ${t.assigned_to_name||'—'} · ${t.due_date||''} · <span class="${t.status==='done'?'badge badge-green':'badge badge-amber'}">${t.status==='done'?'Выполнено':'Активна'}</span></div>
+          <div class="item-name" style="${t.status==='done'?'text-decoration:line-through;color:#999':''}">${escapeHtml(t.title)}</div>
+          <div class="item-sub">👤 ${escapeHtml(t.assigned_to_name||'—')} · ${t.due_date||''} · <span class="${t.status==='done'?'badge badge-green':'badge badge-amber'}">${t.status==='done'?'Выполнено':'Активна'}</span></div>
         </div>
         <button onclick="deleteTask(${t.id})" style="background:#FCEBEB;color:#A32D2D;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer">✕</button>
       </div>`).join('')+'</div>';
@@ -2663,7 +2663,7 @@ async function loadAdminTasks(filters={}) {
 async function loadFilterEmployees() {
   const { data: emps } = await sb.from('employees').select('name').order('name');
   const sel = document.getElementById('filter-employee');
-  sel.innerHTML = '<option value="">Все сотрудники</option>' + (emps||[]).map(e=>`<option value="${e.name}">${e.name}</option>`).join('');
+  sel.innerHTML = '<option value="">Все сотрудники</option>' + (emps||[]).map(e=>`<option value="${escapeHtml(e.name)}">${escapeHtml(e.name)}</option>`).join('');
 }
 
 function applyTaskFilter() {
@@ -2724,9 +2724,9 @@ async function loadAnalytics() {
         const pct = s.total ? Math.round(s.done/s.total*100) : 0;
         const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
         return `<div class="list-item">
-          <div class="avatar ${getColor(name)}">${medal||getInitials(name)}</div>
+          <div class="avatar ${getColor(name)}">${medal||escapeHtml(getInitials(name))}</div>
           <div class="item-info">
-            <div class="item-name">${name}</div>
+            <div class="item-name">${escapeHtml(name)}</div>
             <div class="item-sub">${s.done} из ${s.total} задач выполнено</div>
             <div class="progress-track" style="margin-top:4px"><div class="progress-fill" style="width:${pct}%"></div></div>
           </div>
@@ -2781,8 +2781,8 @@ async function loadActivityLog() {
     el.innerHTML = logs.map(l=>`
       <div class="list-item">
         <div class="item-info">
-          <div class="item-name">${actionLabels[l.action]||l.action}</div>
-          <div class="item-sub">👤 ${l.user_name||'—'} · ${l.details||''}</div>
+          <div class="item-name">${escapeHtml(actionLabels[l.action]||l.action)}</div>
+          <div class="item-sub">👤 ${escapeHtml(l.user_name||'—')} · ${escapeHtml(l.details||'')}</div>
           <div class="item-sub">${new Date(l.created_at).toLocaleString('ru-RU')}</div>
         </div>
       </div>`).join('');
@@ -2904,11 +2904,11 @@ async function loadScheduleGrid() {
             cellContent = '<span style="color:#A32D2D;font-weight:600;font-size:12px">Вых</span>';
             cellBg = 'var(--surface-2)';
           } else {
-            cellContent = `<span style="font-weight:700;font-size:12px;color:#1a1611">${sched.shift_start||''}</span>`;
+            cellContent = `<span style="font-weight:700;font-size:12px;color:#1a1611">${escapeHtml(sched.shift_start||'')}</span>`;
             cellBg = 'var(--gold-light)';
           }
         }
-        const clickHandler = isAdmin ? `onclick="quickEditSchedule(${e.id},'${e.name}','${dateStr}')"` : '';
+        const clickHandler = isAdmin ? `onclick="quickEditSchedule(${e.id},'${escJsAttr(e.name)}','${dateStr}')"` : '';
         html += `<td ${clickHandler} style="padding:8px;text-align:center;border-top:1px solid var(--border);border-left:1px solid var(--border);background:${cellBg};cursor:${isAdmin?'pointer':'default'}">${cellContent}</td>`;
       });
       html += '</tr>';
@@ -2971,7 +2971,7 @@ async function pickEmployeeForSchedule() {
   document.getElementById('pick-emp-subtitle').textContent = '📍 ' + getFilialName(currentFilial) + ' · ' + currentDept;
   document.getElementById('pick-emp-list').innerHTML = emps.map(e=>`
     <button onclick="choosePickedEmployee(${e.id}, '${escapeHtml(e.name).replace(/'/g,"\\'")}')" style="width:100%;display:flex;align-items:center;gap:12px;text-align:left;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer">
-      <div class="avatar ${getColor(e.name)}" style="width:36px;height:36px;font-size:12px">${getInitials(e.name)}</div>
+      <div class="avatar ${getColor(e.name)}" style="width:36px;height:36px;font-size:12px">${escapeHtml(getInitials(e.name))}</div>
       <span style="font-size:15px;color:var(--text-primary);font-weight:500">${escapeHtml(e.name)}</span>
     </button>`).join('');
   openModal('modal-pick-employee');
@@ -2989,7 +2989,7 @@ async function openWeekFillPicker() {
   const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
   if(!emps || emps.length===0) return showToast('В этом отделе нет сотрудников для филиала «' + getFilialName(currentFilial) + '»');
   const sel = document.getElementById('week-employee');
-  sel.innerHTML = emps.map(e=>`<option value="${e.id}" data-name="${e.name}">${e.name}</option>`).join('');
+  sel.innerHTML = emps.map(e=>`<option value="${e.id}" data-name="${escapeHtml(e.name)}">${escapeHtml(e.name)}</option>`).join('');
   document.getElementById('wf-filial-display').textContent = '📍 ' + getFilialName(currentFilial);
   await renderWeekFillDays();
   openModal('modal-week-fill');
@@ -3183,7 +3183,7 @@ async function buildChecklistTabs() {
     if(!currentChecklistType || !templates.find(t=>t.type===currentChecklistType)) {
       currentChecklistType = templates[0].type;
     }
-    tabsEl.innerHTML = templates.map(t=>`<button onclick="switchChecklistTab('${t.type}')" class="ctab" style="background:${t.type===currentChecklistType?'#A6803F':'rgba(255,255,255,0.15)'};color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">${t.name}</button>`).join('');
+    tabsEl.innerHTML = templates.map(t=>`<button onclick="switchChecklistTab('${escJsAttr(t.type)}')" class="ctab" style="background:${t.type===currentChecklistType?'#A6803F':'rgba(255,255,255,0.15)'};color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">${escapeHtml(t.name)}</button>`).join('');
     await loadChecklist(currentChecklistType);
   } catch(e) {
     content.innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки чек-листов</div></div>';
@@ -3235,7 +3235,7 @@ async function loadChecklist(type) {
     
     // Progress
     html += `<div class="card">
-      <div class="card-title">${template.name}</div>
+      <div class="card-title">${escapeHtml(template.name)}</div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span style="font-size:13px;color:#999">${doneCount} из ${totalCount} выполнено</span>
         <span style="font-size:18px;font-weight:700;color:${pct===100?'#3B6D11':'#A6803F'}">${pct}%</span>
@@ -3253,14 +3253,14 @@ async function loadChecklist(type) {
         let mediaSection = '';
         if(media) {
           const isVideo = media.type === 'video';
-          mediaSection = `<button class="report-btn done-report" onclick="event.stopPropagation();viewReport('${media.url}','${media.type}')">${isVideo?'🎥':'📸'} Смотреть</button>`;
+          mediaSection = `<button class="report-btn done-report" onclick="event.stopPropagation();viewReport('${escJsAttr(media.url)}','${escJsAttr(media.type)}')">${isVideo?'🎥':'📸'} Смотреть</button>`;
         } else {
           mediaSection = `<button class="report-btn" onclick="event.stopPropagation();openChecklistMediaModal(${item.id},${template.id})">📎 Прикрепить фото</button>`;
         }
         html += `<div class="task-row" onclick="toggleChecklistItem(${item.id}, ${template.id}, '${todayStr}')">
           <div class="check ${isDone?'done':''}"></div>
           <div class="task-body">
-            <div class="task-text" style="${isDone?'text-decoration:line-through;color:#999':''}">${item.text}</div>
+            <div class="task-text" style="${isDone?'text-decoration:line-through;color:#999':''}">${escapeHtml(item.text)}</div>
             ${mediaSection}
           </div>
         </div>`;
@@ -3389,18 +3389,18 @@ function chatBubbleHTML(c, isMine, showPinBtn) {
   let mediaHTML = '';
   if(c.media_url) {
     if(c.media_type === 'video') {
-      mediaHTML = `<video src="${c.media_url}" controls style="max-width:100%;border-radius:10px;margin-bottom:${c.text?'6px':'0'};display:block"></video>`;
+      mediaHTML = `<video src="${escapeHtml(c.media_url)}" controls style="max-width:100%;border-radius:10px;margin-bottom:${c.text?'6px':'0'};display:block"></video>`;
     } else {
-      mediaHTML = `<img src="${c.media_url}" style="max-width:100%;border-radius:10px;margin-bottom:${c.text?'6px':'0'};display:block;cursor:pointer" onclick="viewReport('${c.media_url}','image')">`;
+      mediaHTML = `<img src="${escapeHtml(c.media_url)}" style="max-width:100%;border-radius:10px;margin-bottom:${c.text?'6px':'0'};display:block;cursor:pointer" onclick="viewReport('${escJsAttr(c.media_url)}','image')">`;
     }
   }
   const pinBtn = showPinBtn ? `<button onclick="event.stopPropagation();toggleChatPin(${c.id},${c.is_pinned})" style="background:none;border:none;cursor:pointer;font-size:11px;opacity:0.6;margin-left:6px">${c.is_pinned?'📌':'📍'}</button>` : '';
   return `<div style="align-self:${isMine?'flex-end':'flex-start'};max-width:80%">
     ${c.is_pinned?'<div style="font-size:10px;color:var(--gold-dark);font-weight:600;margin-bottom:2px">📌 Закреплено</div>':''}
     <div style="background:${isMine?'var(--gold-dark)':'var(--surface-2)'};color:${isMine?'#fff':'var(--text-primary)'};border-radius:14px;padding:${c.media_url?'8px':'10px 14px'};font-size:14px;${isMine?'border-bottom-right-radius:4px':'border-bottom-left-radius:4px'}">
-      ${!isMine?`<div style="font-size:11px;font-weight:600;opacity:0.7;margin-bottom:3px">${c.user_name||''}</div>`:''}
+      ${!isMine?`<div style="font-size:11px;font-weight:600;opacity:0.7;margin-bottom:3px">${escapeHtml(c.user_name||'')}</div>`:''}
       ${mediaHTML}
-      ${c.text||''}
+      ${escapeHtml(c.text||'')}
     </div>
     <div style="font-size:10px;color:var(--text-muted);margin-top:2px;text-align:${isMine?'right':'left'}">${time}${pinBtn}</div>
   </div>`;
@@ -3483,6 +3483,11 @@ function kbCanEdit() { return currentRole() === 'admin'; }
 
 function escapeHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Для вставки пользовательских строк внутрь одинарных кавычек JS-аргумента в onclick="fn('...')"
+function escJsAttr(s) {
+  return escapeHtml(s).replace(/'/g,"\\'");
 }
 
 async function loadKnowledgeBase() {
@@ -5235,7 +5240,7 @@ async function loadReviews() {
             <span style="background:var(--surface-2);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600">${REVIEW_CATS[r.category]||'💬'}</span>
             <span style="background:var(--surface-2);border-radius:6px;padding:2px 8px;font-size:11px">${REVIEW_SENT[r.sentiment]||''} ${REVIEW_SENT_LABEL[r.sentiment]||''}</span>
           </div>
-          ${canEditData()?`<button onclick="openReviewEdit(${r.id},'${r.category}','${r.sentiment}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px">✏️</button>`:''}
+          ${canEditData()?`<button onclick="openReviewEdit(${r.id},'${escJsAttr(r.category)}','${escJsAttr(r.sentiment)}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px">✏️</button>`:''}
         </div>
         <div style="font-size:14px;color:var(--text-primary);line-height:1.5">${escapeHtml(r.text)}</div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${r.guest_name?escapeHtml(r.guest_name)+' · ':''}${new Date(r.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}${r.created_by_name?' · записал '+escapeHtml(r.created_by_name):''}</div>
