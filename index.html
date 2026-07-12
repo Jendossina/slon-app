@@ -547,6 +547,21 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     </div>
   </div>
 
+  <!-- HELP (ПОМОЩНИК) SCREEN -->
+  <div class="screen" id="screen-help">
+    <div class="header">
+      <h1>💡 Помощник</h1>
+      <p>Спроси, где что находится</p>
+    </div>
+    <div style="display:flex;flex-direction:column;height:calc(100vh - 190px)">
+      <div id="help-chat" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px"></div>
+      <div style="display:flex;gap:8px;padding:12px 16px calc(env(safe-area-inset-bottom) + 80px);border-top:1px solid var(--border);background:var(--surface)">
+        <input class="form-input" id="help-input" placeholder="Например: где отметить приход?" style="flex:1" onkeypress="if(event.key==='Enter')askHelp()">
+        <button onclick="askHelp()" style="background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:18px;cursor:pointer">➤</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MY NOTES (ЗАДАЧНИК) SCREEN -->
   <div class="screen" id="screen-mynotes">
     <div class="header">
@@ -1317,6 +1332,7 @@ function openMoreMenu() {
     { title:'Личное', items:[
       {id:'profile', label:'📄 Личный кабинет', show:true},
       {id:'mynotes', label:'📝 Мой задачник', show: canEditData() || isBoss()},
+      {id:'help', label:'💡 Помощник', show:true},
     ]},
     { title:'Работа', items:[
       {id:'knowledge', label:'📚 База знаний', show:true},
@@ -1371,6 +1387,7 @@ function showScreen(name, btn) {
   if(name==='calendar') loadCalendar();
   if(name==='dashboard') loadDashboard();
   if(name==='mynotes') loadMyNotes();
+  if(name==='help') loadHelp();
 }
 
 async function loadHome() {
@@ -4313,6 +4330,102 @@ async function deleteDirectory() {
     showToast('✅ Удалено');
     loadDirectory();
   } catch(e) { showToast('Ошибка: '+e.message); }
+}
+
+// ============ ПОМОЩНИК (HELP) ============
+// Быстрые вопросы-подсказки
+const HELP_SUGGESTIONS = [
+  'Где отметить приход?',
+  'Как записать бой посуды?',
+  'Где посмотреть мою зарплату?',
+  'Как внести отзыв гостя?',
+  'Где чек-листы?',
+  'Как сменить пароль?'
+];
+
+// Статичная карта разделов — показывается, если ИИ недоступен
+const HELP_FALLBACK = [
+  { t:'🏠 Главная', d:'Отметка прихода и ухода, зарплата, задачи на сегодня' },
+  { t:'✅ Задачи', d:'Твои задачи по дням, фото-отчёты' },
+  { t:'☑️ Смена', d:'Чек-листы открытия и закрытия смены' },
+  { t:'📅 График', d:'Расписание смен по неделям' },
+  { t:'📄 Личный кабинет', d:'Ещё → зарплата, смены, достижения, смена пароля' },
+  { t:'🍽️ Посуда', d:'Ещё → учёт посуды и запись боя' },
+  { t:'🧴 Хозчасть', d:'Ещё → расходники: взять со склада, приход, отчёт' },
+  { t:'⭐ Отзывы', d:'Ещё → отзывы гостей, ИИ сам сортирует' },
+  { t:'📚 База знаний', d:'Ещё → регламенты и стандарты, есть поиск' },
+  { t:'💬 Общий чат', d:'Ещё → чат по отделам' },
+  { t:'📢 Лента', d:'Ещё → объявления и опросы' },
+  { t:'📅 Календарь', d:'Ещё → доставки, проверки, банкеты' },
+];
+
+function helpBubble(text, isMine) {
+  return `<div style="align-self:${isMine?'flex-end':'flex-start'};max-width:85%">
+    <div style="background:${isMine?'var(--gold-dark)':'var(--surface-2)'};color:${isMine?'#fff':'var(--text-primary)'};border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.5;white-space:pre-wrap;${isMine?'border-bottom-right-radius:4px':'border-bottom-left-radius:4px'}">${escapeHtml(text)}</div>
+  </div>`;
+}
+
+function loadHelp() {
+  const chat = document.getElementById('help-chat');
+  if(!chat) return;
+  // Приветствие + быстрые вопросы (только при первом входе)
+  if(chat.dataset.inited === '1') return;
+  chat.dataset.inited = '1';
+  chat.innerHTML = helpBubble('Привет! Я помогу разобраться в приложении. Спроси, где что находится или как что-то сделать.', false) +
+    `<div id="help-suggestions" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+      ${HELP_SUGGESTIONS.map(q=>`<button onclick="askHelp('${q.replace(/'/g,"\\'")}')" style="background:var(--surface-2);border:1px solid var(--border);border-radius:16px;padding:7px 12px;font-size:12px;color:var(--text-primary);cursor:pointer">${q}</button>`).join('')}
+    </div>`;
+}
+
+async function askHelp(preset) {
+  const input = document.getElementById('help-input');
+  const question = (preset || input.value).trim();
+  if(!question) return;
+  const chat = document.getElementById('help-chat');
+  input.value = '';
+  // Убираем подсказки после первого вопроса
+  const sug = document.getElementById('help-suggestions');
+  if(sug) sug.remove();
+
+  chat.insertAdjacentHTML('beforeend', helpBubble(question, true));
+  chat.insertAdjacentHTML('beforeend', `<div id="help-typing" style="align-self:flex-start;color:var(--text-muted);font-size:13px;padding:6px 4px">💭 Думаю...</div>`);
+  chat.scrollTop = chat.scrollHeight;
+
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    const roleLabels = { admin:'Управляющий', manager:'Менеджер', employee:'Сотрудник', boss:'Владелец (наблюдатель)' };
+    const res = await fetch('https://omeomdkurvtvirhfkffu.supabase.co/functions/v1/ask-slon', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_KEY, 'Authorization':'Bearer '+(accessToken||SUPABASE_KEY) },
+      body: JSON.stringify({ question, role: roleLabels[currentRole()] || '' })
+    });
+    const result = await res.json();
+    document.getElementById('help-typing')?.remove();
+
+    if(result.answer) {
+      chat.insertAdjacentHTML('beforeend', helpBubble(result.answer, false));
+    } else {
+      showHelpFallback(chat);
+    }
+  } catch(e) {
+    document.getElementById('help-typing')?.remove();
+    showHelpFallback(chat);
+  }
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// Если ИИ недоступен — показываем обычный справочник разделов
+function showHelpFallback(chat) {
+  chat.insertAdjacentHTML('beforeend', `<div style="align-self:flex-start;max-width:95%">
+    <div style="background:var(--surface-2);border-radius:14px;padding:12px 14px;font-size:13px;color:var(--text-primary);border-bottom-left-radius:4px">
+      <div style="margin-bottom:10px;color:var(--text-muted)">Умный ответ сейчас недоступен. Вот карта разделов:</div>
+      ${HELP_FALLBACK.map(s=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+        <div style="font-weight:600">${s.t}</div>
+        <div style="font-size:12px;color:var(--text-muted)">${s.d}</div>
+      </div>`).join('')}
+    </div>
+  </div>`);
 }
 
 // ============ ЛИЧНЫЙ ЗАДАЧНИК (MY NOTES) ============
