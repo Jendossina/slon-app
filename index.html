@@ -289,7 +289,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 .badge-red { animation: badgePulse 2.2s ease-in-out infinite; }
 
 /* Риппл-эффект от нажатия на кнопки */
-.btn, .report-btn, .nav-btn { position: relative; overflow: hidden; }
+.btn, .report-btn, .nav-btn, .more-menu-item { position: relative; overflow: hidden; }
 .ripple { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.4); transform: scale(0); animation: rippleAnim 0.6s ease-out; pointer-events: none; }
 [data-theme="dark"] .ripple { background: rgba(255,255,255,0.22); }
 
@@ -326,6 +326,32 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 ::-webkit-scrollbar-thumb { background: rgba(166,128,63,0.4); border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(166,128,63,0.6); }
 * { scrollbar-width: thin; scrollbar-color: rgba(166,128,63,0.4) transparent; }
+
+/* Меню "Ещё": стеклянная панель поверх размытого фона */
+#modal-more-menu .modal {
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  border-top: 1px solid rgba(201,164,104,0.25);
+}
+.more-menu-group-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 16px 4px 8px; }
+.more-menu-group-title:first-child { margin-top: 0; }
+.more-menu-item {
+  width: 100%; display: flex; align-items: center; gap: 12px; text-align: left;
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--border); border-radius: 14px;
+  padding: 12px 14px; font-size: 15px; color: var(--text-primary);
+  margin-bottom: 8px; cursor: pointer; position: relative; overflow: hidden;
+  transition: transform 0.12s ease, border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.more-menu-item:active { transform: scale(0.97); }
+.more-menu-item:hover { border-color: rgba(201,164,104,0.45); box-shadow: 0 3px 12px rgba(166,128,63,0.15); }
+.more-menu-icon {
+  width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0; font-size: 17px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, rgba(201,164,104,0.22), rgba(201,164,104,0.07));
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }

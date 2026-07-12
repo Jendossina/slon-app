@@ -196,7 +196,7 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 
 // Риппл-эффект от нажатия на кнопки (чисто визуальный, ни на что не влияет)
 document.addEventListener('click', (e) => {
-  const el = e.target.closest('.btn, .fab, .report-btn, .nav-btn');
+  const el = e.target.closest('.btn, .fab, .report-btn, .nav-btn, .more-menu-item');
   if(!el) return;
   const rect = el.getBoundingClientRect();
   const size = Math.max(rect.width, rect.height);
@@ -332,8 +332,13 @@ function openMoreMenu() {
   menu.innerHTML = groups.map(g=>{
     const visible = g.items.filter(i=>i.show);
     if(visible.length===0) return '';
-    return `<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin:14px 4px 8px">${g.title}</div>` +
-      visible.map(i=>`<button onclick="showScreen('${i.id}', null)" style="width:100%;text-align:left;background:var(--surface-2);border:none;border-radius:12px;padding:14px 16px;font-size:15px;color:var(--text-primary);margin-bottom:8px;cursor:pointer;display:block">${i.label}</button>`).join('');
+    return `<div class="more-menu-group-title">${g.title}</div>` +
+      visible.map(i=>{
+        const sp = i.label.indexOf(' ');
+        const icon = i.label.slice(0, sp);
+        const text = i.label.slice(sp+1);
+        return `<button class="more-menu-item" onclick="showScreen('${i.id}', null)"><span class="more-menu-icon">${icon}</span><span>${text}</span></button>`;
+      }).join('');
   }).join('');
   openModal('modal-more-menu');
 }
