@@ -1077,7 +1077,8 @@ async function saveTelegramId() {
   const tgId = document.getElementById('tg-id-input').value.trim();
   if(!tgId || !/^\d+$/.test(tgId)) return showToast('Введите корректный числовой ID');
   try {
-    await sb.from('profiles').update({telegram_id: tgId}).eq('user_id', currentUser.id);
+    const { error: rpcErr } = await sb.rpc('update_own_telegram_id', { new_telegram_id: tgId });
+    if(rpcErr) throw rpcErr;
     currentProfile.telegram_id = tgId;
     showToast('✅ Telegram подключен!');
     await sendTelegram(tgId, '🐘 <b>Отлично!</b>\n\nТеперь ты будешь получать уведомления о новых задачах прямо здесь.');
