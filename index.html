@@ -8,9 +8,13 @@
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <meta name="theme-color" content="#0e0d0b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
+  --font-display: 'Playfair Display', Georgia, serif;
   --gold: #C9A468;
   --gold-light: #E8D4AC;
   --gold-dark: #A6803F;
@@ -49,7 +53,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 .login-screen { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; background: linear-gradient(135deg, #0e0d0b 0%, #1a1611 100%); }
 .login-logo-img { width: 90px; height: 90px; background-image: url('/logo-head.png'); background-size: contain; background-repeat: no-repeat; background-position: center; margin-bottom: 14px; }
-.login-title { color: var(--gold-light); font-size: 24px; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.02em; }
+.login-title { font-family: var(--font-display); color: var(--gold-light); font-size: 27px; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.01em; }
 .login-sub { color: rgba(232,212,172,0.55); font-size: 14px; margin-bottom: 36px; }
 .login-card { background: #1a1815; border: 1px solid #332e24; border-radius: 20px; padding: 24px; width: 100%; max-width: 360px; }
 .login-card h3 { font-size: 18px; font-weight: 600; color: var(--gold-light); margin-bottom: 20px; }
@@ -77,7 +81,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 .screen.active { display: block; }
 
 .header { background: var(--header-grad); color: #f0e9db; padding: 50px 20px 20px; position: relative; }
-.header h1 { font-size: 20px; font-weight: 600; display: flex; align-items: center; gap: 8px; color: var(--gold-light); }
+.header h1 { font-family: var(--font-display); font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: var(--gold-light); }
 .header p { font-size: 13px; opacity: 0.65; margin-top: 4px; }
 .header-row { display: flex; align-items: flex-start; justify-content: space-between; }
 .logout-btn { background: rgba(201,164,104,0.18); border: 1px solid rgba(201,164,104,0.3); color: var(--gold-light); border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; margin-top: 2px; }
@@ -90,7 +94,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 .stat-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
 .welcome { background: var(--header-grad); border: 1px solid rgba(201,164,104,0.2); border-radius: 14px; padding: 18px; margin-bottom: 12px; color: #f0e9db; }
-.welcome h3 { font-size: 16px; font-weight: 600; color: var(--gold-light); }
+.welcome h3 { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--gold-light); }
 .welcome p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
 
 .list-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
@@ -135,7 +139,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; display: none; align-items: flex-end; }
 .modal-overlay.open { display: flex; }
 .modal { background: var(--surface); border-radius: 20px 20px 0 0; width: 100%; padding: 20px 20px 40px; max-height: 90vh; overflow-y: auto; }
-.modal-title { font-size: 18px; font-weight: 600; margin-bottom: 18px; color: var(--text-primary); }
+.modal-title { font-family: var(--font-display); font-size: 20px; font-weight: 700; margin-bottom: 18px; color: var(--text-primary); }
 .modal-close { float: right; background: var(--surface-2); border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 16px; cursor: pointer; color: var(--text-secondary); }
 
 .fab { position: fixed; right: 20px; bottom: 90px; width: 54px; height: 54px; border-radius: 50%; background: var(--gold-dark); color: #fff; border: none; font-size: 26px; box-shadow: 0 4px 14px rgba(166,128,63,0.4); cursor: pointer; z-index: 99; display: flex; align-items: center; justify-content: center; }
@@ -288,6 +292,40 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 .btn, .report-btn, .nav-btn { position: relative; overflow: hidden; }
 .ripple { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.4); transform: scale(0); animation: rippleAnim 0.6s ease-out; pointer-events: none; }
 [data-theme="dark"] .ripple { background: rgba(255,255,255,0.22); }
+
+/* ===== ЕЩЁ СЛОЙ ПОЛИРОВКИ ===== */
+@keyframes emptyFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+/* Матовое стекло на липких панелях — навигация будто парит над контентом */
+.bottom-nav, .filial-switcher { backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.bottom-nav { background: color-mix(in srgb, var(--nav-bg) 85%, transparent); }
+.filial-switcher { background: color-mix(in srgb, var(--nav-bg) 88%, transparent); }
+
+/* Едва заметная точечная текстура на шапке — фактура вместо плоской заливки */
+.header { position: relative; overflow: hidden; }
+.header::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
+  background-image: radial-gradient(rgba(201,164,104,0.14) 1px, transparent 1px);
+  background-size: 16px 16px;
+  -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.8), transparent);
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.8), transparent);
+}
+.header > * { position: relative; z-index: 1; }
+
+/* Первичная кнопка — мягкий градиент вместо плоской заливки */
+.btn-primary { background: linear-gradient(135deg, var(--gold-dark), #8f6a30); }
+[data-theme="dark"] .btn-primary { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); }
+
+/* Пустые состояния — иконка едва заметно "дышит" */
+.empty-icon { display: inline-block; animation: emptyFloat 3.2s ease-in-out infinite; }
+
+/* Тонкий золотистый скроллбар и цвет выделения текста */
+::selection { background: rgba(201,164,104,0.35); color: inherit; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(166,128,63,0.4); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(166,128,63,0.6); }
+* { scrollbar-width: thin; scrollbar-color: rgba(166,128,63,0.4) transparent; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
