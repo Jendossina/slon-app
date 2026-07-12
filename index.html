@@ -58,7 +58,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .login-card { background: #1a1815; border: 1px solid #332e24; border-radius: 20px; padding: 24px; width: 100%; max-width: 360px; }
 .login-card h3 { font-size: 18px; font-weight: 600; color: var(--gold-light); margin-bottom: 20px; }
 
-.theme-toggle { position: fixed; top: 14px; right: 16px; z-index: 150; background: rgba(255,255,255,0.12); border: none; border-radius: 20px; padding: 6px 12px; font-size: 12px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 5px; backdrop-filter: blur(6px); }
+.theme-toggle { position: fixed; top: 14px; right: 16px; z-index: 150; background: rgba(40,36,28,0.55); border: none; border-radius: 20px; padding: 6px 12px; font-size: 12px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 5px; }
 
 .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--nav-bg); border-top: 1px solid var(--border); display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
 .filial-switcher { position: sticky; top: 0; left: 0; right: 0; display: flex; background: var(--nav-bg); border-bottom: 1px solid var(--border); z-index: 95; }
@@ -296,11 +296,6 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 /* ===== ЕЩЁ СЛОЙ ПОЛИРОВКИ ===== */
 @keyframes emptyFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 
-/* Матовое стекло на липких панелях — навигация будто парит над контентом */
-.bottom-nav, .filial-switcher { backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
-.bottom-nav { background: color-mix(in srgb, var(--nav-bg) 85%, transparent); }
-.filial-switcher { background: color-mix(in srgb, var(--nav-bg) 88%, transparent); }
-
 /* Едва заметная точечная текстура на шапке — фактура вместо плоской заливки */
 .header { position: relative; overflow: hidden; }
 .header::before {
@@ -327,19 +322,17 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(166,128,63,0.6); }
 * { scrollbar-width: thin; scrollbar-color: rgba(166,128,63,0.4) transparent; }
 
-/* Меню "Ещё": стеклянная панель поверх размытого фона */
+/* Меню "Ещё": лёгкая полупрозрачность без backdrop-filter — на слабых
+   телефонах размытие фона очень дорогое и заметно тормозит. */
 #modal-more-menu .modal {
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
-  backdrop-filter: blur(22px) saturate(1.4);
-  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  background: var(--surface);
   border-top: 1px solid rgba(201,164,104,0.25);
 }
 .more-menu-group-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 16px 4px 8px; }
 .more-menu-group-title:first-child { margin-top: 0; }
 .more-menu-item {
   width: 100%; display: flex; align-items: center; gap: 12px; text-align: left;
-  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  background: var(--surface-2);
   border: 1px solid var(--border); border-radius: 14px;
   padding: 12px 14px; font-size: 15px; color: var(--text-primary);
   margin-bottom: 8px; cursor: pointer; position: relative; overflow: hidden;
