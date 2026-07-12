@@ -194,6 +194,21 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
   o.addEventListener('click', e=>{ if(e.target===o) o.classList.remove('open'); });
 });
 
+// Риппл-эффект от нажатия на кнопки (чисто визуальный, ни на что не влияет)
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('.btn, .fab, .report-btn, .nav-btn');
+  if(!el) return;
+  const rect = el.getBoundingClientRect();
+  const size = Math.max(rect.width, rect.height);
+  const ripple = document.createElement('span');
+  ripple.className = 'ripple';
+  ripple.style.width = ripple.style.height = size + 'px';
+  ripple.style.left = (e.clientX - rect.left - size/2) + 'px';
+  ripple.style.top = (e.clientY - rect.top - size/2) + 'px';
+  el.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 650);
+});
+
 async function doLogin() {
   let login = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-password').value;

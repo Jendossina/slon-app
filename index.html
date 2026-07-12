@@ -229,6 +229,66 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 
 .progress-fill { transition: width 0.45s cubic-bezier(.25,.8,.35,1); }
 
+/* ===== ФИРМЕННЫЙ АКЦЕНТ: тёплое золотое свечение в духе лаунж-кальянной ===== */
+@keyframes floatGlow { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(24px,-16px) scale(1.12); } }
+@keyframes fabPulse { 0% { transform: scale(0.92); opacity: 0.55; } 100% { transform: scale(1.5); opacity: 0; } }
+@keyframes badgePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(161,60,60,0.35); } 50% { box-shadow: 0 0 0 5px rgba(161,60,60,0); } }
+@keyframes rippleAnim { to { transform: scale(2.6); opacity: 0; } }
+
+/* Экран входа: два мягко плавающих золотых пятна на фоне */
+.login-screen { position: relative; overflow: hidden; }
+.login-screen::before, .login-screen::after {
+  content: ''; position: absolute; width: 320px; height: 320px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(201,164,104,0.22), transparent 70%);
+  filter: blur(6px); z-index: 0; pointer-events: none;
+  animation: floatGlow 11s ease-in-out infinite;
+}
+.login-screen::before { top: -90px; left: -90px; }
+.login-screen::after { bottom: -110px; right: -70px; animation-delay: -5.5s; animation-duration: 13s; }
+.login-screen > * { position: relative; z-index: 1; }
+
+/* Карточка приветствия на главной: лёгкий тёплый блик */
+.welcome { position: relative; overflow: hidden; }
+.welcome::before {
+  content: ''; position: absolute; top: -60%; right: -15%; width: 220px; height: 220px;
+  background: radial-gradient(circle, rgba(201,164,104,0.28), transparent 70%);
+  pointer-events: none;
+}
+
+/* Кнопка "+": пульсирующее золотое кольцо-приглашение к действию */
+.fab { position: fixed; } /* уточняем контекст для ::before, остальные свойства заданы выше */
+.fab::before {
+  content: ''; position: absolute; inset: -6px; border-radius: 50%;
+  border: 2px solid var(--gold-dark); opacity: 0; pointer-events: none;
+  animation: fabPulse 2.6s ease-out infinite;
+}
+[data-theme="dark"] .fab::before { border-color: var(--gold); }
+
+/* Аватары: градиент вместо плоского цвета — больше глубины */
+.av-purple { background: linear-gradient(135deg, #f5ecd9, #e8d4ac); }
+.av-teal   { background: linear-gradient(135deg, #e8f2ea, #cde3d2); }
+.av-coral  { background: linear-gradient(135deg, #faece2, #f0d3bf); }
+.av-amber  { background: linear-gradient(135deg, #fbf1da, #f0dcac); }
+[data-theme="dark"] .av-purple { background: linear-gradient(135deg, #3d3120, #241d12); }
+[data-theme="dark"] .av-teal   { background: linear-gradient(135deg, #21362a, #131f19); }
+[data-theme="dark"] .av-coral  { background: linear-gradient(135deg, #3d2b1c, #241a10); }
+[data-theme="dark"] .av-amber  { background: linear-gradient(135deg, #3d3320, #241e12); }
+
+/* Нижняя навигация: активная иконка чуть приподнимается и светится */
+.nav-btn svg { transition: transform 0.22s cubic-bezier(.34,1.56,.64,1), filter 0.22s ease; }
+.nav-btn.active svg { transform: translateY(-2px) scale(1.1); filter: drop-shadow(0 3px 6px rgba(166,128,63,0.4)); }
+
+/* Карточки в тёмной теме: тёплый отклик при нажатии */
+[data-theme="dark"] .card:active { box-shadow: 0 0 0 1px rgba(201,164,104,0.35), 0 4px 16px rgba(201,164,104,0.18); }
+
+/* Срочные/просроченные бейджи — мягкая пульсация, привлекает внимание */
+.badge-red { animation: badgePulse 2.2s ease-in-out infinite; }
+
+/* Риппл-эффект от нажатия на кнопки */
+.btn, .report-btn, .nav-btn { position: relative; overflow: hidden; }
+.ripple { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.4); transform: scale(0); animation: rippleAnim 0.6s ease-out; pointer-events: none; }
+[data-theme="dark"] .ripple { background: rgba(255,255,255,0.22); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
