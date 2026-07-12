@@ -10,7 +10,7 @@ async function loadHR() {
   try {
     const role = currentProfile?.role;
     const canSeeSalary = canSeeSalaryRole();
-    const { data: allEmps } = await sb.from('employees').select('*').order('name');
+    const { data: allEmps } = await sb.from('employees_view').select('*').order('name');
     let emps = hrShowAll ? (allEmps||[]) : (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
     // Фильтр по поиску (имя, должность, телефон)
     const q = (hrSearchQuery||'').trim().toLowerCase();
@@ -69,7 +69,7 @@ async function openPayroll() {
     document.getElementById('payroll-title').textContent = `💰 Ведомость · ${now.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})} · ${getFilialName(currentFilial)}`;
 
     // Сотрудники этого филиала
-    const { data: allEmps } = await sb.from('employees').select('*').order('name');
+    const { data: allEmps } = await sb.from('employees_view').select('*').order('name');
     const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
 
     // Явка за месяц по этому филиалу

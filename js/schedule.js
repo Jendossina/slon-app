@@ -56,7 +56,7 @@ async function loadScheduleGrid() {
 
   try {
     // Get employees in this department, eligible for the selected filial
-    const { data: allEmps } = await sb.from('employees').select('*').eq('department', currentDept).order('name');
+    const { data: allEmps } = await sb.from('employees_view').select('*').eq('department', currentDept).order('name');
     const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
     
     if(!emps || emps.length===0) {

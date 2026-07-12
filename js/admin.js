@@ -127,7 +127,7 @@ async function loadAdmin() {
 
 async function loadAdminEmployees() {
   try {
-    const { data: emps } = await sb.from('employees').select('*').order('name');
+    const { data: emps } = await sb.from('employees_view').select('*').order('name');
     const { data: profiles } = await sb.from('profiles').select('employee_id,role');
     const profileMap = {};
     (profiles||[]).forEach(p=>{ if(p.employee_id) profileMap[p.employee_id]=p.role; });
@@ -147,7 +147,7 @@ async function loadAdminEmployees() {
 }
 
 async function openEditEmployee(id) {
-  const { data: emp } = await sb.from('employees').select('*').eq('id',id).single();
+  const { data: emp } = await sb.from('employees_view').select('*').eq('id',id).single();
   const { data: profile } = await sb.from('profiles').select('role,user_id').eq('employee_id',id).single();
   if(!emp) return;
   document.getElementById('edit-emp-id').value = id;
