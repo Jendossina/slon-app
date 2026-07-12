@@ -1521,7 +1521,7 @@ async function loadAttendanceCard(dateStr, myShift) {
         <div style="font-size:13px;color:var(--text-secondary)">Пришёл: <b>${record.check_in_time}</b> · Ушёл: <b>${record.check_out_time}</b></div>
       </div>`;
     }
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error(e); attEl.innerHTML = `<div class="card" style="margin-bottom:12px"><div class="card-title">Отметка на смену</div><div style="font-size:12px;color:#A32D2D">Не удалось загрузить. Проверьте соединение и обновите страницу.</div></div>`; }
 }
 
 // Карточка "Моя зарплата" на главном экране (только свои данные сотрудника)
@@ -2300,7 +2300,7 @@ async function loadFinance() {
         <div class="item-info"><div class="item-name">${escapeHtml(f.category||'')}</div><div class="item-sub">${escapeHtml(f.description||'')} · ${f.date||''}</div></div>
         <span style="font-weight:600;font-size:14px" class="${f.type==='income'?'finance-positive':'finance-negative'}">${f.type==='income'?'+':'−'}${formatNum(f.amount)}</span>
       </div>`).join('');
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error(e); document.getElementById('finance-list').innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div>'; }
 }
 
 async function addFinance() {
@@ -2328,7 +2328,7 @@ async function loadCRM() {
         <div class="item-info"><div class="item-name">${escapeHtml(b.guest_name)}</div><div class="item-sub">${escapeHtml(b.date||'')} ${escapeHtml(b.time||'')} · ${escapeHtml(b.zone||'')} · ${b.guests_count||''} чел.</div><div class="item-sub">${escapeHtml(b.phone||'')}</div></div>
         <span class="badge ${b.status==='Подтверждена'?'badge-green':b.status==='Отменена'?'badge-red':'badge-amber'}">${escapeHtml(b.status||'Ожидание')}</span>
       </div>`).join('');
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error(e); document.getElementById('crm-list').innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div>'; }
 }
 
 async function addBooking() {
@@ -2470,7 +2470,7 @@ async function loadAdminChecklists() {
         ${mediaCount>0?`<button onclick='viewChecklistMedia(${JSON.stringify(log.items_media).replace(/'/g,"&#39;")}, ${JSON.stringify(template?.items||[]).replace(/'/g,"&#39;")})' style="margin-top:8px;background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer;width:100%">📸 Смотреть все фото (${mediaCount})</button>`:''}
       </div>`;
     }).join('');
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error(e); document.getElementById('admin-checklists-list').innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div></div>'; }
 }
 
 function viewChecklistMedia(itemsMedia, items) {
@@ -2512,7 +2512,7 @@ async function loadAdminEmployees() {
         </div>
         ${!isBoss()?`<button onclick="openEditEmployee(${e.id})" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">✏️</button>`:''}
       </div>`).join('');
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error(e); document.getElementById('admin-employees-list').innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div>'; }
 }
 
 async function openEditEmployee(id) {
@@ -2759,7 +2759,14 @@ async function loadAnalytics() {
           </div>
         </div>`).join('');
     }
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    console.error(e);
+    const errHtml = '<div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div>';
+    const ratingEl = document.getElementById('admin-rating-list');
+    const weeksEl = document.getElementById('admin-finance-weeks');
+    if(ratingEl) ratingEl.innerHTML = errHtml;
+    if(weeksEl) weeksEl.innerHTML = errHtml;
+  }
 }
 
 function getWeekNumber(d) {
@@ -2786,7 +2793,7 @@ async function loadActivityLog() {
           <div class="item-sub">${new Date(l.created_at).toLocaleString('ru-RU')}</div>
         </div>
       </div>`).join('');
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error(e); document.getElementById('admin-activity-list').innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div>'; }
 }
 
 // SCHEDULE - WEEKLY GRID VIEW
@@ -3373,7 +3380,7 @@ async function toggleChecklistItem(itemId, templateId, date) {
     }
 
     await loadChecklist(currentChecklistType);
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error(e); showToast('Ошибка сохранения: '+e.message); }
 }
 
 // Set today as default date
@@ -3445,7 +3452,7 @@ async function loadTaskComments(isPoll) {
     const wasAtBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 30;
     list.innerHTML = comments.map(c => chatBubbleHTML(c, c.user_id === currentUser?.id)).join('');
     if(!isPoll || wasAtBottom) list.scrollTop = list.scrollHeight;
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error(e); if(!isPoll) list.innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div>'; }
 }
 
 async function sendTaskComment() {
@@ -5396,7 +5403,7 @@ async function loadTeamChat(isPoll) {
     html += regular.map(m => chatBubbleHTML(m, m.user_id === currentUser?.id, true)).join('');
     list.innerHTML = html;
     if(!isPoll || wasAtBottom) list.scrollTop = list.scrollHeight;
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error(e); if(!isPoll) list.innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div>'; }
   if(!isPoll) startTeamChatPolling();
 }
 
