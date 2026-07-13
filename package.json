@@ -1,0 +1,11 @@
+{
+  "name": "slon-app",
+  "private": true,
+  "description": "Тестовое окружение для CI (Playwright). На деплой не влияет — сайт остаётся статическими файлами без сборки.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0"
+  }
+}
