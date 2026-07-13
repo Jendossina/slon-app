@@ -2,6 +2,7 @@
 const DEPARTMENTS = ['Официанты','Бармены','Кальянные мастера','Повара','Техперсонал','Менеджеры'];
 let currentDept = 'Официанты';
 let scheduleWeekStart = getMonday(new Date());
+let scheduleAutoJumped = false; // чтобы автопереход в свой отдел не откатывал ручной выбор вкладки
 
 function getMonday(d) {
   d = new Date(d);
@@ -20,8 +21,10 @@ async function loadSchedule() {
   if(fabBtn) fabBtn.style.display = canEdit ? 'block' : 'none';
   if(fabWeekBtn) fabWeekBtn.style.display = canEdit ? 'block' : 'none';
 
-  // If employee, jump to their department automatically
-  if(role === 'employee' && currentProfile?.employee_id) {
+  // If employee, jump to their department automatically — но только один раз,
+  // иначе это откатывает ручной выбор другой вкладки при каждой перезагрузке
+  if(role === 'employee' && currentProfile?.employee_id && !scheduleAutoJumped) {
+    scheduleAutoJumped = true;
     const { data: emp } = await sb.from('employees').select('department').eq('id', currentProfile.employee_id).single();
     if(emp?.department) currentDept = emp.department;
   }
