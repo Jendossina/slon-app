@@ -44,7 +44,9 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run smoke tests
+      - name: Run tests
+        env:
+          TEST_EMPLOYEE_PASSWORD: ${{ secrets.TEST_EMPLOYEE_PASSWORD }}
         run: npx playwright test
 
       - name: Upload test report on failure
