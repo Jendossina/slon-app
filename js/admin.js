@@ -6,7 +6,7 @@ function switchAdminTab(tab, btn) {
     const el = document.getElementById('admin-tab-'+t);
     const b = document.getElementById('atab-'+t);
     if(el) el.style.display = t===tab ? 'block' : 'none';
-    if(b) { b.style.background = t===tab ? '#A6803F' : 'rgba(255,255,255,0.15)'; }
+    if(b) { b.style.background = t===tab ? 'var(--gold-dark)' : 'rgba(255,255,255,0.15)'; }
   });
   if(tab==='employees') loadAdminEmployees();
   if(tab==='tasks') loadAdminTasks();
@@ -92,12 +92,12 @@ async function loadAdminChecklists() {
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
             <div style="font-size:14px;font-weight:600;color:var(--text-primary)">${escapeHtml(template?.name||'Чек-лист')}</div>
-            <div style="font-size:12px;color:#999;margin-top:2px">👤 ${escapeHtml(log.user_name||'')} · ${new Date(log.date).toLocaleDateString('ru-RU')}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">👤 ${escapeHtml(log.user_name||'')} · ${new Date(log.date).toLocaleDateString('ru-RU')}</div>
           </div>
           <span class="badge ${pct===100?'badge-green':'badge-amber'}">${pct}%</span>
         </div>
         <div class="progress-track" style="margin-top:8px"><div class="progress-fill" style="width:${pct}%"></div></div>
-        <div style="font-size:12px;color:#999;margin-top:6px">${doneCount} из ${totalItems} пунктов · ${mediaCount} фото/видео прикреплено</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${doneCount} из ${totalItems} пунктов · ${mediaCount} фото/видео прикреплено</div>
         ${mediaCount>0?`<button onclick='viewChecklistMedia(${JSON.stringify(log.items_media).replace(/'/g,"&#39;")}, ${JSON.stringify(template?.items||[]).replace(/'/g,"&#39;")})' style="margin-top:8px;background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer;width:100%">📸 Смотреть все фото (${mediaCount})</button>`:''}
       </div>`;
     }).join('');
@@ -283,7 +283,7 @@ async function loadAdminTasks(filters={}) {
     taskList.innerHTML = '<div class="card">'+tasks.map(t=>`
       <div class="list-item">
         <div class="item-info">
-          <div class="item-name" style="${t.status==='done'?'text-decoration:line-through;color:#999':''}">${escapeHtml(t.title)}</div>
+          <div class="item-name" style="${t.status==='done'?'text-decoration:line-through;color:var(--text-muted)':''}">${escapeHtml(t.title)}</div>
           <div class="item-sub">👤 ${escapeHtml(t.assigned_to_name||'—')} · ${t.due_date||''} · <span class="${t.status==='done'?'badge badge-green':'badge badge-amber'}">${t.status==='done'?'Выполнено':'Активна'}</span></div>
         </div>
         <button onclick="deleteTask(${t.id})" style="background:#FCEBEB;color:#A32D2D;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer">✕</button>

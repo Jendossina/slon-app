@@ -54,7 +54,7 @@ async function buildChecklistTabs() {
     if(!currentChecklistType || !templates.find(t=>t.type===currentChecklistType)) {
       currentChecklistType = templates[0].type;
     }
-    tabsEl.innerHTML = templates.map(t=>`<button onclick="switchChecklistTab('${escJsAttr(t.type)}')" class="ctab" style="background:${t.type===currentChecklistType?'#A6803F':'rgba(255,255,255,0.15)'};color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">${escapeHtml(t.name)}</button>`).join('');
+    tabsEl.innerHTML = templates.map(t=>`<button onclick="switchChecklistTab('${escJsAttr(t.type)}')" class="ctab" style="background:${t.type===currentChecklistType?'var(--gold-dark)':'rgba(255,255,255,0.15)'};color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">${escapeHtml(t.name)}</button>`).join('');
     await loadChecklist(currentChecklistType);
   } catch(e) {
     content.innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки чек-листов</div></div>';
@@ -108,8 +108,8 @@ async function loadChecklist(type) {
     html += `<div class="card">
       <div class="card-title">${escapeHtml(template.name)}</div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:13px;color:#999">${doneCount} из ${totalCount} выполнено</span>
-        <span style="font-size:18px;font-weight:700;color:${pct===100?'#3B6D11':'#A6803F'}">${pct}%</span>
+        <span style="font-size:13px;color:var(--text-muted)">${doneCount} из ${totalCount} выполнено</span>
+        <span style="font-size:18px;font-weight:700;color:${pct===100?'#3B6D11':'var(--gold-dark)'}">${pct}%</span>
       </div>
       <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
       ${pct===100?'<div style="text-align:center;margin-top:10px;font-size:13px;color:#3B6D11;font-weight:500">✅ Чек-лист выполнен!</div>':''}
@@ -131,7 +131,7 @@ async function loadChecklist(type) {
         html += `<div class="task-row" onclick="toggleChecklistItem(${item.id}, ${template.id}, '${todayStr}')">
           <div class="check ${isDone?'done':''}"></div>
           <div class="task-body">
-            <div class="task-text" style="${isDone?'text-decoration:line-through;color:#999':''}">${escapeHtml(item.text)}</div>
+            <div class="task-text" style="${isDone?'text-decoration:line-through;color:var(--text-muted)':''}">${escapeHtml(item.text)}</div>
             ${mediaSection}
           </div>
         </div>`;

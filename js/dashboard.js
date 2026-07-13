@@ -28,7 +28,7 @@ async function loadDashboard() {
 async function loadDashboardFull() {
   const sw = document.getElementById('dash-period-switcher');
   const periods = [{id:'today',label:'Сегодня'},{id:'week',label:'Неделя'},{id:'month',label:'Месяц'}];
-  sw.innerHTML = periods.map(p=>`<button onclick="setDashPeriod('${p.id}')" style="flex:1;padding:9px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:${p.id===dashPeriod?'#A6803F':'var(--surface-2)'};color:${p.id===dashPeriod?'#fff':'var(--text-primary)'}">${p.label}</button>`).join('');
+  sw.innerHTML = periods.map(p=>`<button onclick="setDashPeriod('${p.id}')" style="flex:1;padding:9px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:${p.id===dashPeriod?'var(--gold-dark)':'var(--surface-2)'};color:${p.id===dashPeriod?'#fff':'var(--text-primary)'}">${p.label}</button>`).join('');
 
   const content = document.getElementById('dashboard-content');
   content.innerHTML = '<div class="loading">Собираю данные по сети...</div>';

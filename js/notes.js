@@ -84,7 +84,7 @@ async function loadMyNotes() {
     { id:'done', label:'Выполненные' },
     { id:'all', label:'Все' }
   ];
-  document.getElementById('mynotes-filters').innerHTML = filters.map(f=>`<button onclick="setMyNotesFilter('${f.id}')" style="flex:0 0 auto;padding:7px 13px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${f.id===myNotesFilter?'#A6803F':'var(--surface-2)'};color:${f.id===myNotesFilter?'#fff':'var(--text-primary)'}">${f.label}</button>`).join('');
+  document.getElementById('mynotes-filters').innerHTML = filters.map(f=>`<button onclick="setMyNotesFilter('${f.id}')" style="flex:0 0 auto;padding:7px 13px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${f.id===myNotesFilter?'var(--gold-dark)':'var(--surface-2)'};color:${f.id===myNotesFilter?'#fff':'var(--text-primary)'}">${f.label}</button>`).join('');
 
   const content = document.getElementById('mynotes-content');
   content.innerHTML = '<div class="loading">Загрузка...</div>';

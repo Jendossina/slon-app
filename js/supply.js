@@ -7,9 +7,9 @@ function switchSupplyTab(tab) {
   const s = document.getElementById('supply-tab-stock');
   const r = document.getElementById('supply-tab-report');
   if(s&&r){
-    s.style.background = tab==='stock' ? '#A6803F' : 'var(--surface-2)';
+    s.style.background = tab==='stock' ? 'var(--gold-dark)' : 'var(--surface-2)';
     s.style.color = tab==='stock' ? '#fff' : 'var(--text-primary)';
-    r.style.background = tab==='report' ? '#A6803F' : 'var(--surface-2)';
+    r.style.background = tab==='report' ? 'var(--gold-dark)' : 'var(--surface-2)';
     r.style.color = tab==='report' ? '#fff' : 'var(--text-primary)';
   }
   if(tab==='stock') loadSupplyStock(); else loadSupplyReport();

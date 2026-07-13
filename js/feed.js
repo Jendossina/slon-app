@@ -6,9 +6,9 @@ function switchFeedTab(tab) {
   const a = document.getElementById('feed-tab-ann');
   const p = document.getElementById('feed-tab-polls');
   if(a&&p){
-    a.style.background = tab==='ann' ? '#A6803F' : 'var(--surface-2)';
+    a.style.background = tab==='ann' ? 'var(--gold-dark)' : 'var(--surface-2)';
     a.style.color = tab==='ann' ? '#fff' : 'var(--text-primary)';
-    p.style.background = tab==='polls' ? '#A6803F' : 'var(--surface-2)';
+    p.style.background = tab==='polls' ? 'var(--gold-dark)' : 'var(--surface-2)';
     p.style.color = tab==='polls' ? '#fff' : 'var(--text-primary)';
   }
   loadFeed();
@@ -127,7 +127,7 @@ async function pollCard(p, allVotes) {
           <span style="color:var(--text-muted);font-weight:600">${pct}% (${cnt})</span>
         </div>
         <div style="background:var(--surface-2);border-radius:6px;height:8px;overflow:hidden">
-          <div style="width:${pct}%;height:100%;background:${isMine?'#A6803F':'var(--gold)'};border-radius:6px"></div>
+          <div style="width:${pct}%;height:100%;background:${isMine?'var(--gold-dark)':'var(--gold)'};border-radius:6px"></div>
         </div>
       </div>`;
     } else {

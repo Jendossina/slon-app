@@ -13,13 +13,13 @@ function taskHTML(t) {
   } else if(isMyTask && !isDone) {
     reportSection = `<button class="report-btn" onclick="openReportModal(${t.id})">📎 Прикрепить отчёт</button>`;
   } else if(isDone && !t.report_url && role !== 'employee') {
-    reportSection = `<span style="font-size:11px;color:#999">Без фотоотчёта</span>`;
+    reportSection = `<span style="font-size:11px;color:var(--text-muted)">Без фотоотчёта</span>`;
   }
 
   return `<div class="task-row">
     <div class="check ${isDone?'done':''}" onclick="toggleTask(${t.id},'${escJsAttr(t.status)}')"></div>
     <div class="task-body">
-      <div class="task-text" style="${isDone?'text-decoration:line-through;color:#999':''}">${escapeHtml(t.title)}</div>
+      <div class="task-text" style="${isDone?'text-decoration:line-through;color:var(--text-muted)':''}">${escapeHtml(t.title)}</div>
       ${t.description?`<div style="font-size:12px;color:#666;margin-top:2px">${escapeHtml(t.description)}</div>`:''}
       <div class="task-meta">👤 ${escapeHtml(t.assigned_to_name||'—')} ${t.due_date?'· до '+fmtDateShort(t.due_date):''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">Моя</span>':''}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
@@ -49,7 +49,7 @@ function renderTasksDaySwitcher() {
     days.push({ ds, label });
   }
   const chip = (active, onclick, label) =>
-    `<button onclick="${onclick}" style="flex:0 0 auto;padding:7px 13px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${active?'#A6803F':'var(--surface-2)'};color:${active?'#fff':'var(--text-primary)'}">${label}</button>`;
+    `<button onclick="${onclick}" style="flex:0 0 auto;padding:7px 13px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${active?'var(--gold-dark)':'var(--surface-2)'};color:${active?'#fff':'var(--text-primary)'}">${label}</button>`;
   let html = chip(tasksSelectedDay===null, "selectTaskDay(null)", 'Все');
   html += days.map(d=>chip(tasksSelectedDay===d.ds, `selectTaskDay('${d.ds}')`, d.label)).join('');
   el.innerHTML = html;
@@ -77,7 +77,7 @@ async function renderTasksEmpFilter(role) {
   }
   const emps = _tasksEmpCache.emps;
   // сопоставляем employee_id -> user_id (задачи привязаны к user_id). Нужен профиль.
-  wrap.innerHTML = `<select onchange="selectTaskEmp(this.value)" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px">
+  wrap.innerHTML = `<select onchange="selectTaskEmp(this.value)" aria-label="Фильтр по сотруднику" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px">
     <option value="">👥 Все сотрудники</option>
     ${emps.map(e=>`<option value="${escapeHtml(e.name)}" ${tasksSelectedEmp===e.name?'selected':''}>${escapeHtml(e.name)}</option>`).join('')}
   </select>`;
@@ -124,12 +124,12 @@ async function loadTaskEmployees() {
   const { data: allEmps } = await sb.from('employees').select('id,name,department,filials').order('name');
   const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
   const list = document.getElementById('task-assigned-list');
-  if(!emps || emps.length===0) { list.innerHTML='<div style="padding:10px;color:#999;font-size:13px">Нет сотрудников для филиала «' + getFilialName(currentFilial) + '»</div>'; return; }
+  if(!emps || emps.length===0) { list.innerHTML='<div style="padding:10px;color:var(--text-muted);font-size:13px">Нет сотрудников для филиала «' + getFilialName(currentFilial) + '»</div>'; return; }
   list.innerHTML = emps.map(e=>`
     <label style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer">
       <input type="checkbox" class="task-emp-checkbox" value="${e.id}" data-name="${escapeHtml(e.name)}" style="width:18px;height:18px">
       <span style="font-size:14px;color:var(--text-primary)">${escapeHtml(e.name)}</span>
-      <span style="font-size:11px;color:#999;margin-left:auto">${escapeHtml(e.department||'')}</span>
+      <span style="font-size:11px;color:var(--text-muted);margin-left:auto">${escapeHtml(e.department||'')}</span>
     </label>`).join('');
 }
 

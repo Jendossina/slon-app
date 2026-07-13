@@ -18,7 +18,7 @@ function loadDirectory() {
   const addBtn = document.getElementById('dir-add-btn');
   if(addBtn) addBtn.style.display = dirCanEdit() ? 'block' : 'none';
   const tabs = document.getElementById('dir-tabs');
-  tabs.innerHTML = cats.map(c=>`<button onclick="switchDirCat('${c.id}')" style="flex:0 0 auto;padding:8px 14px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${c.id===dirCategory?'#A6803F':'var(--surface-2)'};color:${c.id===dirCategory?'#fff':'var(--text-primary)'}">${c.label}</button>`).join('');
+  tabs.innerHTML = cats.map(c=>`<button onclick="switchDirCat('${c.id}')" style="flex:0 0 auto;padding:8px 14px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${c.id===dirCategory?'var(--gold-dark)':'var(--surface-2)'};color:${c.id===dirCategory?'#fff':'var(--text-primary)'}">${c.label}</button>`).join('');
   renderDirectoryList();
 }
 

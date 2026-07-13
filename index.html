@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🐘 Slon Shisha & Bar</title>
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" type="image/png" href="/icon-192.png">
@@ -17,13 +17,13 @@
   --font-display: 'Playfair Display', Georgia, serif;
   --gold: #C9A468;
   --gold-light: #E8D4AC;
-  --gold-dark: #A6803F;
+  --gold-dark: #8A6A2F;
   --bg: #f4f2ee;
   --surface: #ffffff;
   --surface-2: #faf8f4;
   --text-primary: #1a1a1a;
   --text-secondary: #666;
-  --text-muted: #999;
+  --text-muted: #6b6b6b;
   --border: #ece7dd;
   --header-bg: #1a1a1a;
   --header-grad: linear-gradient(135deg, #1a1a1a 0%, #2a2620 100%);
@@ -56,7 +56,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .login-title { font-family: var(--font-display); color: var(--gold-light); font-size: 27px; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.01em; }
 .login-sub { color: rgba(232,212,172,0.55); font-size: 14px; margin-bottom: 36px; }
 .login-card { background: #1a1815; border: 1px solid #332e24; border-radius: 20px; padding: 24px; width: 100%; max-width: 360px; }
-.login-card h3 { font-size: 18px; font-weight: 600; color: var(--gold-light); margin-bottom: 20px; }
+.login-card h2 { font-size: 18px; font-weight: 600; color: var(--gold-light); margin-bottom: 20px; }
 
 .theme-toggle { position: fixed; top: 14px; right: 16px; z-index: 150; background: rgba(40,36,28,0.55); border: none; border-radius: 20px; padding: 6px 12px; font-size: 12px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 5px; }
 
@@ -94,7 +94,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 .stat-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
 .welcome { background: var(--header-grad); border: 1px solid rgba(201,164,104,0.2); border-radius: 14px; padding: 18px; margin-bottom: 12px; color: #f0e9db; }
-.welcome h3 { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--gold-light); }
+.welcome h2 { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--gold-light); margin: 0; }
 .welcome p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
 
 .list-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
@@ -338,12 +338,12 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 
 <!-- LOGIN -->
 <div id="login-page">
-  <div class="login-screen">
+  <main class="login-screen">
     <div class="login-logo-img"></div>
-    <div class="login-title">Slon Shisha & Bar</div>
+    <h1 class="login-title">Slon Shisha & Bar</h1>
     <div class="login-sub">Система управления заведением</div>
     <div class="login-card">
-      <h3>Войти</h3>
+      <h2>Войти</h2>
       <div class="form-group">
         <label class="form-label">Логин</label>
         <input class="form-input" id="login-email" type="text" placeholder="Ваш логин">
@@ -359,7 +359,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <button class="btn btn-primary" onclick="doLogin()">Войти</button>
       <div id="login-error" style="color:#A32D2D;font-size:13px;margin-top:12px;text-align:center;"></div>
     </div>
-  </div>
+  </main>
 </div>
 
 <!-- APP -->
@@ -367,6 +367,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 
   <div class="filial-switcher" id="filial-switcher"></div>
 
+  <main>
   <div class="screen active" id="screen-home">
     <div class="header">
       <div class="header-row">
@@ -379,7 +380,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     </div>
     <div class="content">
       <div class="welcome">
-        <h3 id="home-welcome-text">Добро пожаловать!</h3>
+        <h2 id="home-welcome-text">Добро пожаловать!</h2>
         <p id="home-role-text"></p>
       </div>
       <div id="home-announcements"></div>
@@ -439,7 +440,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="screen" id="screen-admin">
     <div class="header"><h1>⚙️ Админ-панель</h1><p>Только для управляющего</p></div>
     <div style="background:#1a1a2e;padding:0 16px 12px;display:flex;gap:8px;overflow-x:auto">
-      <button onclick="switchAdminTab('employees',this)" id="atab-employees" class="atab active-tab" style="background:#A6803F;color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">👥 Сотрудники</button>
+      <button onclick="switchAdminTab('employees',this)" id="atab-employees" class="atab active-tab" style="background:var(--gold-dark);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">👥 Сотрудники</button>
       <button onclick="switchAdminTab('tasks',this)" id="atab-tasks" class="atab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">📋 Задачи</button>
       <button onclick="switchAdminTab('analytics',this)" id="atab-analytics" class="atab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">📊 Аналитика</button>
       <button onclick="switchAdminTab('activity',this)" id="atab-activity" class="atab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">📜 История</button>
@@ -534,7 +535,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
         <div><h1>📅 Расписание</h1><p id="schedule-week"></p></div>
         <div style="display:flex;gap:6px">
           <button id="fab-week-btn" onclick="openWeekFillPicker()" style="display:none;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer">📆 На неделю</button>
-          <button id="fab-schedule-btn" onclick="pickEmployeeForSchedule()" style="display:none;background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Смена</button>
+          <button id="fab-schedule-btn" onclick="pickEmployeeForSchedule()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Смена</button>
         </div>
       </div>
     </div>
@@ -562,7 +563,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="header">
       <div class="header-row">
         <div><h1 id="kb-title">📚 База знаний</h1><p id="kb-subtitle">Регламенты и стандарты</p></div>
-        <button id="kb-add-book-btn" onclick="openKbBookModal()" style="display:none;background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Книга</button>
+        <button id="kb-add-book-btn" onclick="openKbBookModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Книга</button>
       </div>
     </div>
     <div style="padding:10px 12px 0">
@@ -578,11 +579,11 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="header">
       <div class="header-row">
         <div><h1>🧴 Хозчасть</h1><p id="supply-subtitle">Учёт расходников</p></div>
-        <button id="supply-add-item-btn" onclick="openSupplyItemModal()" style="display:none;background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Позиция</button>
+        <button id="supply-add-item-btn" onclick="openSupplyItemModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Позиция</button>
       </div>
     </div>
     <div style="display:flex;gap:8px;padding:10px 12px 0">
-      <button id="supply-tab-stock" onclick="switchSupplyTab('stock')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:#A6803F;color:#fff">Остатки</button>
+      <button id="supply-tab-stock" onclick="switchSupplyTab('stock')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--gold-dark);color:#fff">Остатки</button>
       <button id="supply-tab-report" onclick="switchSupplyTab('report')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)">Отчёт расхода</button>
     </div>
     <div class="content" id="supply-content" style="padding:12px">
@@ -595,11 +596,11 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="header">
       <div class="header-row">
         <div><h1>🍽️ Посуда</h1><p id="dishware-subtitle">Учёт посуды и боя</p></div>
-        <button id="dishware-add-item-btn" onclick="openDishwareItemModal()" style="display:none;background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Позиция</button>
+        <button id="dishware-add-item-btn" onclick="openDishwareItemModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Позиция</button>
       </div>
     </div>
     <div style="display:flex;gap:8px;padding:10px 12px 0">
-      <button id="dishware-tab-stock" onclick="switchDishwareTab('stock')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:#A6803F;color:#fff">Остатки</button>
+      <button id="dishware-tab-stock" onclick="switchDishwareTab('stock')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--gold-dark);color:#fff">Остатки</button>
       <button id="dishware-tab-report" onclick="switchDishwareTab('report')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)">Отчёт боя</button>
     </div>
     <div class="content" id="dishware-content" style="padding:12px">
@@ -612,7 +613,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="header">
       <div class="header-row">
         <div><h1>📇 Справочник</h1><p>Поставщики, контакты, доступы</p></div>
-        <button id="dir-add-btn" onclick="openDirectoryModal()" style="display:none;background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Добавить</button>
+        <button id="dir-add-btn" onclick="openDirectoryModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Добавить</button>
       </div>
     </div>
     <div style="display:flex;gap:8px;padding:10px 12px 0;overflow-x:auto" id="dir-tabs"></div>
@@ -626,7 +627,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="header">
       <div class="header-row">
         <div><h1>⭐ Отзывы</h1><p id="reviews-subtitle">Отзывы гостей</p></div>
-        <button onclick="openReviewModal()" style="background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Отзыв</button>
+        <button onclick="openReviewModal()" style="background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Отзыв</button>
       </div>
     </div>
     <div style="display:flex;gap:6px;padding:8px 12px 0;overflow-x:auto" id="reviews-day-switcher"></div>
@@ -642,11 +643,11 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="header">
       <div class="header-row">
         <div><h1>📢 Лента</h1><p id="feed-subtitle">Новости и опросы</p></div>
-        <button id="feed-add-btn" style="display:none;background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Добавить</button>
+        <button id="feed-add-btn" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Добавить</button>
       </div>
     </div>
     <div style="display:flex;gap:8px;padding:10px 12px 0">
-      <button id="feed-tab-ann" onclick="switchFeedTab('ann')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:#A6803F;color:#fff">📢 Объявления</button>
+      <button id="feed-tab-ann" onclick="switchFeedTab('ann')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--gold-dark);color:#fff">📢 Объявления</button>
       <button id="feed-tab-polls" onclick="switchFeedTab('polls')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)">📊 Опросы</button>
     </div>
     <div class="content" id="feed-content" style="padding:12px">
@@ -662,7 +663,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="header">
       <div class="header-row">
         <div><h1>📅 Календарь</h1><p id="cal-subtitle">События</p></div>
-        <button id="cal-add-btn" onclick="openEventModal()" style="display:none;background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Событие</button>
+        <button id="cal-add-btn" onclick="openEventModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Событие</button>
       </div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--surface-2)">
@@ -707,7 +708,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="header">
       <div class="header-row">
         <div><h1>📝 Мой задачник</h1><p>Личные задачи и заметки</p></div>
-        <button onclick="openMyNoteModal()" style="background:#A6803F;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Добавить</button>
+        <button onclick="openMyNoteModal()" style="background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Добавить</button>
       </div>
     </div>
     <div style="display:flex;gap:6px;padding:10px 12px 0;overflow-x:auto" id="mynotes-filters"></div>
@@ -715,6 +716,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <div class="loading">Загрузка...</div>
     </div>
   </div>
+  </main>
 
     <nav class="bottom-nav">
     <button class="nav-btn active" onclick="showScreen('home',this)">
@@ -1316,7 +1318,7 @@ if('serviceWorker' in navigator) {
     <div class="modal-title">📅 Назначить смену</div>
     <div class="card" style="background:var(--surface-2);margin-bottom:16px">
       <div style="font-size:15px;font-weight:600;color:var(--text-primary)" id="sch-employee-display">—</div>
-      <div style="font-size:13px;color:#999;margin-top:2px" id="sch-date-display">—</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:2px" id="sch-date-display">—</div>
       <div style="font-size:12px;color:var(--gold-dark);margin-top:4px" id="sch-filial-display">—</div>
     </div>
     <div class="form-group">

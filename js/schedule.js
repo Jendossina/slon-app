@@ -30,7 +30,7 @@ async function loadSchedule() {
   const nav = document.getElementById('schedule-dept-nav');
   nav.innerHTML = DEPARTMENTS.map(d => {
     const isActive = d === currentDept;
-    return `<button onclick="selectDept('${d}')" style="background:${isActive?'#A6803F':'rgba(255,255,255,0.15)'};color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:12px;white-space:nowrap;cursor:pointer">${d}</button>`;
+    return `<button onclick="selectDept('${d}')" style="background:${isActive?'var(--gold-dark)':'rgba(255,255,255,0.15)'};color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:12px;white-space:nowrap;cursor:pointer">${d}</button>`;
   }).join('');
 
   const weekEnd = new Date(scheduleWeekStart);
@@ -102,7 +102,7 @@ async function loadScheduleGrid() {
       const dateStr = dateStrs[di];
       const isToday = dateStr === today();
       html += `<tr style="${isToday?'background:#F5F3FF':''}">
-        <td style="padding:8px;font-size:12px;font-weight:600;color:var(--text-primary);border-top:1px solid var(--border);position:sticky;left:0;background:${isToday?'var(--surface-2)':'var(--surface)'};z-index:1">${dayNames[di]}<br><span style="font-weight:400;color:#999;font-size:11px">${d.getDate()}.${d.getMonth()+1}</span></td>`;
+        <td style="padding:8px;font-size:12px;font-weight:600;color:var(--text-primary);border-top:1px solid var(--border);position:sticky;left:0;background:${isToday?'var(--surface-2)':'var(--surface)'};z-index:1">${dayNames[di]}<br><span style="font-weight:400;color:var(--text-muted);font-size:11px">${d.getDate()}.${d.getMonth()+1}</span></td>`;
       
       emps.forEach(e => {
         const sched = schedMap[dateStr+'_'+e.id];
@@ -229,12 +229,12 @@ async function renderWeekFillDays() {
     const startVal = ex?.shift_start || '11:00';
     const endVal = ex?.shift_end || '23:00';
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="width:90px;font-size:13px;color:var(--text-primary);font-weight:500">${dayNames[i]}<div style="font-size:11px;color:#999">${d.getDate()}.${d.getMonth()+1}</div></div>
-      <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#999">
+      <div style="width:90px;font-size:13px;color:var(--text-primary);font-weight:500">${dayNames[i]}<div style="font-size:11px;color:var(--text-muted)">${d.getDate()}.${d.getMonth()+1}</div></div>
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted)">
         <input type="checkbox" class="wf-dayoff" data-idx="${i}" ${isOff?'checked':''} onchange="toggleWfDayOff(${i})"> Вых
       </label>
       <input type="time" class="wf-start form-input" data-idx="${i}" value="${startVal}" style="padding:6px 8px;font-size:12px;${isOff?'display:none':''}">
-      <span style="font-size:12px;color:#999;${isOff?'display:none':''}" class="wf-dash-${i}">—</span>
+      <span style="font-size:12px;color:var(--text-muted);${isOff?'display:none':''}" class="wf-dash-${i}">—</span>
       <input type="time" class="wf-end form-input" data-idx="${i}" value="${endVal}" style="padding:6px 8px;font-size:12px;${isOff?'display:none':''}">
     </div>`;
   }).join('');

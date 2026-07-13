@@ -24,7 +24,7 @@ function renderReviewsDaySwitcher() {
   const isCustom = reviewsSelectedDay && !days.find(d=>d.ds===reviewsSelectedDay);
   const customLabel = isCustom ? '📅 ' + new Date(reviewsSelectedDay).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}) : '📅 Дата';
   html += `<button onclick="document.getElementById('reviews-date-picker').showPicker?document.getElementById('reviews-date-picker').showPicker():document.getElementById('reviews-date-picker').click()" style="flex:0 0 auto;padding:6px 12px;border-radius:16px;border:none;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:${isCustom?'#4a3a1f':'var(--surface-2)'};color:${isCustom?'#fff':'var(--text-primary)'}">${customLabel}</button>`;
-  html += `<input type="date" id="reviews-date-picker" onchange="selectReviewDay(this.value)" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none">`;
+  html += `<input type="date" id="reviews-date-picker" aria-label="Выбрать дату" onchange="selectReviewDay(this.value)" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none">`;
   el.innerHTML = html;
 }
 
@@ -92,7 +92,7 @@ async function loadReviews() {
     { id:'positive', label:'👍 Хорошие' },
     { id:'negative', label:'👎 Плохие' }
   ];
-  document.getElementById('reviews-filters').innerHTML = filters.map(f=>`<button onclick="setReviewFilter('${f.id}')" style="flex:0 0 auto;padding:7px 13px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${f.id===reviewFilter?'#A6803F':'var(--surface-2)'};color:${f.id===reviewFilter?'#fff':'var(--text-primary)'}">${f.label}</button>`).join('');
+  document.getElementById('reviews-filters').innerHTML = filters.map(f=>`<button onclick="setReviewFilter('${f.id}')" style="flex:0 0 auto;padding:7px 13px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${f.id===reviewFilter?'var(--gold-dark)':'var(--surface-2)'};color:${f.id===reviewFilter?'#fff':'var(--text-primary)'}">${f.label}</button>`).join('');
 
   const content = document.getElementById('reviews-content');
   content.innerHTML = '<div class="loading">Загрузка...</div>';

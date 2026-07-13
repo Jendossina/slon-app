@@ -7,9 +7,9 @@ function switchDishwareTab(tab) {
   const s = document.getElementById('dishware-tab-stock');
   const r = document.getElementById('dishware-tab-report');
   if(s&&r){
-    s.style.background = tab==='stock' ? '#A6803F' : 'var(--surface-2)';
+    s.style.background = tab==='stock' ? 'var(--gold-dark)' : 'var(--surface-2)';
     s.style.color = tab==='stock' ? '#fff' : 'var(--text-primary)';
-    r.style.background = tab==='report' ? '#A6803F' : 'var(--surface-2)';
+    r.style.background = tab==='report' ? 'var(--gold-dark)' : 'var(--surface-2)';
     r.style.color = tab==='report' ? '#fff' : 'var(--text-primary)';
   }
   if(tab==='stock') loadDishwareStock(); else loadDishwareReport();

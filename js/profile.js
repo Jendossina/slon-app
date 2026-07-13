@@ -117,7 +117,7 @@ async function loadProfile2() {
     window._profileTabs = tabsContent;
     window._profilePasswordBlock = passwordBlock;
 
-    const tabsBar = `<div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:14px">${tabs.map(t=>`<button onclick="switchProfileTab('${t.id}')" style="flex:0 0 auto;padding:8px 14px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${t.id===profileTab?'#A6803F':'var(--surface-2)'};color:${t.id===profileTab?'#fff':'var(--text-primary)'}">${t.label}</button>`).join('')}</div>`;
+    const tabsBar = `<div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:14px">${tabs.map(t=>`<button onclick="switchProfileTab('${t.id}')" style="flex:0 0 auto;padding:8px 14px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${t.id===profileTab?'var(--gold-dark)':'var(--surface-2)'};color:${t.id===profileTab?'#fff':'var(--text-primary)'}">${t.label}</button>`).join('')}</div>`;
 
     content.innerHTML = header + tabsBar + `<div id="profile-tab-body">${tabsContent[profileTab]}</div>` + passwordBlock;
   } catch(e) { console.error(e); content.innerHTML = '<div class="loading">Ошибка загрузки</div>'; }
@@ -130,7 +130,7 @@ function switchProfileTab(tab) {
   // обновить подсветку кнопок
   document.querySelectorAll('#profile-content button[onclick^="switchProfileTab"]').forEach(b=>{
     const t = b.getAttribute('onclick').match(/'([^']+)'/)[1];
-    b.style.background = t===tab ? '#A6803F' : 'var(--surface-2)';
+    b.style.background = t===tab ? 'var(--gold-dark)' : 'var(--surface-2)';
     b.style.color = t===tab ? '#fff' : 'var(--text-primary)';
   });
 }

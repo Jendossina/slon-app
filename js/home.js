@@ -65,7 +65,7 @@ async function loadHome() {
           </ol>
           <div style="display:flex;gap:8px">
             <input class="form-input" id="tg-id-input" placeholder="Например: 123456789" style="flex:1;padding:10px">
-            <button onclick="saveTelegramId()" style="background:#A6803F;color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:600;cursor:pointer">Сохранить</button>
+            <button onclick="saveTelegramId()" style="background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:600;cursor:pointer">Сохранить</button>
           </div>
         </div>`;
       } else {
