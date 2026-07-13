@@ -17,7 +17,7 @@ async function initTeamChat() {
 
   const nav = document.getElementById('teamchat-channels-nav');
   let visibleChannels;
-  if(role === 'admin' || role === 'boss') {
+  if(canSeeAdminPanel()) {
     visibleChannels = CHAT_CHANNELS;
   } else if(role === 'manager') {
     visibleChannels = myDept && CHAT_CHANNELS.includes(myDept) ? [myDept, 'Управляющий состав'] : ['Управляющий состав'];

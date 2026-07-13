@@ -85,7 +85,7 @@ async function loadScheduleGrid() {
     (schedules||[]).forEach(s => { schedMap[s.date+'_'+s.employee_id] = s; });
 
     const dayNames = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-    const isAdmin = currentProfile?.role === 'admin' || currentProfile?.role === 'manager';
+    const isAdmin = canEditData();
 
     let html = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <div style="display:flex;gap:6px;margin-bottom:8px">

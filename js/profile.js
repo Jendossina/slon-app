@@ -8,7 +8,7 @@ async function loadProfile2() {
   document.getElementById('profile-name-label').textContent = name;
   const role = currentProfile?.role;
   const roleLabels = { admin: '👑 Управляющий', manager: '📋 Менеджер', employee: '👤 Сотрудник', boss: '🦉 Владелец (наблюдатель)' };
-  const isLeader = (role==='admin'||role==='manager'||role==='boss');
+  const isLeader = canEditData() || isBoss();
 
   try {
     // Шапка (всегда видна)
