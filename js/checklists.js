@@ -24,7 +24,7 @@ async function initChecklistScreen() {
   const deptSwitcher = document.getElementById('checklist-dept-switcher');
   if(canSeeAll) {
     deptSwitcher.style.display = 'flex';
-    deptSwitcher.innerHTML = CHECKLIST_DEPTS.map(d=>`<button onclick="switchChecklistDept('${d}')" style="background:${d===currentChecklistDept?'var(--gold)':'transparent'};color:${d===currentChecklistDept?'#1a1611':'#8a8a99'};border:none;padding:10px 8px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer;border-bottom:2px solid ${d===currentChecklistDept?'var(--gold)':'transparent'}">${CHECKLIST_DEPT_ICONS[d]||''} ${d}</button>`).join('');
+    deptSwitcher.innerHTML = CHECKLIST_DEPTS.map(d=>`<button onclick="switchChecklistDept('${d}')" style="background:${d===currentChecklistDept?'var(--gold-dark)':'rgba(255,255,255,0.15)'};color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer">${CHECKLIST_DEPT_ICONS[d]||''} ${d}</button>`).join('');
   } else {
     deptSwitcher.style.display = 'none';
     currentChecklistDept = myDept || 'Официанты';
