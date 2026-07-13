@@ -356,11 +356,11 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="login-card">
       <h2>Войти</h2>
       <div class="form-group">
-        <label class="form-label">Логин</label>
+        <label class="form-label" for="login-email">Логин</label>
         <input class="form-input" id="login-email" type="text" placeholder="Ваш логин">
       </div>
       <div class="form-group">
-        <label class="form-label">Пароль</label>
+        <label class="form-label" for="login-password">Пароль</label>
         <input class="form-input" id="login-password" type="password" placeholder="••••••••">
       </div>
       <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text-primary);cursor:pointer;margin-bottom:14px">
@@ -755,9 +755,9 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <button class="modal-close" onclick="closeModal('modal-dishware-item')">✕</button>
     <div class="modal-title">Новая позиция посуды</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="dishware-item-filial">—</div>
-    <div class="form-group"><label class="form-label">Название</label><input class="form-input" id="dishware-item-name" placeholder="Например: Роксы 300мл"></div>
-    <div class="form-group"><label class="form-label">Себестоимость за штуку (сум)</label><input class="form-input" id="dishware-item-cost" type="number" step="any" placeholder="15000"></div>
-    <div class="form-group"><label class="form-label">Сколько сейчас на складе (шт)</label><input class="form-input" id="dishware-item-qty" type="number" step="any" placeholder="20"></div>
+    <div class="form-group"><label class="form-label" for="dishware-item-name">Название</label><input class="form-input" id="dishware-item-name" placeholder="Например: Роксы 300мл"></div>
+    <div class="form-group"><label class="form-label" for="dishware-item-cost">Себестоимость за штуку (сум)</label><input class="form-input" id="dishware-item-cost" type="number" step="any" placeholder="15000"></div>
+    <div class="form-group"><label class="form-label" for="dishware-item-qty">Сколько сейчас на складе (шт)</label><input class="form-input" id="dishware-item-qty" type="number" step="any" placeholder="20"></div>
     <button class="btn btn-primary" onclick="saveDishwareItem()">Создать</button>
   </div>
 </div>
@@ -771,8 +771,8 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="card" style="background:var(--surface-2);margin-bottom:12px">
       <div style="font-weight:600;color:var(--text-primary)" id="dishware-in-item-name">—</div>
     </div>
-    <div class="form-group"><label class="form-label">Сколько добавить (шт)</label><input class="form-input" id="dishware-in-qty" type="number" step="any" placeholder="10"></div>
-    <div class="form-group"><label class="form-label">Новая себестоимость за штуку (необязательно)</label><input class="form-input" id="dishware-in-cost" type="number" step="any" placeholder="если цена изменилась"></div>
+    <div class="form-group"><label class="form-label" for="dishware-in-qty">Сколько добавить (шт)</label><input class="form-input" id="dishware-in-qty" type="number" step="any" placeholder="10"></div>
+    <div class="form-group"><label class="form-label" for="dishware-in-cost">Новая себестоимость за штуку (необязательно)</label><input class="form-input" id="dishware-in-cost" type="number" step="any" placeholder="если цена изменилась"></div>
     <button class="btn btn-primary" onclick="saveDishwareIn()">Оприходовать</button>
   </div>
 </div>
@@ -787,11 +787,11 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <div style="font-weight:600;color:var(--text-primary)" id="dishware-break-item-name">—</div>
       <div style="font-size:13px;color:var(--text-muted);margin-top:2px" id="dishware-break-stock">Остаток: —</div>
     </div>
-    <div class="form-group"><label class="form-label">Сколько разбито (шт)</label><input class="form-input" id="dishware-break-qty" type="number" step="any" placeholder="1"></div>
-    <div class="form-group"><label class="form-label">Кто разбил</label>
+    <div class="form-group"><label class="form-label" for="dishware-break-qty">Сколько разбито (шт)</label><input class="form-input" id="dishware-break-qty" type="number" step="any" placeholder="1"></div>
+    <div class="form-group"><label class="form-label" for="dishware-break-who">Кто разбил</label>
       <select class="form-select" id="dishware-break-who"><option value="">— выберите сотрудника —</option></select>
     </div>
-    <div class="form-group"><label class="form-label">Комментарий (необязательно)</label><input class="form-input" id="dishware-break-note" placeholder="Как произошло"></div>
+    <div class="form-group"><label class="form-label" for="dishware-break-note">Комментарий (необязательно)</label><input class="form-input" id="dishware-break-note" placeholder="Как произошло"></div>
     <button class="btn btn-primary" onclick="saveDishwareBreak()">Записать бой</button>
   </div>
 </div>
@@ -811,17 +811,17 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <button class="modal-close" onclick="closeModal('modal-directory')">✕</button>
     <div class="modal-title" id="dir-modal-title">Новая запись</div>
     <input type="hidden" id="dir-id">
-    <div class="form-group"><label class="form-label">Категория</label>
+    <div class="form-group"><label class="form-label" for="dir-category">Категория</label>
       <select class="form-select" id="dir-category" onchange="updateDirFields()">
         <option value="supplier">📦 Поставщик</option>
         <option value="contact">📞 Контакт</option>
         <option value="access">🔑 Доступ</option>
       </select>
     </div>
-    <div class="form-group"><label class="form-label" id="dir-title-label">Название</label><input class="form-input" id="dir-title" placeholder=""></div>
-    <div class="form-group"><label class="form-label" id="dir-field1-label">Телефон</label><input class="form-input" id="dir-field1" placeholder=""></div>
-    <div class="form-group"><label class="form-label" id="dir-field2-label">Что поставляет</label><input class="form-input" id="dir-field2" placeholder=""></div>
-    <div class="form-group"><label class="form-label">Комментарий</label><input class="form-input" id="dir-note" placeholder="необязательно"></div>
+    <div class="form-group"><label class="form-label" for="dir-title" id="dir-title-label">Название</label><input class="form-input" id="dir-title" placeholder=""></div>
+    <div class="form-group"><label class="form-label" for="dir-field1" id="dir-field1-label">Телефон</label><input class="form-input" id="dir-field1" placeholder=""></div>
+    <div class="form-group"><label class="form-label" for="dir-field2" id="dir-field2-label">Что поставляет</label><input class="form-input" id="dir-field2" placeholder=""></div>
+    <div class="form-group"><label class="form-label" for="dir-note">Комментарий</label><input class="form-input" id="dir-note" placeholder="необязательно"></div>
     <button class="btn btn-primary" onclick="saveDirectory()">Сохранить</button>
     <button class="btn btn-secondary" id="dir-delete-btn" onclick="deleteDirectory()" style="display:none;margin-top:8px;background:#FCEBEB;color:#A32D2D">Удалить</button>
   </div>
@@ -833,17 +833,17 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <button class="modal-close" onclick="closeModal('modal-mynote')">✕</button>
     <div class="modal-title" id="mynote-modal-title">Новая запись</div>
     <input type="hidden" id="mynote-id">
-    <div class="form-group"><label class="form-label">Тип</label>
+    <div class="form-group"><label class="form-label" for="mynote-kind">Тип</label>
       <select class="form-select" id="mynote-kind" onchange="updateMyNoteFields()">
         <option value="task">✅ Задача (со сроком)</option>
         <option value="note">📝 Заметка (просто мысль)</option>
       </select>
     </div>
-    <div class="form-group"><label class="form-label" id="mynote-text-label">Что нужно сделать</label>
+    <div class="form-group"><label class="form-label" for="mynote-text" id="mynote-text-label">Что нужно сделать</label>
       <textarea class="form-input" id="mynote-text" placeholder="Текст..." style="min-height:80px;resize:vertical;font-family:inherit;line-height:1.5"></textarea>
     </div>
-    <div class="form-group" id="mynote-due-group"><label class="form-label">Срок (необязательно)</label><input class="form-input" id="mynote-due" type="date"></div>
-    <div class="form-group" id="mynote-priority-group"><label class="form-label">Приоритет</label>
+    <div class="form-group" id="mynote-due-group"><label class="form-label" for="mynote-due">Срок (необязательно)</label><input class="form-input" id="mynote-due" type="date"></div>
+    <div class="form-group" id="mynote-priority-group"><label class="form-label" for="mynote-priority">Приоритет</label>
       <select class="form-select" id="mynote-priority"><option value="normal">Обычный</option><option value="important">🔴 Важное</option></select>
     </div>
     <button class="btn btn-primary" onclick="saveMyNote()">Сохранить</button>
@@ -856,8 +856,8 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-my-password')">✕</button>
     <div class="modal-title">Смена пароля</div>
-    <div class="form-group"><label class="form-label">Новый пароль</label><input class="form-input" id="my-pass-new" type="password" placeholder="минимум 6 символов"></div>
-    <div class="form-group"><label class="form-label">Повторите пароль</label><input class="form-input" id="my-pass-new2" type="password" placeholder="ещё раз"></div>
+    <div class="form-group"><label class="form-label" for="my-pass-new">Новый пароль</label><input class="form-input" id="my-pass-new" type="password" placeholder="минимум 6 символов"></div>
+    <div class="form-group"><label class="form-label" for="my-pass-new2">Повторите пароль</label><input class="form-input" id="my-pass-new2" type="password" placeholder="ещё раз"></div>
     <button class="btn btn-primary" onclick="saveMyPassword()">Сохранить</button>
   </div>
 </div>
@@ -876,14 +876,14 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-event')">✕</button>
     <div class="modal-title">Новое событие</div>
-    <div class="form-group"><label class="form-label">Тип</label>
+    <div class="form-group"><label class="form-label" for="event-type">Тип</label>
       <select class="form-select" id="event-type"><option value="delivery">📦 Доставка</option><option value="inspection">🔍 Проверка</option><option value="banquet">🎉 Банкет</option><option value="birthday">🎂 День рождения</option><option value="other">📌 Другое</option></select>
     </div>
-    <div class="form-group"><label class="form-label">Название</label><input class="form-input" id="event-title" placeholder="Например: Поставка табака"></div>
-    <div class="form-group"><label class="form-label">Дата</label><input class="form-input" id="event-date" type="date"></div>
-    <div class="form-group"><label class="form-label">Время (необязательно)</label><input class="form-input" id="event-time" type="time"></div>
-    <div class="form-group"><label class="form-label">Комментарий</label><input class="form-input" id="event-note" placeholder="необязательно"></div>
-    <div class="form-group"><label class="form-label">Филиал</label>
+    <div class="form-group"><label class="form-label" for="event-title">Название</label><input class="form-input" id="event-title" placeholder="Например: Поставка табака"></div>
+    <div class="form-group"><label class="form-label" for="event-date">Дата</label><input class="form-input" id="event-date" type="date"></div>
+    <div class="form-group"><label class="form-label" for="event-time">Время (необязательно)</label><input class="form-input" id="event-time" type="time"></div>
+    <div class="form-group"><label class="form-label" for="event-note">Комментарий</label><input class="form-input" id="event-note" placeholder="необязательно"></div>
+    <div class="form-group"><label class="form-label" for="event-filial">Филиал</label>
       <select class="form-select" id="event-filial"><option value="">Все филиалы</option><option value="istikbol">Истикбол</option><option value="chekhov">Чехов</option></select>
     </div>
     <button class="btn btn-primary" onclick="saveEvent()">Сохранить</button>
@@ -896,12 +896,12 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-poll')">✕</button>
     <div class="modal-title">Новый опрос</div>
-    <div class="form-group"><label class="form-label">Вопрос</label><input class="form-input" id="poll-question" placeholder="Например: Какой график удобнее?"></div>
+    <div class="form-group"><label class="form-label" for="poll-question">Вопрос</label><input class="form-input" id="poll-question" placeholder="Например: Какой график удобнее?"></div>
     <div class="form-group"><label class="form-label">Варианты ответа</label>
       <div id="poll-options-list"></div>
       <button onclick="addPollOption()" style="background:var(--surface-2);color:var(--text-primary);border:1px dashed var(--border);border-radius:8px;padding:8px;width:100%;font-size:13px;cursor:pointer;margin-top:6px">+ Добавить вариант</button>
     </div>
-    <div class="form-group"><label class="form-label">Для какого филиала</label>
+    <div class="form-group"><label class="form-label" for="poll-filial">Для какого филиала</label>
       <select class="form-select" id="poll-filial"><option value="">Все филиалы</option><option value="istikbol">Истикбол</option><option value="chekhov">Чехов</option></select>
     </div>
     <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text-primary);cursor:pointer;margin-bottom:14px">
@@ -917,11 +917,11 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-announcement')">✕</button>
     <div class="modal-title">Новое объявление</div>
-    <div class="form-group"><label class="form-label">Заголовок</label><input class="form-input" id="ann-title" placeholder="Например: Завтра проверка СЭС"></div>
-    <div class="form-group"><label class="form-label">Текст</label>
+    <div class="form-group"><label class="form-label" for="ann-title">Заголовок</label><input class="form-input" id="ann-title" placeholder="Например: Завтра проверка СЭС"></div>
+    <div class="form-group"><label class="form-label" for="ann-text">Текст</label>
       <textarea class="form-input" id="ann-text" placeholder="Подробности..." style="min-height:100px;resize:vertical;font-family:inherit;line-height:1.5"></textarea>
     </div>
-    <div class="form-group"><label class="form-label">Для какого филиала</label>
+    <div class="form-group"><label class="form-label" for="ann-filial">Для какого филиала</label>
       <select class="form-select" id="ann-filial"><option value="">Все филиалы</option><option value="istikbol">Истикбол</option><option value="chekhov">Чехов</option></select>
     </div>
     <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text-primary);cursor:pointer;margin-bottom:14px">
@@ -938,8 +938,8 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <button class="modal-close" onclick="closeModal('modal-review')">✕</button>
     <div class="modal-title">Новый отзыв</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="review-filial-display">—</div>
-    <div class="form-group"><label class="form-label">Имя гостя (необязательно)</label><input class="form-input" id="review-guest" placeholder="Например: Акбар"></div>
-    <div class="form-group"><label class="form-label">Текст отзыва</label>
+    <div class="form-group"><label class="form-label" for="review-guest">Имя гостя (необязательно)</label><input class="form-input" id="review-guest" placeholder="Например: Акбар"></div>
+    <div class="form-group"><label class="form-label" for="review-text">Текст отзыва</label>
       <textarea class="form-input" id="review-text" placeholder="Что сказал гость..." style="min-height:120px;resize:vertical;font-family:inherit;line-height:1.5"></textarea>
     </div>
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">🤖 Категория (бар/кухня) и тон определятся автоматически. После сохранения можно поправить вручную.</div>
@@ -953,10 +953,10 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <button class="modal-close" onclick="closeModal('modal-review-edit')">✕</button>
     <div class="modal-title">Поправить отзыв</div>
     <input type="hidden" id="review-edit-id">
-    <div class="form-group"><label class="form-label">Категория</label>
+    <div class="form-group"><label class="form-label" for="review-edit-category">Категория</label>
       <select class="form-select" id="review-edit-category"><option value="bar">🍹 Бар</option><option value="kitchen">🍽️ Кухня</option><option value="hookah">💨 Кальян</option><option value="other">💬 Прочее</option></select>
     </div>
-    <div class="form-group"><label class="form-label">Тональность</label>
+    <div class="form-group"><label class="form-label" for="review-edit-sentiment">Тональность</label>
       <select class="form-select" id="review-edit-sentiment"><option value="positive">👍 Положительный</option><option value="negative">👎 Отрицательный</option><option value="neutral">😐 Нейтральный</option></select>
     </div>
     <button class="btn btn-primary" onclick="saveReviewEdit()">Сохранить</button>
@@ -979,8 +979,8 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <button class="modal-close" onclick="closeModal('modal-supply-item')">✕</button>
     <div class="modal-title">Новая позиция хозчасти</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="supply-item-filial">—</div>
-    <div class="form-group"><label class="form-label">Название</label><input class="form-input" id="supply-item-name" placeholder="Например: Средство для мытья посуды"></div>
-    <div class="form-group"><label class="form-label">Единица измерения</label>
+    <div class="form-group"><label class="form-label" for="supply-item-name">Название</label><input class="form-input" id="supply-item-name" placeholder="Например: Средство для мытья посуды"></div>
+    <div class="form-group"><label class="form-label" for="supply-item-unit">Единица измерения</label>
       <select class="form-select" id="supply-item-unit"><option>л</option><option>мл</option><option>шт</option><option>упак</option><option>кг</option><option>гр</option></select>
     </div>
     <button class="btn btn-primary" onclick="saveSupplyItem()">Создать</button>
@@ -996,9 +996,9 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="card" style="background:var(--surface-2);margin-bottom:12px">
       <div style="font-weight:600;color:var(--text-primary)" id="supply-in-item-name">—</div>
     </div>
-    <div class="form-group"><label class="form-label">Сколько пришло (<span id="supply-in-unit">л</span>)</label><input class="form-input" id="supply-in-qty" type="number" step="any" placeholder="10"></div>
-    <div class="form-group"><label class="form-label">Цена за 1 <span id="supply-in-unit2">л</span> (сум)</label><input class="form-input" id="supply-in-price" type="number" step="any" placeholder="15000"></div>
-    <div class="form-group"><label class="form-label">Комментарий (необязательно)</label><input class="form-input" id="supply-in-note" placeholder="Поставщик, накладная…"></div>
+    <div class="form-group"><label class="form-label" for="supply-in-qty">Сколько пришло (<span id="supply-in-unit">л</span>)</label><input class="form-input" id="supply-in-qty" type="number" step="any" placeholder="10"></div>
+    <div class="form-group"><label class="form-label" for="supply-in-price">Цена за 1 <span id="supply-in-unit2">л</span> (сум)</label><input class="form-input" id="supply-in-price" type="number" step="any" placeholder="15000"></div>
+    <div class="form-group"><label class="form-label" for="supply-in-note">Комментарий (необязательно)</label><input class="form-input" id="supply-in-note" placeholder="Поставщик, накладная…"></div>
     <button class="btn btn-primary" onclick="saveSupplyIn()">Оприходовать</button>
   </div>
 </div>
@@ -1013,8 +1013,8 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <div style="font-weight:600;color:var(--text-primary)" id="supply-out-item-name">—</div>
       <div style="font-size:13px;color:var(--text-muted);margin-top:2px" id="supply-out-stock">Остаток: —</div>
     </div>
-    <div class="form-group"><label class="form-label">Сколько беру (<span id="supply-out-unit">л</span>)</label><input class="form-input" id="supply-out-qty" type="number" step="any" placeholder="2"></div>
-    <div class="form-group"><label class="form-label">Комментарий (необязательно)</label><input class="form-input" id="supply-out-note" placeholder="Куда/на что"></div>
+    <div class="form-group"><label class="form-label" for="supply-out-qty">Сколько беру (<span id="supply-out-unit">л</span>)</label><input class="form-input" id="supply-out-qty" type="number" step="any" placeholder="2"></div>
+    <div class="form-group"><label class="form-label" for="supply-out-note">Комментарий (необязательно)</label><input class="form-input" id="supply-out-note" placeholder="Куда/на что"></div>
     <button class="btn btn-primary" onclick="saveSupplyOut()">Списать</button>
   </div>
 </div>
@@ -1034,8 +1034,8 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <button class="modal-close" onclick="closeModal('modal-kb-book')">✕</button>
     <div class="modal-title" id="kb-book-modal-title">Новая книга</div>
     <input type="hidden" id="kb-book-id">
-    <div class="form-group"><label class="form-label">Иконка (эмодзи)</label><input class="form-input" id="kb-book-icon" placeholder="📖" maxlength="4"></div>
-    <div class="form-group"><label class="form-label">Название</label><input class="form-input" id="kb-book-title" placeholder="Например: Bar Book"></div>
+    <div class="form-group"><label class="form-label" for="kb-book-icon">Иконка (эмодзи)</label><input class="form-input" id="kb-book-icon" placeholder="📖" maxlength="4"></div>
+    <div class="form-group"><label class="form-label" for="kb-book-title">Название</label><input class="form-input" id="kb-book-title" placeholder="Например: Bar Book"></div>
     <button class="btn btn-primary" onclick="saveKbBook()">Сохранить</button>
     <button class="btn btn-secondary" id="kb-book-delete-btn" onclick="deleteKbBook()" style="display:none;margin-top:8px;background:#FCEBEB;color:#A32D2D">Удалить книгу</button>
   </div>
@@ -1048,8 +1048,8 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="modal-title" id="kb-article-modal-title">Новая статья</div>
     <input type="hidden" id="kb-article-id">
     <input type="hidden" id="kb-article-book-id">
-    <div class="form-group"><label class="form-label">Заголовок</label><input class="form-input" id="kb-article-title" placeholder="Например: Классические коктейли"></div>
-    <div class="form-group"><label class="form-label">Текст</label>
+    <div class="form-group"><label class="form-label" for="kb-article-title">Заголовок</label><input class="form-input" id="kb-article-title" placeholder="Например: Классические коктейли"></div>
+    <div class="form-group"><label class="form-label" for="kb-article-content">Текст</label>
       <textarea class="form-input" id="kb-article-content" placeholder="Содержание статьи..." style="min-height:200px;resize:vertical;font-family:inherit;line-height:1.6"></textarea>
     </div>
     <button class="btn btn-primary" onclick="saveKbArticle()">Сохранить</button>
@@ -1062,18 +1062,18 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-employee')">✕</button>
     <div class="modal-title">Новый сотрудник</div>
-    <div class="form-group"><label class="form-label">Имя и фамилия</label><input class="form-input" id="emp-name" placeholder="Алиша Каримова"></div>
-    <div class="form-group"><label class="form-label">Должность</label>
+    <div class="form-group"><label class="form-label" for="emp-name">Имя и фамилия</label><input class="form-input" id="emp-name" placeholder="Алиша Каримова"></div>
+    <div class="form-group"><label class="form-label" for="emp-role">Должность</label>
       <select class="form-select" id="emp-role"><optgroup label="Зал"><option>Официант</option><option>Администратор</option></optgroup><optgroup label="Бар"><option>Бармен</option><option>Старший бармен</option><option>Шеф бармен</option><option>Бар менеджер</option></optgroup><optgroup label="Кальянная"><option>Кальянный мастер</option><option>Старший кальянный мастер</option><option>Шеф кальянной станции</option></optgroup><optgroup label="Кухня"><option>Повар</option><option>Су-шеф</option><option>Шеф повар</option></optgroup><optgroup label="Руководство"><option>Управляющий</option><option>BOSS</option></optgroup><optgroup label="Прочее"><option>Менеджер</option><option>Охранник</option><option>Уборщик</option></optgroup></select>
     </div>
-    <div class="form-group"><label class="form-label">Отдел (для графика)</label>
+    <div class="form-group"><label class="form-label" for="emp-department">Отдел (для графика)</label>
       <select class="form-select" id="emp-department"><option>Официанты</option><option>Бармены</option><option>Кальянные мастера</option><option>Повара</option><option>Техперсонал</option><option>Менеджеры</option></select>
     </div>
-    <div class="form-group"><label class="form-label">Телефон</label><input class="form-input" id="emp-phone" placeholder="+998 90 123 45 67" type="tel"></div>
-    <div class="form-group"><label class="form-label">Ставка за смену (сум)</label><input class="form-input" id="emp-salary" placeholder="200000" type="number"></div>
-    <div class="form-group"><label class="form-label">Логин (без @slon.uz)</label><input class="form-input" id="emp-email" placeholder="alisha" type="text"></div>
-    <div class="form-group"><label class="form-label">Пароль</label><input class="form-input" id="emp-password" placeholder="минимум 6 символов"></div>
-    <div class="form-group"><label class="form-label">Роль в системе</label>
+    <div class="form-group"><label class="form-label" for="emp-phone">Телефон</label><input class="form-input" id="emp-phone" placeholder="+998 90 123 45 67" type="tel"></div>
+    <div class="form-group"><label class="form-label" for="emp-salary">Ставка за смену (сум)</label><input class="form-input" id="emp-salary" placeholder="200000" type="number"></div>
+    <div class="form-group"><label class="form-label" for="emp-email">Логин (без @slon.uz)</label><input class="form-input" id="emp-email" placeholder="alisha" type="text"></div>
+    <div class="form-group"><label class="form-label" for="emp-password">Пароль</label><input class="form-input" id="emp-password" placeholder="минимум 6 символов"></div>
+    <div class="form-group"><label class="form-label" for="emp-system-role">Роль в системе</label>
       <select class="form-select" id="emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option><option value="admin">Управляющий</option><option value="boss">Владелец (наблюдатель)</option></select>
     </div>
     <div class="form-group"><label class="form-label">На каких филиалах может работать</label>
@@ -1091,8 +1091,8 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <button class="modal-close" onclick="closeModal('modal-add-task')">✕</button>
     <div class="modal-title">Новая задача</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="task-filial-display">—</div>
-    <div class="form-group"><label class="form-label">Задача</label><input class="form-input" id="task-title" placeholder="Заказать табак Adalya"></div>
-    <div class="form-group"><label class="form-label">Описание (необязательно)</label>
+    <div class="form-group"><label class="form-label" for="task-title">Задача</label><input class="form-input" id="task-title" placeholder="Заказать табак Adalya"></div>
+    <div class="form-group"><label class="form-label" for="task-description">Описание (необязательно)</label>
       <textarea class="form-input" id="task-description" placeholder="Подробности задачи..." style="min-height:70px;resize:vertical;font-family:inherit"></textarea>
     </div>
     <div class="form-group">
@@ -1101,7 +1101,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
         <div class="loading" style="padding:10px">Загрузка...</div>
       </div>
     </div>
-    <div class="form-group"><label class="form-label">Срок</label><input class="form-input" id="task-due" type="date"></div>
+    <div class="form-group"><label class="form-label" for="task-due">Срок</label><input class="form-input" id="task-due" type="date"></div>
     <button class="btn btn-primary" onclick="addTask()">Добавить задачу</button>
   </div>
 
@@ -1167,10 +1167,10 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <button class="modal-close" onclick="closeModal('modal-add-finance')">✕</button>
     <div class="modal-title">Новая операция</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="fin-filial-display">—</div>
-    <div class="form-group"><label class="form-label">Тип</label><select class="form-select" id="fin-type"><option value="income">Доход</option><option value="expense">Расход</option></select></div>
-    <div class="form-group"><label class="form-label">Сумма (сум)</label><input class="form-input" id="fin-amount" placeholder="500000" type="number"></div>
-    <div class="form-group"><label class="form-label">Категория</label><select class="form-select" id="fin-category"><option>Выручка</option><option>Зарплаты</option><option>Аренда</option><option>Товары</option><option>Коммунальные</option><option>Прочее</option></select></div>
-    <div class="form-group"><label class="form-label">Описание</label><input class="form-input" id="fin-desc" placeholder="Вечерняя выручка"></div>
+    <div class="form-group"><label class="form-label" for="fin-type">Тип</label><select class="form-select" id="fin-type"><option value="income">Доход</option><option value="expense">Расход</option></select></div>
+    <div class="form-group"><label class="form-label" for="fin-amount">Сумма (сум)</label><input class="form-input" id="fin-amount" placeholder="500000" type="number"></div>
+    <div class="form-group"><label class="form-label" for="fin-category">Категория</label><select class="form-select" id="fin-category"><option>Выручка</option><option>Зарплаты</option><option>Аренда</option><option>Товары</option><option>Коммунальные</option><option>Прочее</option></select></div>
+    <div class="form-group"><label class="form-label" for="fin-desc">Описание</label><input class="form-input" id="fin-desc" placeholder="Вечерняя выручка"></div>
     <button class="btn btn-primary" onclick="addFinance()">Добавить</button>
   </div>
 </div>
@@ -1180,12 +1180,12 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <button class="modal-close" onclick="closeModal('modal-add-booking')">✕</button>
     <div class="modal-title">Новая бронь</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="book-filial-display">—</div>
-    <div class="form-group"><label class="form-label">Имя гостя</label><input class="form-input" id="book-name" placeholder="Акбар Назаров"></div>
-    <div class="form-group"><label class="form-label">Телефон</label><input class="form-input" id="book-phone" placeholder="+998 90 123 45 67" type="tel"></div>
-    <div class="form-group"><label class="form-label">Дата</label><input class="form-input" id="book-date" type="date"></div>
-    <div class="form-group"><label class="form-label">Время</label><input class="form-input" id="book-time" type="time"></div>
-    <div class="form-group"><label class="form-label">Количество гостей</label><input class="form-input" id="book-guests" placeholder="4" type="number"></div>
-    <div class="form-group"><label class="form-label">Зона</label><select class="form-select" id="book-zone"><option>Основной зал</option><option>VIP-зал</option><option>Терраса</option><option>Кальянная зона</option></select></div>
+    <div class="form-group"><label class="form-label" for="book-name">Имя гостя</label><input class="form-input" id="book-name" placeholder="Акбар Назаров"></div>
+    <div class="form-group"><label class="form-label" for="book-phone">Телефон</label><input class="form-input" id="book-phone" placeholder="+998 90 123 45 67" type="tel"></div>
+    <div class="form-group"><label class="form-label" for="book-date">Дата</label><input class="form-input" id="book-date" type="date"></div>
+    <div class="form-group"><label class="form-label" for="book-time">Время</label><input class="form-input" id="book-time" type="time"></div>
+    <div class="form-group"><label class="form-label" for="book-guests">Количество гостей</label><input class="form-input" id="book-guests" placeholder="4" type="number"></div>
+    <div class="form-group"><label class="form-label" for="book-zone">Зона</label><select class="form-select" id="book-zone"><option>Основной зал</option><option>VIP-зал</option><option>Терраса</option><option>Кальянная зона</option></select></div>
     <button class="btn btn-primary" onclick="addBooking()">Добавить бронь</button>
   </div>
 </div>
@@ -1232,19 +1232,19 @@ if('serviceWorker' in navigator) {
     <button class="modal-close" onclick="closeModal('modal-edit-employee')">✕</button>
     <div class="modal-title">✏️ Редактировать сотрудника</div>
     <input type="hidden" id="edit-emp-id">
-    <div class="form-group"><label class="form-label">Имя и фамилия</label><input class="form-input" id="edit-emp-name" placeholder="Алиша Каримова"></div>
-    <div class="form-group"><label class="form-label">Должность</label>
+    <div class="form-group"><label class="form-label" for="edit-emp-name">Имя и фамилия</label><input class="form-input" id="edit-emp-name" placeholder="Алиша Каримова"></div>
+    <div class="form-group"><label class="form-label" for="edit-emp-role">Должность</label>
       <select class="form-select" id="edit-emp-role"><optgroup label="Зал"><option>Официант</option><option>Администратор</option></optgroup><optgroup label="Бар"><option>Бармен</option><option>Старший бармен</option><option>Шеф бармен</option><option>Бар менеджер</option></optgroup><optgroup label="Кальянная"><option>Кальянный мастер</option><option>Старший кальянный мастер</option><option>Шеф кальянной станции</option></optgroup><optgroup label="Кухня"><option>Повар</option><option>Су-шеф</option><option>Шеф повар</option></optgroup><optgroup label="Руководство"><option>Управляющий</option><option>BOSS</option></optgroup><optgroup label="Прочее"><option>Менеджер</option><option>Охранник</option><option>Уборщик</option></optgroup></select>
     </div>
-    <div class="form-group"><label class="form-label">Отдел (для графика)</label>
+    <div class="form-group"><label class="form-label" for="edit-emp-department">Отдел (для графика)</label>
       <select class="form-select" id="edit-emp-department"><option>Официанты</option><option>Бармены</option><option>Кальянные мастера</option><option>Повара</option><option>Техперсонал</option><option>Менеджеры</option></select>
     </div>
-    <div class="form-group"><label class="form-label">Телефон</label><input class="form-input" id="edit-emp-phone" placeholder="+998 90 123 45 67"></div>
-    <div class="form-group"><label class="form-label">Ставка за смену (сум)</label><input class="form-input" id="edit-emp-salary" type="number"></div>
-    <div class="form-group"><label class="form-label">Статус</label>
+    <div class="form-group"><label class="form-label" for="edit-emp-phone">Телефон</label><input class="form-input" id="edit-emp-phone" placeholder="+998 90 123 45 67"></div>
+    <div class="form-group"><label class="form-label" for="edit-emp-salary">Ставка за смену (сум)</label><input class="form-input" id="edit-emp-salary" type="number"></div>
+    <div class="form-group"><label class="form-label" for="edit-emp-status">Статус</label>
       <select class="form-select" id="edit-emp-status"><option>Активен</option><option>Отпуск</option><option>Уволен</option></select>
     </div>
-    <div class="form-group"><label class="form-label">Роль в системе</label>
+    <div class="form-group"><label class="form-label" for="edit-emp-system-role">Роль в системе</label>
       <select class="form-select" id="edit-emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option><option value="admin">Управляющий</option><option value="boss">Владелец (наблюдатель)</option></select>
     </div>
     <div class="form-group"><label class="form-label">На каких филиалах может работать</label>
@@ -1255,7 +1255,7 @@ if('serviceWorker' in navigator) {
     </div>
     <button class="btn btn-primary" onclick="saveEmployee()">Сохранить</button>
     <div class="form-group" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-      <label class="form-label">Новый пароль (оставь пустым если не меняешь)</label>
+      <label class="form-label" for="edit-emp-password">Новый пароль (оставь пустым если не меняешь)</label>
       <input class="form-input" id="edit-emp-password" placeholder="минимум 6 символов">
     </div>
     <button class="btn btn-secondary" onclick="changePassword()">Сменить пароль</button>
@@ -1271,16 +1271,16 @@ if('serviceWorker' in navigator) {
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-task-filter')">✕</button>
     <div class="modal-title">🔍 Фильтр задач</div>
-    <div class="form-group"><label class="form-label">Сотрудник</label>
+    <div class="form-group"><label class="form-label" for="filter-employee">Сотрудник</label>
       <select class="form-select" id="filter-employee"><option value="">Все сотрудники</option></select>
     </div>
-    <div class="form-group"><label class="form-label">Статус</label>
+    <div class="form-group"><label class="form-label" for="filter-status">Статус</label>
       <select class="form-select" id="filter-status">
         <option value="">Все</option><option value="pending">Активные</option><option value="done">Выполненные</option>
       </select>
     </div>
-    <div class="form-group"><label class="form-label">Дата от</label><input class="form-input" id="filter-date-from" type="date"></div>
-    <div class="form-group"><label class="form-label">Дата до</label><input class="form-input" id="filter-date-to" type="date"></div>
+    <div class="form-group"><label class="form-label" for="filter-date-from">Дата от</label><input class="form-input" id="filter-date-from" type="date"></div>
+    <div class="form-group"><label class="form-label" for="filter-date-to">Дата до</label><input class="form-input" id="filter-date-to" type="date"></div>
     <button class="btn btn-primary" onclick="applyTaskFilter()">Применить фильтр</button>
     <button class="btn btn-secondary" onclick="clearTaskFilter()">Сбросить</button>
   </div>
@@ -1304,16 +1304,16 @@ if('serviceWorker' in navigator) {
     <button class="modal-close" onclick="closeModal('modal-week-fill')">✕</button>
     <div class="modal-title">📆 Заполнить неделю</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="wf-filial-display">—</div>
-    <div class="form-group"><label class="form-label">Сотрудник</label>
+    <div class="form-group"><label class="form-label" for="week-employee">Сотрудник</label>
       <select class="form-select" id="week-employee" onchange="renderWeekFillDays()"></select>
     </div>
     <div class="form-group" style="display:flex;gap:8px;align-items:flex-end">
       <div style="flex:1">
-        <label class="form-label">Начало</label>
+        <label class="form-label" for="week-default-start">Начало</label>
         <input class="form-input" id="week-default-start" type="time" value="11:00">
       </div>
       <div style="flex:1">
-        <label class="form-label">Конец</label>
+        <label class="form-label" for="week-default-end">Конец</label>
         <input class="form-input" id="week-default-end" type="time" value="23:00">
       </div>
       <button onclick="applyToAllDays()" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:10px;padding:12px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Всем дням</button>
@@ -1339,14 +1339,14 @@ if('serviceWorker' in navigator) {
       </label>
     </div>
     <div id="sch-time-fields">
-      <div class="form-group"><label class="form-label">Начало смены</label>
+      <div class="form-group"><label class="form-label" for="sch-start">Начало смены</label>
         <input class="form-input" id="sch-start" type="time" value="11:00">
       </div>
-      <div class="form-group"><label class="form-label">Конец смены</label>
+      <div class="form-group"><label class="form-label" for="sch-end">Конец смены</label>
         <input class="form-input" id="sch-end" type="time" value="23:00">
       </div>
     </div>
-    <div class="form-group"><label class="form-label">Заметка (необязательно)</label>
+    <div class="form-group"><label class="form-label" for="sch-note">Заметка (необязательно)</label>
       <input class="form-input" id="sch-note" placeholder="Например: двойная смена">
     </div>
     <button class="btn btn-primary" onclick="addSchedule()">Сохранить</button>
