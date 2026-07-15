@@ -132,7 +132,7 @@ async function loadAttendanceCard(dateStr, myShift) {
   } catch(e) { console.error(e); attEl.innerHTML = `<div class="card" style="margin-bottom:12px"><div class="card-title">Отметка на смену</div><div style="font-size:12px;color:#A32D2D">Не удалось загрузить. Проверьте соединение и обновите страницу.</div></div>`; }
 }
 
-// Карточка "Моя зарплата" на главном экране (только свои данные сотрудника)
+// Карточка "Моя зарплата" на главном экране — за СЕГОДНЯ (за период — в личном кабинете)
 async function loadSalaryCard() {
   const el = document.getElementById('home-salary-card');
   if(!el) return;
@@ -143,27 +143,22 @@ async function loadSalaryCard() {
     const rate = Number(emp?.salary) || 0;
     if(!rate) return;
 
-    const now = new Date();
-    const firstStr = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
-    const lastStr = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
-
-    const { data: att } = await sb.from('attendance').select('date,penalty,late_minutes,check_in_time')
-      .eq('employee_id', currentProfile.employee_id).gte('date', firstStr).lte('date', lastStr);
-    const records = att || [];
-    const shifts = records.filter(a=>a.check_in_time).length;
-    const penalties = records.reduce((s,a)=>s+(Number(a.penalty)||0), 0);
-    const earned = shifts * rate;
-    const total = earned - penalties;
-    const monthName = now.toLocaleDateString('ru-RU',{month:'long'});
+    const todayStr = today();
+    const { data: att } = await sb.from('attendance').select('penalty,check_in_time')
+      .eq('employee_id', currentProfile.employee_id).eq('date', todayStr);
+    const record = att && att[0];
+    const worked = record?.check_in_time ? 1 : 0;
+    const penalty = Number(record?.penalty) || 0;
+    const earned = worked * rate;
+    const total = earned - penalty;
 
     el.innerHTML = `<div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#2d2416,#4a3a1f);border:none;color:#f0e9db">
-      <div style="font-size:11px;opacity:0.7;margin-bottom:8px;text-transform:uppercase">Моя зарплата · ${monthName}</div>
+      <div style="font-size:11px;opacity:0.7;margin-bottom:8px;text-transform:uppercase">Моя зарплата · сегодня</div>
       <div style="font-size:28px;font-weight:700;margin-bottom:10px">${formatNum(total)} <span style="font-size:14px;opacity:0.7">сум</span></div>
       <div style="display:flex;gap:16px;font-size:12px;opacity:0.85;flex-wrap:wrap">
-        <div>Смен: <b>${shifts}</b></div>
         <div>Ставка: <b>${formatNum(rate)}</b></div>
-        <div>Начислено: <b>${formatNum(earned)}</b></div>
-        ${penalties>0?`<div style="color:#ff9b9b">Штрафы: <b>−${formatNum(penalties)}</b></div>`:''}
+        ${!worked?'<div>Смена сегодня ещё не отмечена</div>':''}
+        ${penalty>0?`<div style="color:#ff9b9b">Штраф: <b>−${formatNum(penalty)}</b></div>`:''}
       </div>
     </div>`;
   } catch(e) { console.error('salary card', e); }
