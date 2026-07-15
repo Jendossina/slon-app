@@ -124,7 +124,8 @@ async function addEmployee() {
     const empFilials = Array.from(document.querySelectorAll('.emp-filial-checkbox:checked')).map(c=>c.value);
     const { data: emp, error: empError } = await sb.from('employees').insert({ name, role: document.getElementById('emp-role').value, department: document.getElementById('emp-department').value, phone: document.getElementById('emp-phone').value, salary: document.getElementById('emp-salary').value||null, status:'Активен', filials: empFilials.length?empFilials:['istikbol','chekhov'] }).select().single();
     if(empError || !emp) { showToast('Ошибка создания карточки: '+(empError?.message||'неизвестная ошибка')); return; }
-    const { data: authData, error: authError } = await sb.auth.signUp({ email, password });
+    // sbAuthOnly — изолированный клиент, чтобы signUp не подменил сессию админа в sb
+    const { data: authData, error: authError } = await sbAuthOnly.auth.signUp({ email, password });
     if(authError) {
       // Логин не создался — откатываем карточку сотрудника, чтобы не оставалась "сиротой" без аккаунта
       await sb.from('employees').delete().eq('id', emp.id);
@@ -133,8 +134,12 @@ async function addEmployee() {
     }
     if(authData.user) {
       const systemRole = document.getElementById('emp-system-role').value;
-      await sb.from('profiles').delete().eq('user_id', authData.user.id);
-      await sb.from('profiles').insert({ user_id: authData.user.id, name, role: systemRole, employee_id: emp?.id });
+      const { error: profileError } = await sb.from('profiles').insert({ user_id: authData.user.id, name, role: systemRole, employee_id: emp.id });
+      if(profileError) {
+        await sb.from('employees').delete().eq('id', emp.id);
+        showToast('Ошибка создания профиля: '+profileError.message+'. Карточка отменена. Логин мог остаться в системе входа — проверьте Supabase → Authentication → Users.');
+        return;
+      }
     }
     closeModal('modal-add-employee');
     ['emp-name','emp-phone','emp-salary','emp-email','emp-password'].forEach(id=>document.getElementById(id).value='');

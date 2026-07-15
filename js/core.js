@@ -2,6 +2,14 @@ const SUPABASE_URL = 'https://omeomdkurvtvirhfkffu.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_h7pdCQTKnGIlIR9SaswShw_ur8eauw6';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Отдельный клиент только для auth.signUp() при создании сотрудника из HR-панели.
+// sb.auth.signUp() на ОСНОВНОМ клиенте молча подменяет активную сессию браузера
+// на сессию только что созданного пользователя — из-за этого следующий запрос
+// (создание профиля) уходит уже не от имени админа, а от имени нового сотрудника,
+// у которого ещё нет профиля, и RLS его тихо блокирует. Используя изолированный
+// клиент без сохранения сессии, сессия админа в sb остаётся нетронутой.
+const sbAuthOnly = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+
 const TG_TOKEN = '8675217218:AAGZ6LDhRIiMuyPJITgbjp-qkPVxuPJawEg';
 const TG_ADMIN_ID = '5872954642';
 
