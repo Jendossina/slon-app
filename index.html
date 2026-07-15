@@ -436,6 +436,17 @@ body.boss-readonly [data-edit-only] { display: none !important; }
         <div class="card"><div class="card-title">Расходы</div><div class="stat-val finance-negative" id="finance-expense">—</div><div class="stat-sub">сум</div></div>
       </div>
       <div class="card"><div class="card-title">Прибыль</div><div class="stat-val" id="finance-profit" style="font-size:28px">—</div><div class="stat-sub">сум</div></div>
+      <div class="card">
+        <div class="card-title">Сегодня</div>
+        <div style="display:flex;justify-content:space-between;margin:6px 0 12px">
+          <div><div class="stat-sub">Касса</div><div style="font-size:20px;font-weight:700" class="finance-positive" id="fin-today-income">—</div></div>
+          <div style="text-align:right"><div class="stat-sub">Расходы</div><div style="font-size:20px;font-weight:700" class="finance-negative" id="fin-today-expense">—</div></div>
+        </div>
+        <div id="fin-quick-actions" style="display:none;gap:8px">
+          <button onclick="openKassaModal()" style="flex:1;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer">💵 Касса дня</button>
+          <button onclick="openExpenseModal()" style="flex:1;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer">➖ Расход</button>
+        </div>
+      </div>
       <div class="section-label">Последние операции</div>
       <div class="card" id="finance-list"><div class="loading">Загрузка...</div></div>
     </div>
@@ -1172,6 +1183,30 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="form-group"><label class="form-label" for="fin-category">Категория</label><select class="form-select" id="fin-category"><option>Выручка</option><option>Зарплаты</option><option>Аренда</option><option>Товары</option><option>Коммунальные</option><option>Прочее</option></select></div>
     <div class="form-group"><label class="form-label" for="fin-desc">Описание</label><input class="form-input" id="fin-desc" placeholder="Вечерняя выручка"></div>
     <button class="btn btn-primary" onclick="addFinance()">Добавить</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-kassa">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-kassa')">✕</button>
+    <div class="modal-title">💵 Касса дня</div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="kassa-date-display">—</div>
+    <input type="hidden" id="kassa-existing-id">
+    <div class="form-group"><label class="form-label" for="kassa-amount">Итоговая выручка за день (сум)</label><input class="form-input" id="kassa-amount" placeholder="3000000" type="number" inputmode="numeric"></div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px" id="kassa-hint"></div>
+    <button class="btn btn-primary" onclick="saveKassa()">Сохранить кассу</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-expense">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-expense')">✕</button>
+    <div class="modal-title">➖ Расход</div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="exp-date-display">—</div>
+    <div class="form-group"><label class="form-label" for="exp-amount">Сумма (сум)</label><input class="form-input" id="exp-amount" placeholder="150000" type="number" inputmode="numeric"></div>
+    <div class="form-group"><label class="form-label" for="exp-category">Категория</label><select class="form-select" id="exp-category"><option>Товары</option><option>Зарплаты</option><option>Аренда</option><option>Коммунальные</option><option>Прочее</option></select></div>
+    <div class="form-group"><label class="form-label" for="exp-desc">Комментарий</label><input class="form-input" id="exp-desc" placeholder="Закупка табака"></div>
+    <button class="btn btn-primary" onclick="saveExpense()">Добавить расход</button>
   </div>
 </div>
 

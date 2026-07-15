@@ -343,6 +343,7 @@ function openMoreMenu() {
       {id:'reviews', label:'⭐ Отзывы', show:true},
     ]},
     { title:'Управление', items:[
+      {id:'finance', label:'💰 Финансы', show: canSeeFinance()},
       {id:'dashboard', label:'📈 Дашборд', show: canSeeAdminPanel()},
       {id:'directory', label:'📇 Справочник', show: canEditData() || isBoss()},
       {id:'admin', label:'⚙️ Админ-панель', show: canSeeAdminPanel()},
@@ -377,6 +378,7 @@ function showScreen(name, btn) {
   if(name==='admin') loadAdmin();
   if(name==='checklist') { initChecklistScreen(); }
   if(name==='schedule') loadSchedule();
+  if(name==='finance') loadFinance();
   if(name==='teamchat') initTeamChat();
   if(name==='profile') loadProfile2();
   if(name==='knowledge') loadKnowledgeBase();
