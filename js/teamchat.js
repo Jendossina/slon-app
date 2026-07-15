@@ -4,6 +4,7 @@ const CHAT_CHANNELS = ['Официанты','Бармены','Кальянные
 let currentChatChannel = 'Официанты';
 let teamChatPollInterval = null;
 let lastTeamChatCount = 0;
+let teamChatDefaultChannelSet = false;
 
 async function initTeamChat() {
   const role = currentProfile?.role;
@@ -12,9 +13,12 @@ async function initTeamChat() {
   if(role !== 'admin' && currentProfile?.employee_id) {
     const { data: emp } = await sb.from('employees').select('department').eq('id', currentProfile.employee_id).single();
     myDept = emp?.department;
-    // Map department to channel name (managers -> Менеджеры)
-    if(myDept && CHAT_CHANNELS.includes(myDept)) currentChatChannel = myDept;
+    // Подставляем канал отдела только один раз при первом открытии чата за сессию,
+    // иначе повторный вызов initTeamChat (например, из switchChatChannel) откатывает
+    // ручной выбор пользователя обратно на канал его отдела.
+    if(!teamChatDefaultChannelSet && myDept && CHAT_CHANNELS.includes(myDept)) currentChatChannel = myDept;
   }
+  teamChatDefaultChannelSet = true;
 
   const nav = document.getElementById('teamchat-channels-nav');
   let visibleChannels;
