@@ -6,9 +6,11 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // sb.auth.signUp() на ОСНОВНОМ клиенте молча подменяет активную сессию браузера
 // на сессию только что созданного пользователя — из-за этого следующий запрос
 // (создание профиля) уходит уже не от имени админа, а от имени нового сотрудника,
-// у которого ещё нет профиля, и RLS его тихо блокирует. Используя изолированный
-// клиент без сохранения сессии, сессия админа в sb остаётся нетронутой.
-const sbAuthOnly = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+// у которого ещё нет профиля, и RLS его тихо блокирует. Одного persistSession:false
+// недостаточно — без отдельного storageKey supabase-js всё равно синхронизирует
+// состояние сессии между клиентами через общий ключ. Даём отдельный storageKey,
+// чтобы sbAuthOnly был полностью независим от сессии в sb.
+const sbAuthOnly = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false, storageKey: 'sb-auth-only-temp' } });
 
 const TG_TOKEN = '8675217218:AAGZ6LDhRIiMuyPJITgbjp-qkPVxuPJawEg';
 const TG_ADMIN_ID = '5872954642';
