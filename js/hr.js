@@ -122,9 +122,15 @@ async function addEmployee() {
   if(password.length<6) return showToast('Пароль минимум 6 символов');
   try {
     const empFilials = Array.from(document.querySelectorAll('.emp-filial-checkbox:checked')).map(c=>c.value);
-    const { data: emp } = await sb.from('employees').insert({ name, role: document.getElementById('emp-role').value, department: document.getElementById('emp-department').value, phone: document.getElementById('emp-phone').value, salary: document.getElementById('emp-salary').value||null, status:'Активен', filials: empFilials.length?empFilials:['istikbol','chekhov'] }).select().single();
+    const { data: emp, error: empError } = await sb.from('employees').insert({ name, role: document.getElementById('emp-role').value, department: document.getElementById('emp-department').value, phone: document.getElementById('emp-phone').value, salary: document.getElementById('emp-salary').value||null, status:'Активен', filials: empFilials.length?empFilials:['istikbol','chekhov'] }).select().single();
+    if(empError || !emp) { showToast('Ошибка создания карточки: '+(empError?.message||'неизвестная ошибка')); return; }
     const { data: authData, error: authError } = await sb.auth.signUp({ email, password });
-    if(authError) { showToast('Ошибка: '+authError.message); return; }
+    if(authError) {
+      // Логин не создался — откатываем карточку сотрудника, чтобы не оставалась "сиротой" без аккаунта
+      await sb.from('employees').delete().eq('id', emp.id);
+      showToast('Ошибка: '+authError.message);
+      return;
+    }
     if(authData.user) {
       const systemRole = document.getElementById('emp-system-role').value;
       await sb.from('profiles').delete().eq('user_id', authData.user.id);
