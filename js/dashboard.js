@@ -67,6 +67,10 @@ async function loadDashboard() {
   const fids = activeFilials.map(f=>f.id);
   const { from, to } = dashDateRange();
   const prev = dashPrevRange();
+  // Для прогноза ФОТ по месяцу берём график до конца месяца (будущие смены тоже)
+  const forecastTo = dashPeriod==='month'
+    ? new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).toISOString().slice(0,10)
+    : to;
   const canFin = canSeeFinance();
   const money = n => formatNum(Math.round(n));
   const pl = dashPeriodLabel();
@@ -78,7 +82,7 @@ async function loadDashboard() {
       canFin ? sb.from('finances').select('amount,type').in('filial',fids).gte('date',from).lte('date',to) : Promise.resolve({data:[]}),
       sb.from('tasks').select('status,assigned_to_name').in('filial',fids).gte('due_date',from).lte('due_date',to),
       sb.from('attendance').select('is_late,penalty,late_minutes,check_in_time,employee_id').in('filial',fids).gte('date',from).lte('date',to),
-      sb.from('schedules').select('employee_id,is_day_off').in('filial',fids).gte('date',from).lte('date',to),
+      sb.from('schedules').select('employee_id,is_day_off,date').in('filial',fids).gte('date',from).lte('date',forecastTo),
       sb.from('bookings').select('id').in('filial',fids).gte('date',from).lte('date',to),
       sb.from('reviews').select('sentiment').in('filial',fids).gte('created_at',from+'T00:00:00').lte('created_at',to+'T23:59:59'),
     ]);
@@ -89,19 +93,11 @@ async function loadDashboard() {
       sb.from('attendance').select('is_late').in('filial',fids).gte('date',prev.from).lte('date',prev.to),
     ]);
 
-    // ---- Сотрудники (для рейтинга и фонда оплаты) ----
-    const { data: allEmps } = await sb.from('employees').select('id,name,salary,status,filials');
-    const emps = (allEmps||[]).filter(e => e.status!=='Уволен' && (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).some(f=>fids.includes(f)));
-    const empName = {}; emps.forEach(e=>{ empName[e.id]=e.name; });
-    const payrollFund = emps.reduce((s,e)=>s+(Number(e.salary)||0),0);
-
-    // Выручка за текущий месяц — для доли фонда оплаты (это месячный показатель)
-    let monthIncome = 0;
-    if(canFin) {
-      const mFromStr = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10);
-      const { data: mFins } = await sb.from('finances').select('amount,type').in('filial',fids).gte('date',mFromStr);
-      (mFins||[]).forEach(f=>{ if(f.type==='income') monthIncome+=Number(f.amount); });
-    }
+    // ---- Сотрудники: ставка и имя по id (для ФОТ и рейтинга) ----
+    // Берём всех (в т.ч. уволенных) — у них может быть явка/смены в периоде, и ставка нужна для ФОТ
+    const { data: allEmps } = await sb.from('employees').select('id,name,salary');
+    const empRate = {}, empName = {};
+    (allEmps||[]).forEach(e=>{ empRate[e.id]=Number(e.salary)||0; empName[e.id]=e.name; });
 
     // ---- Агрегаты текущего периода ----
     let income=0, expense=0;
@@ -120,8 +116,15 @@ async function loadDashboard() {
     const penalties = att.reduce((s,a)=>s+(Number(a.penalty)||0),0);
     const avgLate = lates ? Math.round(lateRecords.reduce((s,a)=>s+(Number(a.late_minutes)||0),0)/lates) : 0;
 
-    const plannedShifts = (schedRes.data||[]).filter(s=>!s.is_day_off).length;
+    const schedRows = schedRes.data||[];
+    const plannedShifts = schedRows.filter(s=>!s.is_day_off && s.date<=to).length; // плановые смены в прошедшей части периода (для % явки)
     const attendPct = plannedShifts ? Math.round(checkins/plannedShifts*100) : 0;
+
+    // ---- ФОТ: фактический (по отработанным сменам) и плановый (по графику) ----
+    let actualFOT = 0;
+    att.forEach(a=>{ if(a.check_in_time) actualFOT += (empRate[a.employee_id]||0) - (Number(a.penalty)||0); });
+    let plannedFOT = 0;
+    schedRows.forEach(s=>{ if(!s.is_day_off) plannedFOT += (empRate[s.employee_id]||0); });
 
     const books = (bookRes.data||[]).length;
     const revs = revRes.data||[];
@@ -160,14 +163,19 @@ async function loadDashboard() {
       <div style="font-size:10px;opacity:0.55;margin-top:10px">↑↓ — сравнение с предыдущим периодом</div>
     </div>`;
 
-    // Фонд оплаты труда
+    // ФОТ: фактический (по отработанным сменам) + прогноз по графику
     if(canFin) {
-      const share = monthIncome>0 ? Math.round(payrollFund/monthIncome*100) : null;
+      const share = income>0 ? Math.round(actualFOT/income*100) : null;
+      const forecastLabel = dashPeriod==='month' ? 'прогноз к концу месяца' : 'по графику';
       html += `<div class="card">
-        <div style="font-size:13px;font-weight:700;color:var(--gold-dark);margin-bottom:8px">💰 Фонд оплаты труда</div>
+        <div style="font-size:13px;font-weight:700;color:var(--gold-dark);margin-bottom:8px">💰 ФОТ · ${pl}</div>
         <div style="display:flex;justify-content:space-between;align-items:end">
-          <div><div style="font-size:22px;font-weight:700;color:var(--text-primary)">${money(payrollFund)}</div><div style="font-size:11px;color:var(--text-muted)">оклады из карточек · ${emps.length} чел.</div></div>
-          ${share!==null?`<div style="text-align:right"><div style="font-size:22px;font-weight:700;color:${share>50?'#A32D2D':'#3B6D11'}">${share}%</div><div style="font-size:11px;color:var(--text-muted)">от выручки за месяц</div></div>`:''}
+          <div>
+            <div style="font-size:22px;font-weight:700;color:var(--text-primary)">${money(actualFOT)}</div>
+            <div style="font-size:11px;color:var(--text-muted)">фактически · смены × ставка − штрафы</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${forecastLabel}: <b>${money(plannedFOT)}</b></div>
+          </div>
+          ${share!==null?`<div style="text-align:right"><div style="font-size:22px;font-weight:700;color:${share>50?'#A32D2D':'#3B6D11'}">${share}%</div><div style="font-size:11px;color:var(--text-muted)">от выручки ${pl}</div></div>`:''}
         </div>
       </div>`;
     }
