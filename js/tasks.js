@@ -1,7 +1,38 @@
+// Уровень должности внутри своего отдела — используется, чтобы старшие по должности
+// сотрудники видели задачи тех, кто на их уровне или ниже (но не других отделов).
+// Чем выше число — тем выше должность. Управляющий/BOSS обычно заводятся с системной
+// ролью admin/boss и видят вообще всё филиалу — сюда попадают на случай, если их
+// завели с ролью "Сотрудник".
+const JOB_TITLE_LEVEL = {
+  'Официант': 1, 'Администратор': 2,
+  'Бармен': 1, 'Старший бармен': 2, 'Бар менеджер': 3, 'Шеф бармен': 4,
+  'Кальянный мастер': 1, 'Старший кальянный мастер': 2, 'Шеф кальянной станции': 3,
+  'Повар': 1, 'Су-шеф': 2, 'Шеф повар': 3,
+  'Менеджер': 50, 'Управляющий': 100, 'BOSS': 100,
+  'Охранник': 1, 'Уборщик': 1
+};
+
+// Список user_id, чьи задачи видит текущий сотрудник: свои + тех, кто на его уровне
+// должности или ниже, в том же отделе. Для manager/admin/boss не используется —
+// они и так видят все задачи филиала.
+async function getVisibleAssigneeIds() {
+  const myIds = [currentUser.id];
+  if(!currentProfile?.employee_id) return myIds;
+  try {
+    const { data: me } = await sb.from('employees').select('department,role').eq('id', currentProfile.employee_id).single();
+    const myLevel = JOB_TITLE_LEVEL[me?.role] || 0;
+    if(myLevel <= 0 || !me?.department) return myIds;
+    const { data: deptEmps } = await sb.from('employees').select('id,role').eq('department', me.department);
+    const visibleEmpIds = (deptEmps||[]).filter(e => (JOB_TITLE_LEVEL[e.role]||0) <= myLevel && e.id !== currentProfile.employee_id).map(e=>e.id);
+    if(visibleEmpIds.length===0) return myIds;
+    const { data: subProfiles } = await sb.from('profiles').select('user_id').in('employee_id', visibleEmpIds);
+    return [...myIds, ...(subProfiles||[]).map(p=>p.user_id).filter(Boolean)];
+  } catch(e) { console.error('getVisibleAssigneeIds', e); return myIds; }
+}
+
 function taskHTML(t) {
   const isMyTask = t.assigned_to_id === currentUser?.id;
   const isDone = t.status === 'done';
-  const role = currentProfile?.role;
 
   let reportSection = '';
   if(t.report_url) {
@@ -12,12 +43,12 @@ function taskHTML(t) {
       </button>`;
   } else if(isMyTask && !isDone) {
     reportSection = `<button class="report-btn" onclick="openReportModal(${t.id})">📎 Прикрепить отчёт</button>`;
-  } else if(isDone && !t.report_url && role !== 'employee') {
+  } else if(isDone && !t.report_url && !isMyTask) {
     reportSection = `<span style="font-size:11px;color:var(--text-muted)">Без фотоотчёта</span>`;
   }
 
   return `<div class="task-row">
-    <div class="check ${isDone?'done':''}" onclick="toggleTask(${t.id},'${escJsAttr(t.status)}')"></div>
+    <div class="check ${isDone?'done':''}" onclick="toggleTask(${t.id},'${escJsAttr(t.status)}',${isMyTask})"></div>
     <div class="task-body">
       <div class="task-text" style="${isDone?'text-decoration:line-through;color:var(--text-muted)':''}">${escapeHtml(t.title)}</div>
       ${t.description?`<div style="font-size:12px;color:#666;margin-top:2px">${escapeHtml(t.description)}</div>`:''}
@@ -94,7 +125,7 @@ async function loadTasks() {
     const role = currentProfile?.role;
     await renderTasksEmpFilter(role);
     let query = sb.from('tasks').select('*').order('due_date');
-    if(role==='employee') query = query.eq('assigned_to_id', currentUser.id);
+    if(role==='employee') query = query.in('assigned_to_id', await getVisibleAssigneeIds());
     else query = query.eq('filial', currentFilial);
     if(tasksSelectedDay) query = query.eq('due_date', tasksSelectedDay);
     if(tasksSelectedEmp) query = query.eq('assigned_to_name', tasksSelectedEmp);
@@ -111,8 +142,9 @@ async function loadTasks() {
   } catch(e) { console.error('loadTasks error:', e); document.getElementById('tasks-list').innerHTML='<div class="loading">Ошибка: '+(e?.message||e)+'</div>'; }
 }
 
-async function toggleTask(id, status) {
+async function toggleTask(id, status, isMyTask) {
   if(isBoss()) return showToast('Режим наблюдателя — редактирование недоступно');
+  if(currentProfile?.role === 'employee' && !isMyTask) return showToast('Можно отмечать только свои задачи — это чужая задача видна для контроля');
   const newStatus = status==='done'?'pending':'done';
   await sb.from('tasks').update({status:newStatus}).eq('id',id);
   loadTasks(); loadHome();
