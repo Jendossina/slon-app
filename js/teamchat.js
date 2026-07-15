@@ -1,5 +1,6 @@
 // TEAM CHAT WITH CHANNELS
-const CHAT_CHANNELS = ['Официанты','Бармены','Кальянные мастера','Повара','Менеджеры','Управляющий состав'];
+const PUBLIC_CHANNEL = 'Идеи и баги';
+const CHAT_CHANNELS = ['Официанты','Бармены','Кальянные мастера','Повара','Менеджеры','Управляющий состав', PUBLIC_CHANNEL];
 let currentChatChannel = 'Официанты';
 let teamChatPollInterval = null;
 let lastTeamChatCount = 0;
@@ -20,18 +21,12 @@ async function initTeamChat() {
   if(canSeeAdminPanel()) {
     visibleChannels = CHAT_CHANNELS;
   } else if(role === 'manager') {
-    visibleChannels = myDept && CHAT_CHANNELS.includes(myDept) ? [myDept, 'Управляющий состав'] : ['Управляющий состав'];
-    visibleChannels = [...new Set(visibleChannels)];
+    visibleChannels = myDept && CHAT_CHANNELS.includes(myDept) ? [myDept, 'Управляющий состав', PUBLIC_CHANNEL] : ['Управляющий состав', PUBLIC_CHANNEL];
   } else {
-    visibleChannels = myDept && CHAT_CHANNELS.includes(myDept) ? [myDept] : [];
+    visibleChannels = myDept && CHAT_CHANNELS.includes(myDept) ? [myDept, PUBLIC_CHANNEL] : [PUBLIC_CHANNEL];
   }
-
-  if(visibleChannels.length === 0) {
-    nav.innerHTML = '';
-    document.getElementById('teamchat-channel-label').textContent = 'Нет доступных чатов';
-    document.getElementById('teamchat-list').innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div class="empty-text">Твой отдел не привязан к чату.<br>Обратись к управляющему.</div></div>';
-    return;
-  }
+  // Канал "Идеи и баги" доступен всем сотрудникам вне зависимости от отдела
+  visibleChannels = [...new Set(visibleChannels)];
 
   if(!visibleChannels.includes(currentChatChannel)) currentChatChannel = visibleChannels[0];
 
@@ -184,8 +179,7 @@ async function checkUnreadMessages() {
 
     let query = sb.from('team_chat').select('id,created_at,channel').gt('created_at', lastSeen).neq('user_id', currentUser.id);
     if(role !== 'admin') {
-      const channels = role === 'manager' ? [myDept, 'Управляющий состав'].filter(Boolean) : [myDept].filter(Boolean);
-      if(channels.length === 0) { document.getElementById('unread-dot').style.display = 'none'; return; }
+      const channels = role === 'manager' ? [myDept, 'Управляющий состав', PUBLIC_CHANNEL].filter(Boolean) : [myDept, PUBLIC_CHANNEL].filter(Boolean);
       query = query.in('channel', channels);
     }
     const { data } = await query.limit(1);
