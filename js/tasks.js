@@ -1,8 +1,10 @@
 // Уровень должности внутри своего отдела — используется, чтобы старшие по должности
 // сотрудники видели задачи тех, кто на их уровне или ниже (но не других отделов).
-// Чем выше число — тем выше должность. Управляющий/BOSS обычно заводятся с системной
-// ролью admin/boss и видят вообще всё филиалу — сюда попадают на случай, если их
-// завели с ролью "Сотрудник".
+// Чем выше число — тем выше должность. Уровень 1 — линейный персонал без подчинённых
+// (Бармен, Официант, Повар, Кальянный мастер, Охранник, Уборщик): видят только свои
+// задачи, друг друга не видят. Управляющий/BOSS обычно заводятся с системной ролью
+// admin/boss и видят вообще всё по филиалу — сюда попадают на случай, если их завели
+// с ролью "Сотрудник".
 const JOB_TITLE_LEVEL = {
   'Официант': 1, 'Администратор': 2,
   'Бармен': 1, 'Старший бармен': 2, 'Бар менеджер': 3, 'Шеф бармен': 4,
@@ -12,16 +14,17 @@ const JOB_TITLE_LEVEL = {
   'Охранник': 1, 'Уборщик': 1
 };
 
-// Список user_id, чьи задачи видит текущий сотрудник: свои + тех, кто на его уровне
-// должности или ниже, в том же отделе. Для manager/admin/boss не используется —
-// они и так видят все задачи филиала.
+// Список user_id, чьи задачи видит текущий сотрудник: свои + (если он выше линейного
+// уровня) тех, кто на его уровне должности или ниже, в том же отделе. Линейный
+// персонал (уровень 1) друг друга не видит — только свои задачи. Для manager/admin/boss
+// не используется — они и так видят все задачи филиала.
 async function getVisibleAssigneeIds() {
   const myIds = [currentUser.id];
   if(!currentProfile?.employee_id) return myIds;
   try {
     const { data: me } = await sb.from('employees').select('department,role').eq('id', currentProfile.employee_id).single();
     const myLevel = JOB_TITLE_LEVEL[me?.role] || 0;
-    if(myLevel <= 0 || !me?.department) return myIds;
+    if(myLevel <= 1 || !me?.department) return myIds; // линейный персонал — только свои
     const { data: deptEmps } = await sb.from('employees').select('id,role').eq('department', me.department);
     const visibleEmpIds = (deptEmps||[]).filter(e => (JOB_TITLE_LEVEL[e.role]||0) <= myLevel && e.id !== currentProfile.employee_id).map(e=>e.id);
     if(visibleEmpIds.length===0) return myIds;
