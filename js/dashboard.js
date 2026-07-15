@@ -163,19 +163,20 @@ async function loadDashboard() {
       <div style="font-size:10px;opacity:0.55;margin-top:10px">↑↓ — сравнение с предыдущим периодом</div>
     </div>`;
 
-    // ФОТ: фактический (по отработанным сменам) + прогноз по графику
+    // ФОТ как доля от выручки (главная цифра) + суммы факт/прогноз
     if(canFin) {
       const share = income>0 ? Math.round(actualFOT/income*100) : null;
       const forecastLabel = dashPeriod==='month' ? 'прогноз к концу месяца' : 'по графику';
+      // Для гостевого бизнеса ФОТ обычно 25–35% от выручки: <30% зелёный, 30–45% жёлтый, выше красный
+      const shareColor = share===null ? 'var(--text-muted)' : share>45 ? '#A32D2D' : share>30 ? '#8a6a2f' : '#3B6D11';
       html += `<div class="card">
-        <div style="font-size:13px;font-weight:700;color:var(--gold-dark);margin-bottom:8px">💰 ФОТ · ${pl}</div>
-        <div style="display:flex;justify-content:space-between;align-items:end">
-          <div>
-            <div style="font-size:22px;font-weight:700;color:var(--text-primary)">${money(actualFOT)}</div>
-            <div style="font-size:11px;color:var(--text-muted)">фактически · смены × ставка − штрафы</div>
-            <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${forecastLabel}: <b>${money(plannedFOT)}</b></div>
-          </div>
-          ${share!==null?`<div style="text-align:right"><div style="font-size:22px;font-weight:700;color:${share>50?'#A32D2D':'#3B6D11'}">${share}%</div><div style="font-size:11px;color:var(--text-muted)">от выручки ${pl}</div></div>`:''}
+        <div style="font-size:13px;font-weight:700;color:var(--gold-dark);margin-bottom:8px">💰 ФОТ · доля от выручки · ${pl}</div>
+        <div style="font-size:34px;font-weight:800;color:${shareColor};line-height:1">${share!==null?share+'%':'—'}</div>
+        ${share===null?`<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Нет выручки за период — внесите доходы в разделе «Финансы», чтобы увидеть долю</div>`:''}
+        <div style="display:flex;gap:16px;font-size:12px;color:var(--text-muted);margin-top:10px;flex-wrap:wrap">
+          <div>ФОТ факт: <b style="color:var(--text-primary)">${money(actualFOT)}</b></div>
+          <div>${forecastLabel}: <b style="color:var(--text-primary)">${money(plannedFOT)}</b></div>
+          ${income>0?`<div>выручка: <b style="color:var(--text-primary)">${money(income)}</b></div>`:''}
         </div>
       </div>`;
     }
