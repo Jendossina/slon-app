@@ -59,6 +59,13 @@ let currentFilial = localStorage.getItem('slon-filial') || FILIALS[0].id;
 
 function getFilialName(id) { return FILIALS.find(f=>f.id===id)?.name || id; }
 
+// ===== ПИЛОТ: 2-недельный тест только на одном филиале =====
+// После пилота просто поставь PILOT_MODE = false — переключатель и доступ
+// к обоим филиалам вернутся всем как раньше. Админ/владелец видит оба
+// филиала всегда, ограничение касается только рядовых ролей.
+const PILOT_MODE = true;
+const PILOT_FILIAL = 'chekhov';
+
 // Сжатие изображения перед загрузкой (экономит место в облаке и ускоряет отправку).
 // Видео не трогаем — их сжать в браузере надёжно нельзя. Возвращает File.
 async function compressImage(file, maxSide = 1280, quality = 0.7) {
@@ -119,6 +126,8 @@ function canSeeAdminPanel() { const r = currentRole(); return r === 'admin' || r
 function renderFilialSwitcher() {
   const el = document.getElementById('filial-switcher');
   if(!el) return;
+  if(PILOT_MODE && !canSeeAdminPanel()) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
   el.innerHTML = FILIALS.map(f=>`<button class="filial-tab ${f.id===currentFilial?'active':''}" onclick="switchFilial('${f.id}')">${f.name}</button>`).join('');
 }
 
@@ -272,6 +281,7 @@ async function loadProfile() {
 function showApp() {
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app-page').style.display = 'block';
+  if(PILOT_MODE && !canSeeAdminPanel()) currentFilial = PILOT_FILIAL;
   applyRolePermissions();
   renderFilialSwitcher();
   loadHome();
