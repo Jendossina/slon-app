@@ -96,7 +96,7 @@ async function loadScheduleGrid() {
         <thead>
           <tr>
             <th style="background:#1a1a2e;color:#fff;padding:10px 8px;font-size:12px;text-align:left;min-width:70px;position:sticky;left:0;z-index:2">День</th>
-            ${emps.map(e=>`<th style="background:${getColorHex(e.name)};color:#fff;padding:10px 8px;font-size:12px;min-width:85px;text-align:center">${e.name.split(' ')[0]}</th>`).join('')}
+            ${emps.map(e=>`<th style="background:${getColorHex(e.name)};color:#fff;padding:10px 8px;font-size:12px;min-width:85px;text-align:center">${escapeHtml(firstName(e.name))}</th>`).join('')}
           </tr>
         </thead>
         <tbody>`;

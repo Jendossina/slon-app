@@ -169,6 +169,8 @@ function switchFilial(id) {
 const colors = ['av-purple','av-teal','av-coral','av-amber'];
 function getColor(s) { if(!s) return colors[0]; let h=0; for(let c of s) h+=c.charCodeAt(0); return colors[h%4]; }
 function getInitials(n) { if(!n) return '?'; return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+// Имя из ФИО (сотрудников заводят как "Фамилия Имя Отчество") — берём второе слово; если слово одно, его же
+function firstName(full) { const p = String(full||'').trim().split(/\s+/); return p.length>=2 ? p[1] : (p[0]||''); }
 function formatNum(n) { return Number(n).toLocaleString('ru-RU'); }
 
 // Единый формат даты: "2026-01-15" → "15 янв". Пустое/битое — как есть.
