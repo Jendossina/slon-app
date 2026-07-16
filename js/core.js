@@ -12,7 +12,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // чтобы sbAuthOnly был полностью независим от сессии в sb.
 const sbAuthOnly = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false, storageKey: 'sb-auth-only-temp' } });
 
-const TG_TOKEN = '8675217218:AAGZ6LDhRIiMuyPJITgbjp-qkPVxuPJawEg';
+// Токен бота живёт ТОЛЬКО в секрете серверной функции send-telegram — на клиенте его быть не должно.
 const TG_ADMIN_ID = '5872954642';
 
 async function sendTelegram(chatId, text) {
