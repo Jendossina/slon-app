@@ -15,14 +15,20 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const PROJECT = 'omeomdkurvtvirhfkffu';
 const API = `https://api.supabase.com/v1/projects/${PROJECT}/database/query`;
 const KEEP = 14; // сколько последних бэкапов хранить
 
+// Корень проекта = папка над scripts/. Привязываемся к расположению самого скрипта,
+// а не к текущей папке — иначе планировщик Windows (у него рабочая папка часто
+// не применяется) запустил бы бэкап не там и не нашёл бы токен.
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
 function getToken() {
   if (process.env.SUPABASE_PAT) return process.env.SUPABASE_PAT.trim();
-  const f = path.join(process.cwd(), '.supabase-pat');
+  const f = path.join(ROOT, '.supabase-pat');
   if (fs.existsSync(f)) return fs.readFileSync(f, 'utf8').trim();
   console.error('❌ Нет токена. Задайте переменную SUPABASE_PAT или создайте файл .supabase-pat с токеном (sbp_...).');
   process.exit(1);
@@ -40,7 +46,7 @@ async function q(token, sql) {
 
 const token = getToken();
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-const dir = path.join(process.cwd(), 'backups', stamp);
+const dir = path.join(ROOT, 'backups', stamp);
 fs.mkdirSync(dir, { recursive: true });
 
 const tables = (await q(token, "select tablename from pg_tables where schemaname='public' order by tablename"))
@@ -59,7 +65,7 @@ fs.writeFileSync(path.join(dir, '_manifest.json'),
 console.log(`\n✅ Бэкап готов: backups/${stamp} — ${tables.length} таблиц, ${total} строк`);
 
 // Чистка старых бэкапов (оставляем последние KEEP)
-const bdir = path.join(process.cwd(), 'backups');
+const bdir = path.join(ROOT, 'backups');
 const all = fs.readdirSync(bdir).filter((d) => {
   try { return fs.statSync(path.join(bdir, d)).isDirectory(); } catch { return false; }
 }).sort();
