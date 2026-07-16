@@ -1,6 +1,8 @@
 // Supabase Edge Function: ask-slon
 // ИИ-помощник: отвечает и на вопросы "где что в приложении / как сделать",
-// и на вопросы о самом заведении — используя статьи из Базы знаний (kb_articles).
+// и на вопросы о самом заведении — на основе ВСЕЙ Базы знаний (kb_articles).
+// Вся КБ целиком уходит модели (с кэшированием), чтобы отвечать по смыслу,
+// а не по точному совпадению слов в вопросе.
 //
 // Требуемый секрет (Supabase → Edge Functions → ask-slon → Settings → Secrets):
 //   ANTHROPIC_API_KEY = ключ sk-ant-... (тот же, что для analyze-review)
@@ -15,8 +17,9 @@ const APP_GUIDE = `
 Ты — встроенный помощник по приложению «Slon Shisha & Bar». Это внутреннее приложение для сотрудников заведения (не для гостей).
 Ты помогаешь двумя вещами:
 1) объясняешь, ГДЕ что находится в приложении и КАК что сделать;
-2) отвечаешь на вопросы о самом заведении (о компании, порядках, меню, рецептурах и т.п.) — но ТОЛЬКО опираясь на «СПРАВКУ ИЗ БАЗЫ ЗНАНИЙ», если она приложена ниже.
+2) отвечаешь на вопросы о самом заведении (о компании, порядках, меню, рецептурах, напитках и т.п.) — опираясь на «БАЗУ ЗНАНИЙ», приложенную ниже.
 Отвечай на русском, дружелюбно, кратко (2-5 предложений). Для навигации всегда указывай точный путь к разделу.
+Понимай вопрос по смыслу: пользователь может спросить своими словами, с опечатками, не зная точного названия блюда/напитка/статьи — всё равно найди подходящий ответ в Базе знаний.
 
 === НИЖНЯЯ ПАНЕЛЬ (всегда на экране) ===
 • Главная — отметка прихода/ухода на смену, зарплата, задачи на сегодня, важные объявления.
@@ -69,37 +72,27 @@ const APP_GUIDE = `
 
 ПРАВИЛА ОТВЕТА:
 - Про навигацию: не выдумывай разделы и кнопки, которых нет выше; путь указывай стрелками, например «Ещё → Посуда → 💥 Бой».
-- Про заведение (даты, имена, цены, рецептуры, порядки): отвечай ТОЛЬКО по «СПРАВКЕ ИЗ БАЗЫ ЗНАНИЙ». Если в справке нет ответа — честно скажи, что точной информации нет, и предложи уточнить у управляющего или добавить это в Базу знаний. НИКОГДА не выдумывай факты.
+- Про заведение (меню, напитки, рецептуры, стандарты, порядки): отвечай по материалам «БАЗЫ ЗНАНИЙ» ниже, понимая вопрос по смыслу. Если в Базе знаний ответа нет (например, имя директора или дата открытия, которых там нет) — честно скажи, что точной информации нет, и предложи уточнить у управляющего или добавить это в Базу знаний. НИКОГДА не выдумывай факты.
 - Пиши коротко, по-человечески, без воды.
 `;
 
-// Достаём из Базы знаний статьи, релевантные вопросу (простой поиск по ключевым словам).
-async function fetchKbContext(question: string): Promise<string> {
+// Достаём ВСЮ Базу знаний целиком (для ответов по смыслу, а не по точным словам).
+async function fetchKbContext(): Promise<string> {
   try {
     const url = Deno.env.get("SUPABASE_URL");
     const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!url || !key) return "";
-    const stop = new Set(["который","когда","какой","какая","какие","сколько","почему","чтобы","этот","эта","где","как","что","для","при","под","над","про"]);
-    const words = String(question).toLowerCase()
-      .split(/[^a-zа-яё0-9]+/i)
-      .filter((w)=> w.length >= 4 && !stop.has(w))
-      .slice(0, 5);
-    if (words.length === 0) return "";
-    const conds: string[] = [];
-    for (const w of words) {
-      const esc = encodeURIComponent(`*${w}*`);
-      conds.push(`title.ilike.${esc}`, `content.ilike.${esc}`);
-    }
-    const q = `${url}/rest/v1/kb_articles?select=title,content&or=(${conds.join(",")})&limit=4`;
+    const q = `${url}/rest/v1/kb_articles?select=title,content&order=book_id,sort_order`;
     const r = await fetch(q, { headers: { apikey: key, Authorization: `Bearer ${key}` } });
     if (!r.ok) return "";
     const rows = await r.json();
     if (!Array.isArray(rows) || rows.length === 0) return "";
+    const MAX = 200000; // предохранитель по размеру контекста
     let ctx = "";
     for (const a of rows) {
-      const body = String(a.content || "").slice(0, 1200);
-      ctx += `\n### ${a.title || "Без названия"}\n${body}\n`;
-      if (ctx.length > 6000) break;
+      const piece = `\n### ${a.title || "Без названия"}\n${String(a.content || "")}\n`;
+      if (ctx.length + piece.length > MAX) { ctx += piece.slice(0, MAX - ctx.length); break; }
+      ctx += piece;
     }
     return ctx.trim();
   } catch (_e) {
@@ -124,11 +117,19 @@ Deno.serve(async (req)=>{
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
-    const roleNote = role ? `\n\nСейчас спрашивает пользователь с ролью: ${role}. Учитывай, что ему доступно.` : "";
-    const kb = await fetchKbContext(String(question));
-    const kbNote = kb
-      ? `\n\n=== СПРАВКА ИЗ БАЗЫ ЗНАНИЙ (используй для вопросов о заведении) ===\n${kb}`
-      : "";
+    const kb = await fetchKbContext();
+    // Системный промпт блоками: статичная часть, затем КБ (кэшируется на стороне Claude,
+    // т.к. одинаковая для всех вопросов). Роль кладём в сообщение пользователя,
+    // чтобы не ломать префикс кэша.
+    const systemBlocks: any[] = [ { type: "text", text: APP_GUIDE } ];
+    if (kb) {
+      systemBlocks.push({
+        type: "text",
+        text: "=== БАЗА ЗНАНИЙ (материалы заведения; отвечай по ним, понимая вопрос по смыслу) ===\n" + kb,
+        cache_control: { type: "ephemeral" }
+      });
+    }
+    const userText = (role ? `(Спрашивает пользователь с ролью: ${role}.)\n\n` : "") + String(question).slice(0, 600);
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -139,8 +140,8 @@ Deno.serve(async (req)=>{
       body: JSON.stringify({
         model: "claude-haiku-4-5",
         max_tokens: 600,
-        system: APP_GUIDE + roleNote + kbNote,
-        messages: [ { role: "user", content: String(question).slice(0, 600) } ]
+        system: systemBlocks,
+        messages: [ { role: "user", content: userText } ]
       })
     });
     if (!resp.ok) {
