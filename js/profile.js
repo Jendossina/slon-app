@@ -22,20 +22,32 @@ async function loadProfile2() {
     const tabsContent = { overview:'', achievements:'', history:'', team:'' };
 
     if(currentProfile?.employee_id) {
-      const { data: emp } = await sb.from('employees').select('*').eq('id', currentProfile.employee_id).single();
+      const empId = currentProfile.employee_id;
       const now = new Date();
       const firstStr = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
       const lastStr = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
       const todayStr = now.toISOString().slice(0,10);
+      const twoWeeksAgoStr = (() => { const d = new Date(); d.setDate(d.getDate()-14); return d.toISOString().split('T')[0]; })();
+
+      // Все независимые запросы — параллельно (раньше шли по цепочке и тормозили экран)
+      const [empR, schedFutR, upcomingR, activeTasksR, myTasksR, monthAttR, shiftsR] = await Promise.all([
+        sb.from('employees').select('*').eq('id', empId).single(),
+        sb.from('schedules').select('date,is_day_off').eq('employee_id', empId).gt('date',todayStr).lte('date',lastStr),
+        sb.from('schedules').select('*').eq('employee_id', empId).gte('date',todayStr).order('date').limit(5),
+        sb.from('tasks').select('*').eq('assigned_to_id', currentUser.id).eq('status','pending').order('due_date').limit(6),
+        sb.from('tasks').select('status').eq('assigned_to_id', currentUser.id),
+        sb.from('attendance').select('*').eq('employee_id', empId).gte('date',firstStr).lte('date',lastStr).order('date',{ascending:false}),
+        sb.from('schedules').select('*').eq('employee_id', empId).gte('date', twoWeeksAgoStr).lte('date',todayStr).order('date',{ascending:false}),
+      ]);
+      const emp = empR.data;
+      const monthAtt = monthAttR.data || [];
 
       // --- ОБЗОР: зарплата ---
       const rate = Number(emp?.salary)||0;
       if(rate > 0) {
-        const { data: att } = await sb.from('attendance').select('check_in_time,penalty,date').eq('employee_id', currentProfile.employee_id).gte('date',firstStr).lte('date',lastStr);
-        const worked = (att||[]).filter(a=>a.check_in_time).length;
-        const penalties = (att||[]).reduce((s,a)=>s+(Number(a.penalty)||0),0);
-        const { data: sched } = await sb.from('schedules').select('date,is_day_off').eq('employee_id', currentProfile.employee_id).gt('date',todayStr).lte('date',lastStr);
-        const planned = (sched||[]).filter(s=>!s.is_day_off).length;
+        const worked = monthAtt.filter(a=>a.check_in_time).length;
+        const penalties = monthAtt.reduce((s,a)=>s+(Number(a.penalty)||0),0);
+        const planned = (schedFutR.data||[]).filter(s=>!s.is_day_off).length;
         const earned = worked*rate - penalties;
         const forecast = (worked+planned)*rate - penalties;
         tabsContent.overview += `<div class="card" style="background:linear-gradient(135deg,#2d2416,#4a3a1f);border:none;color:#f0e9db">
@@ -49,7 +61,7 @@ async function loadProfile2() {
       }
 
       // --- ОБЗОР: ближайшие смены ---
-      const { data: upcoming } = await sb.from('schedules').select('*').eq('employee_id', currentProfile.employee_id).gte('date',todayStr).order('date').limit(5);
+      const upcoming = upcomingR.data;
       if(upcoming && upcoming.length) {
         tabsContent.overview += '<div class="section-label">Ближайшие смены</div><div class="card">';
         tabsContent.overview += upcoming.map(s=>`<div class="list-item"><div class="item-info"><div class="item-name">${new Date(s.date).toLocaleDateString('ru-RU',{weekday:'short',day:'numeric',month:'short'})}${s.date===todayStr?' · <span style="color:var(--gold-dark)">сегодня</span>':''}</div><div class="item-sub">${s.is_day_off?'🌴 Выходной':'🕐 '+s.shift_start+'–'+s.shift_end+' · '+getFilialName(s.filial||'istikbol')}</div></div></div>`).join('');
@@ -57,7 +69,7 @@ async function loadProfile2() {
       }
 
       // --- ОБЗОР: активные задачи ---
-      const { data: activeTasks } = await sb.from('tasks').select('*').eq('assigned_to_id', currentUser.id).eq('status','pending').order('due_date').limit(6);
+      const activeTasks = activeTasksR.data;
       if(activeTasks && activeTasks.length) {
         tabsContent.overview += `<div class="section-label">Мои активные задачи (${activeTasks.length})</div><div class="card">`;
         tabsContent.overview += activeTasks.map(t=>`<div class="list-item"><div class="item-info"><div class="item-name">${escapeHtml(t.title)}</div><div class="item-sub">${t.due_date?'до '+new Date(t.due_date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}):''} · 📍 ${getFilialName(t.filial||'istikbol')}</div></div></div>`).join('');
@@ -66,7 +78,7 @@ async function loadProfile2() {
       if(!tabsContent.overview) tabsContent.overview = '<div class="card"><div class="empty"><div class="empty-text">Пока нет данных для обзора</div></div></div>';
 
       // --- ДОСТИЖЕНИЯ: статистика задач + бейджи ---
-      const { data: myTasks } = await sb.from('tasks').select('status').eq('assigned_to_id', currentUser.id);
+      const myTasks = myTasksR.data;
       const total = myTasks?.length || 0;
       const done = myTasks?.filter(t=>t.status==='done').length || 0;
       const pct = total ? Math.round(done/total*100) : 0;
@@ -76,9 +88,8 @@ async function loadProfile2() {
         </div>`;
       tabsContent.achievements += await loadBadgesBlock(currentProfile.employee_id);
 
-      // --- ИСТОРИЯ: удержания + смены ---
-      const { data: monthAtt } = await sb.from('attendance').select('*').eq('employee_id', currentProfile.employee_id).gte('date',firstStr).lte('date',lastStr).order('date',{ascending:false});
-      const lateItems = (monthAtt||[]).filter(a=>a.is_late && Number(a.penalty)>0);
+      // --- ИСТОРИЯ: удержания + смены (monthAtt получен выше, параллельно) ---
+      const lateItems = monthAtt.filter(a=>a.is_late && Number(a.penalty)>0);
       if(lateItems.length) {
         const totPen = lateItems.reduce((s,a)=>s+Number(a.penalty),0);
         tabsContent.history += `<div class="section-label">Удержания за месяц</div><div class="card">
@@ -86,8 +97,7 @@ async function loadProfile2() {
           ${lateItems.map(a=>`<div class="list-item"><div class="item-info"><div class="item-name">${new Date(a.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}</div><div class="item-sub">Опоздание на ${a.late_minutes||'?'} мин</div></div><span class="badge badge-red">−${formatNum(a.penalty)}</span></div>`).join('')}
         </div>`;
       }
-      const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate()-14);
-      const { data: shifts } = await sb.from('schedules').select('*').eq('employee_id', currentProfile.employee_id).gte('date', twoWeeksAgo.toISOString().split('T')[0]).lte('date',todayStr).order('date',{ascending:false});
+      const shifts = shiftsR.data;
       tabsContent.history += '<div class="section-label">История смен (14 дней)</div><div class="card">';
       if(!shifts || shifts.length===0) tabsContent.history += '<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">Смен пока нет</div></div>';
       else tabsContent.history += shifts.map(s => `<div class="list-item"><div class="item-info"><div class="item-name">${new Date(s.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short',weekday:'short'})}</div><div class="item-sub">${s.is_day_off?'🌴 Выходной':'🕐 '+s.shift_start+'–'+s.shift_end+' · '+getFilialName(s.filial||'istikbol')}</div></div></div>`).join('');
@@ -191,26 +201,24 @@ async function loadBadgesBlock(employeeId) {
     const monthAgoStr = monthAgo.toISOString().slice(0,10);
     const todayStr = now.toISOString().slice(0,10);
 
-    // Данные по явке за 30 дней
-    const { data: att } = await sb.from('attendance').select('date,is_late').eq('employee_id', employeeId).gte('date', monthAgoStr).order('date',{ascending:false});
-    const attList = att||[];
+    // Явка (30 дней), задачи и бой посуды — параллельно
+    const empName = currentProfile?.name;
+    const [attR, myTasksR, breaksR] = await Promise.all([
+      sb.from('attendance').select('date,is_late').eq('employee_id', employeeId).gte('date', monthAgoStr).order('date',{ascending:false}),
+      sb.from('tasks').select('status').eq('assigned_to_id', currentUser.id),
+      empName
+        ? sb.from('dishware_moves').select('id').eq('move_type','break').eq('user_name', empName).gte('created_at', monthAgoStr+'T00:00:00')
+        : Promise.resolve({ data: [] }),
+    ]);
+    const attList = attR.data || [];
     const lateInMonth = attList.filter(a=>a.is_late).length;
     const shiftsInMonth = attList.length;
     // серия последних смен без опозданий
     let streak = 0;
     for(const a of attList) { if(a.is_late) break; streak++; }
 
-    // Задачи
-    const { data: myTasks } = await sb.from('tasks').select('status').eq('assigned_to_id', currentUser.id);
-    const doneTasks = (myTasks||[]).filter(t=>t.status==='done').length;
-
-    // Бой посуды за месяц (по имени сотрудника)
-    const empName = currentProfile?.name;
-    let breakCount = 0;
-    if(empName) {
-      const { data: breaks } = await sb.from('dishware_moves').select('id').eq('move_type','break').eq('user_name', empName).gte('created_at', monthAgoStr+'T00:00:00');
-      breakCount = (breaks||[]).length;
-    }
+    const doneTasks = (myTasksR.data||[]).filter(t=>t.status==='done').length;
+    const breakCount = (breaksR.data||[]).length;
 
     // Определяем бейджи: earned (получен) + progress (0..1)
     const badges = [

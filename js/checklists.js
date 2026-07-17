@@ -2,6 +2,10 @@
 let currentChecklistType = null;
 let currentChecklistLog = null;
 let currentChecklistDept = null;
+let currentChecklistTemplate = null; // текущий шаблон — чтобы не запрашивать его на каждую галочку
+let clSaveTimer = null;              // таймер отложенного сохранения (даёт отметить пачку галочек)
+let clSaving = false;               // идёт ли сейчас запись (чтобы не было гонки/дублей)
+let clNotified = false;             // отправляли ли уже уведомление о выполнении
 
 const CHECKLIST_DEPTS = ['Официанты','Бармены','Кальянные мастера','Повара'];
 const CHECKLIST_DEPT_ICONS = {'Официанты':'🍽️','Бармены':'🍹','Кальянные мастера':'💨','Повара':'👨‍🍳'};
@@ -66,6 +70,7 @@ async function switchChecklistTab(type, btn) {
 }
 
 async function loadChecklist(type) {
+  await flushChecklistSave(); // досохраняем отметки предыдущего чек-листа перед перерисовкой
   const content = document.getElementById('checklist-content');
   content.innerHTML = '<div class="loading">Загрузка...</div>';
   document.getElementById('checklist-date').textContent = new Date().toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
@@ -76,6 +81,7 @@ async function loadChecklist(type) {
     if(!templates || templates.length===0) { content.innerHTML='<div class="empty"><div class="empty-icon">☑️</div><div class="empty-text">Чек-лист не найден</div></div>'; return; }
     const template = templates[0];
     const items = template.items;
+    currentChecklistTemplate = template; // запоминаем, чтобы toggle не лез в базу за total
 
     // Get today log
     const todayStr = today();
@@ -87,6 +93,7 @@ async function loadChecklist(type) {
       .eq('filial', currentFilial);
     
     currentChecklistLog = logs && logs.length > 0 ? logs[0] : null;
+    clNotified = !!currentChecklistLog?.completed; // не слать повторное уведомление, если уже выполнен
     const donItems = currentChecklistLog?.items_done || [];
     const itemsMedia = currentChecklistLog?.items_media || {};
 
@@ -107,11 +114,11 @@ async function loadChecklist(type) {
     html += `<div class="card">
       <div class="card-title">${escapeHtml(template.name)}</div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:13px;color:var(--text-muted)">${doneCount} из ${totalCount} выполнено</span>
-        <span style="font-size:18px;font-weight:700;color:${pct===100?'#3B6D11':'var(--gold-dark)'}">${pct}%</span>
+        <span style="font-size:13px;color:var(--text-muted)" id="cl-progress-count">${doneCount} из ${totalCount} выполнено</span>
+        <span style="font-size:18px;font-weight:700;color:${pct===100?'#3B6D11':'var(--gold-dark)'}" id="cl-progress-pct">${pct}%</span>
       </div>
-      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
-      ${pct===100?'<div style="text-align:center;margin-top:10px;font-size:13px;color:#3B6D11;font-weight:500">✅ Чек-лист выполнен!</div>':''}
+      <div class="progress-track"><div class="progress-fill" id="cl-progress-fill" style="width:${pct}%"></div></div>
+      <div id="cl-progress-banner" style="text-align:center;margin-top:10px;font-size:13px;color:#3B6D11;font-weight:500;display:${pct===100?'block':'none'}">✅ Чек-лист выполнен!</div>
     </div>`;
 
     // Sections
@@ -127,7 +134,7 @@ async function loadChecklist(type) {
         } else {
           mediaSection = `<button class="report-btn" onclick="event.stopPropagation();openChecklistMediaModal(${item.id},${template.id})">📎 Прикрепить фото</button>`;
         }
-        html += `<div class="task-row" onclick="toggleChecklistItem(${item.id}, ${template.id}, '${todayStr}')">
+        html += `<div class="task-row" id="cl-row-${item.id}" onclick="toggleChecklistItem(${item.id}, ${template.id}, '${todayStr}')">
           <div class="check ${isDone?'done':''}"></div>
           <div class="task-body">
             <div class="task-text" style="${isDone?'text-decoration:line-through;color:var(--text-muted)':''}">${escapeHtml(item.text)}</div>
@@ -207,43 +214,91 @@ async function uploadChecklistMedia() {
   } catch(e) { bar.style.display='none'; showToast('Ошибка: '+e.message); }
 }
 
-async function toggleChecklistItem(itemId, templateId, date) {
+// Клик по пункту: мгновенно обновляем интерфейс, а запись в базу — в фоне (с задержкой),
+// чтобы можно было отметить сразу несколько пунктов без перезагрузки экрана.
+function toggleChecklistItem(itemId, templateId, date) {
+  if(isBoss()) return showToast('Режим наблюдателя — отметки недоступны');
+  const donItems = currentChecklistLog?.items_done ? currentChecklistLog.items_done.slice() : [];
+  const idx = donItems.indexOf(itemId);
+  const nowDone = idx === -1;
+  if(nowDone) donItems.push(itemId); else donItems.splice(idx, 1);
+
+  // локальное состояние
+  if(!currentChecklistLog) currentChecklistLog = { items_done: donItems, items_media: {} };
+  else currentChecklistLog.items_done = donItems;
+
+  // мгновенно перерисовываем только эту строку и прогресс — без полной перезагрузки
+  const row = document.getElementById('cl-row-' + itemId);
+  if(row) {
+    const check = row.querySelector('.check');
+    const text = row.querySelector('.task-text');
+    if(check) check.classList.toggle('done', nowDone);
+    if(text) text.style.cssText = nowDone ? 'text-decoration:line-through;color:var(--text-muted)' : '';
+  }
+  updateChecklistProgress(donItems.length);
+
+  scheduleChecklistSave(templateId, date);
+}
+
+function updateChecklistProgress(doneCount) {
+  const total = currentChecklistTemplate?.items?.length || 0;
+  const pct = total ? Math.round(doneCount / total * 100) : 0;
+  const c = document.getElementById('cl-progress-count');
+  const p = document.getElementById('cl-progress-pct');
+  const f = document.getElementById('cl-progress-fill');
+  const banner = document.getElementById('cl-progress-banner');
+  if(c) c.textContent = `${doneCount} из ${total} выполнено`;
+  if(p) { p.textContent = pct + '%'; p.style.color = pct === 100 ? '#3B6D11' : 'var(--gold-dark)'; }
+  if(f) f.style.width = pct + '%';
+  if(banner) banner.style.display = pct === 100 ? 'block' : 'none';
+}
+
+function scheduleChecklistSave(templateId, date) {
+  if(clSaveTimer) clearTimeout(clSaveTimer);
+  clSaveTimer = setTimeout(() => saveChecklistNow(templateId, date), 500);
+}
+
+// Немедленно сохранить отложенные отметки (вызывается при уходе/смене чек-листа)
+async function flushChecklistSave() {
+  if(clSaveTimer) { clearTimeout(clSaveTimer); clSaveTimer = null; await saveChecklistNow(); }
+}
+
+async function saveChecklistNow(templateId, date) {
+  // параметры нужны только для первой вставки; при повторных берём из currentChecklistLog
+  templateId = templateId || currentChecklistTemplate?.id;
+  date = date || today();
+  if(!currentChecklistLog || !currentChecklistTemplate) return;
+  if(clSaving) { scheduleChecklistSave(templateId, date); return; } // идёт запись — повторим позже
+  clSaving = true;
   try {
-    let donItems = currentChecklistLog?.items_done || [];
-    const idx = donItems.indexOf(itemId);
-    if(idx > -1) donItems.splice(idx, 1);
-    else donItems.push(itemId);
-
-    // Get total items count
-    const { data: template } = await sb.from('checklist_templates').select('items').eq('id', templateId).single();
-    const totalCount = template?.items?.length || 0;
-    const completed = donItems.length === totalCount;
-
-    if(currentChecklistLog) {
-      await sb.from('checklist_logs').update({items_done: donItems, completed}).eq('id', currentChecklistLog.id);
-      currentChecklistLog.items_done = donItems;
+    const donItems = currentChecklistLog.items_done || [];
+    const total = currentChecklistTemplate?.items?.length || 0;
+    const completed = total > 0 && donItems.length === total;
+    if(currentChecklistLog.id) {
+      await sb.from('checklist_logs').update({ items_done: donItems, completed }).eq('id', currentChecklistLog.id);
       currentChecklistLog.completed = completed;
     } else {
-      const { data: newLog } = await sb.from('checklist_logs').insert({
-        template_id: templateId,
-        date,
-        user_id: currentUser.id,
+      const { data: newLog, error } = await sb.from('checklist_logs').insert({
+        template_id: templateId, date, user_id: currentUser.id,
         user_name: currentProfile?.name || currentUser?.email,
-        items_done: donItems,
-        completed,
-        filial: currentFilial
-      }).select().single();
-      currentChecklistLog = newLog;
+        items_done: donItems, completed, filial: currentFilial
+      }).select('id').single();
+      if(error) throw error;
+      if(newLog) currentChecklistLog.id = newLog.id; // тот же объект, просто получил id
     }
-
-    // Notify admin if completed
-    if(completed) {
-      const typeLabels = {open:'Открытие смены', second:'2-й официант', close:'Закрытие смены'};
-      await notifyAdmin(`☑️ <b>Чек-лист выполнен!</b>\n\n📋 ${typeLabels[currentChecklistType]||''}\n👤 ${currentProfile?.name||''}\n📅 ${date}\n\nОткрой приложение: https://slon-app.vercel.app`);
+    if(completed && !clNotified) {
+      clNotified = true;
+      const typeLabels = { open:'Открытие смены', second:'2-й официант', close:'Закрытие смены' };
+      notifyAdmin(`☑️ <b>Чек-лист выполнен!</b>\n\n📋 ${typeLabels[currentChecklistType]||''}\n👤 ${currentProfile?.name||''}\n📅 ${date}\n\nОткрой приложение: https://slon-app.vercel.app`);
     }
-
-    await loadChecklist(currentChecklistType);
-  } catch(e) { console.error(e); showToast('Ошибка сохранения: '+e.message); }
+    if(!completed) clNotified = false;
+    if(typeof loadHome === 'function') { /* прогресс на главной обновится при следующем заходе */ }
+  } catch(e) {
+    console.error(e);
+    showToast('Ошибка сохранения: ' + e.message);
+  } finally {
+    clSaving = false;
+  }
 }
 
 // Set today as default date
@@ -251,4 +306,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   const schDate = document.getElementById('sch-date');
   if(schDate) schDate.value = today();
 });
+
+// Досохраняем отложенные отметки чек-листа при сворачивании/закрытии вкладки
+document.addEventListener('visibilitychange', () => { if(document.hidden) flushChecklistSave(); });
+window.addEventListener('pagehide', () => { flushChecklistSave(); });
 
