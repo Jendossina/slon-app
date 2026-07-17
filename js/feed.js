@@ -92,6 +92,7 @@ async function loadPolls() {
       .order('created_at',{ascending:false});
     if(!polls || polls.length===0) {
       content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Опросов пока нет</div></div></div>';
+      syncFeedView('polls');
       return;
     }
     // Голоса текущего пользователя и все голоса
@@ -215,6 +216,7 @@ async function loadAnnouncements() {
       .order('is_important',{ascending:false}).order('created_at',{ascending:false});
     if(!anns || anns.length===0) {
       content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📢</div><div class="empty-text">Объявлений пока нет</div></div></div>';
+      syncFeedView('ann');
       return;
     }
     content.innerHTML = anns.map(a=>annCard(a)).join('');
@@ -268,7 +270,7 @@ async function loadHomeAnnouncements() {
       .order('created_at',{ascending:false}).limit(3);
     if(!anns || anns.length===0) return;
     el.innerHTML = anns.map(a=>`
-      <div class="card" style="background:linear-gradient(135deg,#3a1f1f,#5a2d2d);border:none;color:#f5e9e9;margin-bottom:12px;cursor:pointer" onclick="showScreen('announcements',null)">
+      <div class="card" style="background:linear-gradient(135deg,#3a1f1f,#5a2d2d);border:none;color:#f5e9e9;margin-bottom:12px;cursor:pointer" onclick="feedTab='ann';showScreen('feed',null)">
         <div style="font-size:11px;opacity:0.7;margin-bottom:4px">📢 ВАЖНОЕ ОБЪЯВЛЕНИЕ</div>
         <div style="font-size:16px;font-weight:700">${escapeHtml(a.title)}</div>
         ${a.text?`<div style="font-size:13px;opacity:0.9;margin-top:4px;line-height:1.5">${escapeHtml(a.text.slice(0,120))}${a.text.length>120?'…':''}</div>`:''}
