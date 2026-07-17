@@ -3,7 +3,7 @@
 // Данные (Supabase API) НЕ кешируются — только сеть, чтобы никогда
 // не показывать устаревшие задачи/чат/финансы как актуальные.
 
-const CACHE_VERSION = 'slon-shell-v1';
+const CACHE_VERSION = 'slon-shell-v2';
 
 const SHELL_FILES = [
   '/',
@@ -63,16 +63,16 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return; // POST/PATCH и т.п. к Supabase не трогаем
   if (url.origin !== self.location.origin) return; // CDN/Supabase — только сеть
 
-  // Оболочка приложения: отдаём из кеша сразу, в фоне обновляем на будущее
+  // Оболочка приложения: СЕТЬ В ПРИОРИТЕТЕ — при онлайне всегда свежая версия
+  // (обновления применяются сразу, без «двойной перезагрузки»). Кеш — запасной
+  // вариант только когда сети нет (офлайн).
   event.respondWith(
-    caches.match(req).then((cached) => {
-      const network = fetch(req).then((res) => {
-        if (res && res.ok) {
-          caches.open(CACHE_VERSION).then((cache) => cache.put(req, res.clone()));
-        }
-        return res;
-      }).catch(() => cached);
-      return cached || network;
-    })
+    fetch(req).then((res) => {
+      if (res && res.ok) {
+        const clone = res.clone();
+        caches.open(CACHE_VERSION).then((cache) => cache.put(req, clone));
+      }
+      return res;
+    }).catch(() => caches.match(req))
   );
 });
