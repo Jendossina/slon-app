@@ -33,6 +33,40 @@ async function getVisibleAssigneeIds() {
   } catch(e) { console.error('getVisibleAssigneeIds', e); return myIds; }
 }
 
+// Непрочитанные комментарии по задачам: taskId -> true, если есть чужие сообщения
+// новее того, что пользователь уже видел (отметка «просмотрено» хранится локально).
+let taskUnreadMap = {};
+function _tcSeenKey(taskId) { return 'slon-tcseen-' + (currentUser?.id || '') + '-' + taskId; }
+async function computeTaskUnread(taskIds) {
+  taskUnreadMap = {};
+  const ids = (taskIds || []).filter(Boolean);
+  if(ids.length === 0 || !currentUser) return taskUnreadMap;
+  try {
+    const { data: comments } = await sb.from('task_comments').select('task_id,created_at,user_id').in('task_id', ids);
+    const latestOther = {};
+    (comments || []).forEach(c => {
+      if(c.user_id === currentUser.id) return; // свои сообщения не считаем непрочитанными
+      if(!latestOther[c.task_id] || c.created_at > latestOther[c.task_id]) latestOther[c.task_id] = c.created_at;
+    });
+    ids.forEach(tid => {
+      const latest = latestOther[tid];
+      if(!latest) { taskUnreadMap[tid] = false; return; }
+      const seen = localStorage.getItem(_tcSeenKey(tid));
+      taskUnreadMap[tid] = !seen || new Date(latest) > new Date(seen);
+    });
+  } catch(e) { /* тихо: значок непрочитанного не критичен */ }
+  return taskUnreadMap;
+}
+
+// Отметить обсуждение задачи просмотренным до времени latestCreatedAt
+function markTaskCommentsSeen(taskId, latestCreatedAt) {
+  if(!currentUser || !taskId || !latestCreatedAt) return;
+  localStorage.setItem(_tcSeenKey(taskId), latestCreatedAt);
+  taskUnreadMap[taskId] = false;
+  const dot = document.getElementById('taskunread-' + taskId);
+  if(dot) dot.style.display = 'none';
+}
+
 function taskHTML(t) {
   const isMyTask = t.assigned_to_id === currentUser?.id;
   const isDone = t.status === 'done';
@@ -58,7 +92,7 @@ function taskHTML(t) {
       <div class="task-meta">👤 ${escapeHtml(t.assigned_to_name||'—')} ${t.due_date?'· до '+fmtDateShort(t.due_date):''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">Моя</span>':''}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
         ${reportSection}
-        <button class="report-btn" onclick="event.stopPropagation();openTaskComments(${t.id},'${escJsAttr(t.title||'')}')">💬 Обсудить</button>
+        <button class="report-btn" onclick="event.stopPropagation();openTaskComments(${t.id},'${escJsAttr(t.title||'')}')">💬 Обсудить<span id="taskunread-${t.id}" style="display:${taskUnreadMap[t.id]?'inline-block':'none'};width:8px;height:8px;border-radius:50%;background:#A32D2D;margin-left:5px;vertical-align:middle"></span></button>
       </div>
     </div>
   </div>`;
@@ -138,6 +172,7 @@ async function loadTasks() {
     document.getElementById('tasks-count').textContent = `${dayLabel}: ${done} из ${(tasks||[]).length} выполнено`;
     const list = document.getElementById('tasks-list');
     if(!tasks||tasks.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">На этот день задач нет</div></div>'; return; }
+    await computeTaskUnread(tasks.map(t=>t.id));
     list.innerHTML = tasks.map(t=>{
       try { return taskHTML(t); }
       catch(err) { console.error('Ошибка отрисовки задачи', t?.id, t?.title, err); return ''; }
@@ -334,6 +369,8 @@ async function loadTaskComments(isPoll) {
       lastCommentsCount = 0;
       return;
     }
+    // Отмечаем обсуждение просмотренным (по времени последнего сообщения) — гасит значок
+    markTaskCommentsSeen(currentCommentsTaskId, comments[comments.length-1].created_at);
     if(isPoll && comments.length === lastCommentsCount) return; // no change, skip re-render
     lastCommentsCount = comments.length;
     const wasAtBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 30;
@@ -354,12 +391,18 @@ async function sendTaskComment() {
     input.value = '';
     await loadTaskComments();
 
-    // Notify other participants (task assignee + creator)
-    const { data: task } = await sb.from('tasks').select('assigned_to_id,created_by,title').eq('id', currentCommentsTaskId).single();
+    // Уведомляем всех участников задачи и обсуждения: назначенный + создатель +
+    // все, кто уже писал в этом обсуждении (кроме самого автора сообщения).
+    const [{ data: task }, { data: commenters }] = await Promise.all([
+      sb.from('tasks').select('assigned_to_id,created_by,title').eq('id', currentCommentsTaskId).single(),
+      sb.from('task_comments').select('user_id').eq('task_id', currentCommentsTaskId)
+    ]);
     if(task) {
       const notifyIds = new Set();
-      if(task.assigned_to_id && task.assigned_to_id !== currentUser.id) notifyIds.add(task.assigned_to_id);
-      if(task.created_by && task.created_by !== currentUser.id) notifyIds.add(task.created_by);
+      if(task.assigned_to_id) notifyIds.add(task.assigned_to_id);
+      if(task.created_by) notifyIds.add(task.created_by);
+      (commenters||[]).forEach(c => { if(c.user_id) notifyIds.add(c.user_id); });
+      notifyIds.delete(currentUser.id); // не уведомляем самого себя
       for(const uid of notifyIds) {
         await notifyEmployee(uid, `💬 <b>Новый комментарий к задаче</b>\n\n📋 ${task.title}\n👤 ${currentProfile?.name||''}: ${text}\n\nОткрой приложение: https://slon-app.vercel.app`);
       }

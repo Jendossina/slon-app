@@ -21,7 +21,10 @@ async function loadHome() {
     document.getElementById('home-tasks-text').textContent = total ? `${done} из ${total} выполнено` : 'Задач на сегодня нет';
     const myEl = document.getElementById('home-my-tasks');
     if(!tasks||tasks.length===0) { myEl.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Задач на сегодня нет</div></div>'; }
-    else { myEl.innerHTML = tasks.map(t=>taskHTML(t)).join(''); }
+    else {
+      if(typeof computeTaskUnread === 'function') await computeTaskUnread(tasks.map(t=>t.id));
+      myEl.innerHTML = tasks.map(t=>taskHTML(t)).join('');
+    }
 
     // Show my shift on home screen
     if(currentProfile?.employee_id) {
