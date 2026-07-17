@@ -58,16 +58,7 @@ async function loadScheduleGrid() {
   content.innerHTML = '<div class="loading">Загрузка...</div>';
 
   try {
-    // Get employees in this department, eligible for the selected filial
-    const { data: allEmps } = await sb.from('employees_view').select('*').eq('department', currentDept).order('name');
-    const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
-    
-    if(!emps || emps.length===0) {
-      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📅</div><div class="empty-text">В этом отделе нет сотрудников для филиала «' + getFilialName(currentFilial) + '»</div></div></div>';
-      return;
-    }
-
-    // Get week dates
+    // Даты недели (нужны до запроса расписаний)
     const weekDates = [];
     for(let i=0; i<7; i++) {
       const d = new Date(scheduleWeekStart);
@@ -76,13 +67,24 @@ async function loadScheduleGrid() {
     }
     const dateStrs = weekDates.map(fmtDate);
 
-    // Get all schedules for this week for these employees, on the selected filial
-    const empIds = emps.map(e=>e.id);
-    const { data: schedules } = await sb.from('schedules').select('*').in('employee_id', empIds).eq('filial', currentFilial).gte('date', dateStrs[0]).lte('date', dateStrs[6]);
+    // Сотрудники отдела и расписания недели — параллельно (раньше шли по цепочке).
+    // employees_view: только нужные поля, без '*' — иначе представление считает зарплату
+    // подзапросом на каждую строку, что и подтормаживало.
+    // Расписания берём по филиалу+неделе; лишние строки чужих отделов просто не отрисуются.
+    const [empsR, schedR] = await Promise.all([
+      sb.from('employees_view').select('id,name,filials').eq('department', currentDept).order('name'),
+      sb.from('schedules').select('*').eq('filial', currentFilial).gte('date', dateStrs[0]).lte('date', dateStrs[6]),
+    ]);
+    const emps = (empsR.data||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
+
+    if(!emps || emps.length===0) {
+      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📅</div><div class="empty-text">В этом отделе нет сотрудников для филиала «' + getFilialName(currentFilial) + '»</div></div></div>';
+      return;
+    }
 
     // Build map: date+empId -> schedule
     const schedMap = {};
-    (schedules||[]).forEach(s => { schedMap[s.date+'_'+s.employee_id] = s; });
+    (schedR.data||[]).forEach(s => { schedMap[s.date+'_'+s.employee_id] = s; });
 
     const dayNames = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
     const isAdmin = canEditData();
