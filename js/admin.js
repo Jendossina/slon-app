@@ -184,6 +184,7 @@ async function saveEmployee() {
   try {
     await sb.from('employees').update({name,role,department,phone,salary:salary||null,status,filials:empFilials.length?empFilials:['istikbol','chekhov']}).eq('id',id);
     await sb.from('profiles').update({role:sysRole,name}).eq('employee_id',id);
+    if(typeof invalidateScheduleEmps === 'function') invalidateScheduleEmps();
     await logActivity('edit_employee', name + ' → ' + role + ', ' + status);
     closeModal('modal-edit-employee');
     showToast('✅ Сохранено');
@@ -230,6 +231,7 @@ async function deleteEmployee(id, name) {
   if(!confirm('Удалить сотрудника ' + name + '?')) return;
   await sb.from('profiles').delete().eq('employee_id', id);
   await sb.from('employees').delete().eq('id', id);
+  if(typeof invalidateScheduleEmps === 'function') invalidateScheduleEmps();
   await logActivity('delete_employee', name);
   showToast('✅ Сотрудник удалён');
   loadAdminEmployees();
@@ -261,6 +263,7 @@ async function deleteEmployeeFromCard() {
     } else {
       showToast(result.authDeleted ? '✅ Сотрудник и аккаунт удалены (логин свободен)' : '✅ Сотрудник удалён');
     }
+    if(typeof invalidateScheduleEmps === 'function') invalidateScheduleEmps();
     await logActivity('delete_employee', name);
     closeModal('modal-edit-employee');
     if(typeof loadAdminEmployees === 'function' && document.getElementById('screen-admin')?.classList.contains('active')) loadAdminEmployees();

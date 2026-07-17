@@ -141,6 +141,7 @@ async function addEmployee() {
         return;
       }
     }
+    if(typeof invalidateScheduleEmps === 'function') invalidateScheduleEmps();
     closeModal('modal-add-employee');
     ['emp-name','emp-phone','emp-salary','emp-email','emp-password'].forEach(id=>document.getElementById(id).value='');
     document.querySelectorAll('.emp-filial-checkbox').forEach(c=>c.checked=true);

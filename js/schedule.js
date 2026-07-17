@@ -4,6 +4,11 @@ let currentDept = 'Официанты';
 let scheduleWeekStart = getMonday(new Date());
 let scheduleAutoJumped = false; // чтобы автопереход в свой отдел не откатывал ручной выбор вкладки
 
+// Кэш списка сотрудников по отделу (id,name,filials). При листании недель и смене
+// филиала переиспользуется — меняются только смены. Сбрасывается при изменении штата.
+let scheduleEmpCache = {};
+function invalidateScheduleEmps() { scheduleEmpCache = {}; }
+
 function getMonday(d) {
   d = new Date(d);
   const day = d.getDay();
@@ -67,14 +72,19 @@ async function loadScheduleGrid() {
     }
     const dateStrs = weekDates.map(fmtDate);
 
-    // Сотрудники отдела и расписания недели — параллельно (раньше шли по цепочке).
+    // Расписания недели грузим всегда; список сотрудников отдела — из кэша, если есть.
     // employees_view: только нужные поля, без '*' — иначе представление считает зарплату
     // подзапросом на каждую строку, что и подтормаживало.
     // Расписания берём по филиалу+неделе; лишние строки чужих отделов просто не отрисуются.
+    const dept = currentDept;
+    const cachedEmps = scheduleEmpCache[dept];
     const [empsR, schedR] = await Promise.all([
-      sb.from('employees_view').select('id,name,filials').eq('department', currentDept).order('name'),
+      cachedEmps
+        ? Promise.resolve({ data: cachedEmps })
+        : sb.from('employees_view').select('id,name,filials').eq('department', dept).order('name'),
       sb.from('schedules').select('*').eq('filial', currentFilial).gte('date', dateStrs[0]).lte('date', dateStrs[6]),
     ]);
+    if(!cachedEmps && empsR.data) scheduleEmpCache[dept] = empsR.data;
     const emps = (empsR.data||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
 
     if(!emps || emps.length===0) {
