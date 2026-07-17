@@ -373,6 +373,15 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </main>
 </div>
 
+<!-- BIOMETRIC LOCK -->
+<div id="biometric-lock" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--surface);flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:18px">
+  <div style="font-size:56px">🔒</div>
+  <div style="font-size:20px;font-weight:700;color:var(--text-primary)">Slon Shisha &amp; Bar</div>
+  <div style="font-size:14px;color:var(--text-muted);max-width:280px">Приложение заблокировано.<br>Разблокируйте по Face ID или отпечатку.</div>
+  <button class="btn btn-primary" style="max-width:280px" onclick="tryBiometricUnlock()">🔓 Разблокировать</button>
+  <button onclick="biometricUsePassword()" style="background:none;border:none;color:var(--gold-dark);font-size:14px;cursor:pointer;text-decoration:underline">Войти паролем</button>
+</div>
+
 <!-- APP -->
 <div id="app-page" style="display:none">
 
@@ -1249,7 +1258,14 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <script>
 
 sb.auth.getSession().then(({ data }) => {
-  if(data.session) { currentUser = data.session.user; loadProfile().then(showApp); }
+  if(data.session) {
+    currentUser = data.session.user;
+    loadProfile().then(() => {
+      // Если на этом устройстве включена биометрия для этого аккаунта — показываем замок
+      if(bioIsEnabled() && localStorage.getItem(BIO_USER_KEY) === currentUser.id) showBiometricLock();
+      else showApp();
+    });
+  }
   else { prefillLogin(); }
 });
 

@@ -114,8 +114,14 @@ async function loadProfile2() {
     }
 
     // Смена пароля (внизу всегда)
+    const bioOn = (typeof bioIsEnabled === 'function') && bioIsEnabled();
+    const bioBtn = bioOn
+      ? `<button onclick="disableBiometric()" style="width:100%;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;cursor:pointer;margin-top:8px">🔓 Отключить вход по биометрии</button>
+         <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center">Вход по Face ID / отпечатку включён на этом устройстве</div>`
+      : `<button onclick="enableBiometric()" style="width:100%;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;cursor:pointer;margin-top:8px">👆 Включить вход по Face ID / отпечатку</button>
+         <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center">Открывать приложение по биометрии, без пароля (на этом устройстве)</div>`;
     const passwordBlock = `<div class="section-label">Безопасность</div>
-      <div class="card"><button onclick="openMyPasswordModal()" style="width:100%;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;cursor:pointer">🔑 Сменить мой пароль</button></div>`;
+      <div class="card"><button onclick="openMyPasswordModal()" style="width:100%;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;cursor:pointer">🔑 Сменить мой пароль</button>${bioBtn}</div>`;
 
     // Определяем доступные вкладки
     const tabs = [{id:'overview',label:'Обзор'},{id:'achievements',label:'🏅 Достижения'},{id:'history',label:'История'}];

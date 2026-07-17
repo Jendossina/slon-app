@@ -260,13 +260,109 @@ function prefillLogin() {
   }
 }
 
+// «Выйти»: если на устройстве включена биометрия — просто блокируем (сессия сохраняется,
+// снова открыть по Face ID/отпечатку). Иначе — полный выход к паролю.
 async function doLogout() {
+  if(bioIsEnabled() && currentUser && localStorage.getItem(BIO_USER_KEY) === currentUser.id) {
+    showBiometricLock();
+    return;
+  }
+  await fullLogout();
+}
+
+async function fullLogout() {
   await sb.auth.signOut();
   currentUser = null; currentProfile = null;
+  const lock = document.getElementById('biometric-lock'); if(lock) lock.style.display = 'none';
   document.getElementById('app-page').style.display = 'none';
   document.getElementById('login-page').style.display = 'block';
   document.getElementById('login-password').value = '';
   prefillLogin();
+}
+
+// ===== БИОМЕТРИЧЕСКИЙ ВХОД (WebAuthn: Face ID / Touch ID / отпечаток) =====
+// Биометрия не покидает устройство. Это «замок» доступа поверх уже сохранённого входа,
+// а не серверная проверка — для внутреннего приложения этого достаточно.
+const BIO_ENABLED_KEY = 'slon-bio-enabled';
+const BIO_CREDID_KEY  = 'slon-bio-credid';
+const BIO_USER_KEY    = 'slon-bio-user';
+
+function bioSupported() { return !!(window.PublicKeyCredential && navigator.credentials); }
+async function bioPlatformAvailable() {
+  try { return bioSupported() && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); }
+  catch(e) { return false; }
+}
+function bioIsEnabled() {
+  return localStorage.getItem(BIO_ENABLED_KEY) === '1' && !!localStorage.getItem(BIO_CREDID_KEY);
+}
+function _b64u(buf){ let s=''; const b=new Uint8Array(buf); for(const x of b) s+=String.fromCharCode(x); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function _unb64u(s){ s=s.replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4) s+='='; const bin=atob(s); const b=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) b[i]=bin.charCodeAt(i); return b.buffer; }
+function _bioChallenge(){ const a=new Uint8Array(32); crypto.getRandomValues(a); return a.buffer; }
+
+async function enableBiometric() {
+  if(!currentUser) return showToast('Сначала войдите');
+  if(!await bioPlatformAvailable()) return showToast('На этом устройстве биометрия недоступна');
+  try {
+    const cred = await navigator.credentials.create({ publicKey: {
+      challenge: _bioChallenge(),
+      rp: { name: 'Slon Shisha & Bar', id: location.hostname },
+      user: { id: new TextEncoder().encode(currentUser.id), name: currentUser.email || 'user', displayName: currentProfile?.name || currentUser.email || 'Сотрудник' },
+      pubKeyCredParams: [{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+      authenticatorSelection: { authenticatorAttachment:'platform', userVerification:'required', residentKey:'preferred' },
+      timeout: 60000, attestation: 'none'
+    }});
+    if(!cred) throw new Error('ключ не создан');
+    localStorage.setItem(BIO_CREDID_KEY, _b64u(cred.rawId));
+    localStorage.setItem(BIO_USER_KEY, currentUser.id);
+    localStorage.setItem(BIO_ENABLED_KEY, '1');
+    showToast('✅ Вход по биометрии включён');
+    if(typeof loadProfile2 === 'function') loadProfile2();
+  } catch(e) { showToast('Не удалось включить: ' + (e.message || e)); }
+}
+
+function disableBiometric() {
+  localStorage.removeItem(BIO_ENABLED_KEY);
+  localStorage.removeItem(BIO_CREDID_KEY);
+  localStorage.removeItem(BIO_USER_KEY);
+  showToast('Биометрия отключена');
+  if(typeof loadProfile2 === 'function') loadProfile2();
+}
+
+async function biometricVerify() {
+  const credId = localStorage.getItem(BIO_CREDID_KEY);
+  if(!credId) return false;
+  try {
+    const a = await navigator.credentials.get({ publicKey: {
+      challenge: _bioChallenge(),
+      allowCredentials: [{ type:'public-key', id: _unb64u(credId) }],
+      userVerification: 'required',
+      rpId: location.hostname,
+      timeout: 60000
+    }});
+    return !!a;
+  } catch(e) { return false; }
+}
+
+function showBiometricLock() {
+  const lock = document.getElementById('biometric-lock');
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('app-page').style.display = 'none';
+  if(lock) lock.style.display = 'flex';
+  tryBiometricUnlock();
+}
+
+async function tryBiometricUnlock() {
+  const ok = await biometricVerify();
+  if(ok) {
+    const lock = document.getElementById('biometric-lock'); if(lock) lock.style.display = 'none';
+    showApp();
+  }
+  // не разблокировалось — остаёмся на экране блокировки (кнопки «Разблокировать» / «Войти паролем»)
+}
+
+// «Войти паролем» с экрана блокировки — полный выход к вводу пароля
+async function biometricUsePassword() {
+  await fullLogout();
 }
 
 async function loadProfile() {
