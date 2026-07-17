@@ -211,6 +211,27 @@ function showToast(msg) {
 }
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// Красивое подтверждение вместо нативного confirm(). Возвращает Promise<boolean>.
+// opts: { title, okText, danger:false — некрасная (золотая) кнопка }
+let _confirmResolve = null;
+function confirmDialog(message, opts) {
+  opts = opts || {};
+  return new Promise((resolve) => {
+    _confirmResolve = resolve;
+    document.getElementById('confirm-title').textContent = opts.title || 'Подтвердите действие';
+    document.getElementById('confirm-message').textContent = message || '';
+    const ok = document.getElementById('confirm-ok');
+    ok.textContent = opts.okText || 'Удалить';
+    ok.style.background = opts.danger === false ? 'var(--gold-dark)' : '#A32D2D';
+    openModal('modal-confirm');
+  });
+}
+function _confirmClose(result) {
+  closeModal('modal-confirm');
+  const r = _confirmResolve; _confirmResolve = null;
+  if(r) r(result);
+}
 document.querySelectorAll('.modal-overlay').forEach(o=>{
   o.addEventListener('click', e=>{ if(e.target===o) o.classList.remove('open'); });
 });

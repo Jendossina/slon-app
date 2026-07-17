@@ -163,7 +163,7 @@ async function votePoll(pollId, optionIndex) {
 
 async function deletePoll(id) {
   if(!canEditData()) return;
-  if(!confirm('Удалить опрос вместе с голосами?')) return;
+  if(!await confirmDialog('Удалить опрос вместе с голосами?')) return;
   try {
     await sb.from('polls').delete().eq('id', id);
     showToast('✅ Удалено');
@@ -247,7 +247,7 @@ function annCard(a) {
 
 async function deleteAnnouncement(id) {
   if(!canEditData()) return;
-  if(!confirm('Удалить объявление?')) return;
+  if(!await confirmDialog('Удалить объявление?')) return;
   try {
     await sb.from('announcements').delete().eq('id', id);
     showToast('✅ Удалено');

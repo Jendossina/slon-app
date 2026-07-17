@@ -188,7 +188,7 @@ async function saveReviewEdit() {
 
 async function deleteReview() {
   const id = document.getElementById('review-edit-id').value;
-  if(!confirm('Удалить отзыв?')) return;
+  if(!await confirmDialog('Удалить отзыв?')) return;
   try {
     await sb.from('reviews').delete().eq('id', id);
     closeModal('modal-review-edit');

@@ -198,7 +198,7 @@ async function deleteKbBook() {
   if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const id = document.getElementById('kb-book-id').value;
   if(!id) return;
-  if(!confirm('Удалить книгу вместе со всеми статьями? Это действие необратимо.')) return;
+  if(!await confirmDialog('Удалить книгу вместе со всеми статьями? Это действие необратимо.')) return;
   try {
     await sb.from('kb_books').delete().eq('id', id);
     closeModal('modal-kb-book');
@@ -253,7 +253,7 @@ async function deleteKbArticle() {
   const id = document.getElementById('kb-article-id').value;
   const bookId = document.getElementById('kb-article-book-id').value;
   if(!id) return;
-  if(!confirm('Удалить статью? Это действие необратимо.')) return;
+  if(!await confirmDialog('Удалить статью? Это действие необратимо.')) return;
   try {
     await sb.from('kb_articles').delete().eq('id', id);
     closeModal('modal-kb-article');

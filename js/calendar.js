@@ -65,7 +65,7 @@ async function saveEvent() {
 async function deleteEvent() {
   const id = document.getElementById('event-delete-btn').getAttribute('data-id');
   if(!id) return;
-  if(!confirm('Удалить событие?')) return;
+  if(!await confirmDialog('Удалить событие?')) return;
   try {
     await sb.from('events').delete().eq('id', id);
     closeModal('modal-event');

@@ -769,6 +769,18 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </nav>
 </div>
 
+<!-- CONFIRM (замена нативному confirm) -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal">
+    <div class="modal-title" id="confirm-title">Подтвердите действие</div>
+    <div id="confirm-message" style="font-size:14px;color:var(--text-primary);line-height:1.5;white-space:pre-line;margin-bottom:18px"></div>
+    <div style="display:flex;gap:10px">
+      <button onclick="_confirmClose(false)" style="flex:1;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer">Отмена</button>
+      <button id="confirm-ok" onclick="_confirmClose(true)" style="flex:1;background:#A32D2D;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer">Удалить</button>
+    </div>
+  </div>
+</div>
+
 <!-- DISHWARE: NEW ITEM -->
 <div class="modal-overlay" id="modal-dishware-item">
   <div class="modal">

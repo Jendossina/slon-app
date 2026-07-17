@@ -32,7 +32,7 @@ async function loadStorageStats() {
 // Очистка медиа старше N дней: удаляет файлы из хранилища и ссылки из записей
 async function cleanupMedia(days) {
   if(!canEditData()) return showToast('Режим наблюдателя — действие недоступно');
-  if(!confirm(`Удалить все фото и видео старше ${days} дней?\n\nСами записи (задачи, чек-листы, сообщения) останутся — удалятся только прикреплённые картинки и видео. Отменить будет нельзя.`)) return;
+  if(!await confirmDialog(`Удалить все фото и видео старше ${days} дней?\n\nСами записи (задачи, чек-листы, сообщения) останутся — удалятся только прикреплённые картинки и видео. Отменить будет нельзя.`)) return;
   showToast('⏳ Чищу старые медиа...');
   try {
     const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
@@ -228,7 +228,7 @@ async function changePassword() {
 
 async function deleteEmployee(id, name) {
   if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
-  if(!confirm('Удалить сотрудника ' + name + '?')) return;
+  if(!await confirmDialog('Удалить сотрудника ' + name + '?')) return;
   await sb.from('profiles').delete().eq('employee_id', id);
   await sb.from('employees').delete().eq('id', id);
   if(typeof invalidateScheduleEmps === 'function') invalidateScheduleEmps();
@@ -243,7 +243,7 @@ async function deleteEmployeeFromCard() {
   const id = document.getElementById('edit-emp-id').value;
   const name = document.getElementById('edit-emp-name').value || 'сотрудника';
   if(!id) return;
-  if(!confirm('Удалить '+name+'? Это действие необратимо — сотрудник и его аккаунт будут удалены полностью, логин освободится.\n\nЕсли человек просто уволился, лучше поставить статус «Уволен» вместо удаления.')) return;
+  if(!await confirmDialog('Удалить '+name+'? Это действие необратимо — сотрудник и его аккаунт будут удалены полностью, логин освободится.\n\nЕсли человек просто уволился, лучше поставить статус «Уволен» вместо удаления.')) return;
   showToast('⏳ Удаляю...');
   try {
     const { data: sessionData } = await sb.auth.getSession();
@@ -327,7 +327,7 @@ async function deleteTask(id) {
 
 async function deleteCompletedTasks() {
   if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
-  if(!confirm('Удалить все выполненные задачи?')) return;
+  if(!await confirmDialog('Удалить все выполненные задачи?')) return;
   await sb.from('tasks').delete().eq('status','done');
   await logActivity('delete_tasks', 'Удалены все выполненные задачи');
   showToast('✅ Выполненные задачи удалены');

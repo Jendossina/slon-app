@@ -114,7 +114,7 @@ async function deleteDirectory() {
   if(!dirCanEdit()) return;
   const id = document.getElementById('dir-id').value;
   if(!id) return;
-  if(!confirm('Удалить запись?')) return;
+  if(!await confirmDialog('Удалить запись?')) return;
   try {
     await sb.from('directory_entries').delete().eq('id', id);
     closeModal('modal-directory');

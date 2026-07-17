@@ -96,7 +96,7 @@ async function saveExpense() {
 
 async function deleteFinance(id) {
   if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
-  if(!confirm('Удалить эту операцию?')) return;
+  if(!await confirmDialog('Удалить эту операцию?')) return;
   try {
     const { error: err } = await sb.from('finances').delete().eq('id', id);
     if(err) return showToast('Ошибка: '+err.message);

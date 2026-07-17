@@ -58,7 +58,7 @@ async function saveMyNote() {
 async function deleteMyNote() {
   const id = document.getElementById('mynote-id').value;
   if(!id) return;
-  if(!confirm('Удалить запись?')) return;
+  if(!await confirmDialog('Удалить запись?')) return;
   try {
     await sb.from('my_notes').delete().eq('id', id);
     closeModal('modal-mynote');
