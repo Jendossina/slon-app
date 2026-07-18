@@ -163,7 +163,7 @@ async function loadChecklist(type) {
 let clPollInterval = null;
 function startChecklistPolling() {
   stopChecklistPolling();
-  clPollInterval = setInterval(pollChecklist, 4000);
+  clPollInterval = setInterval(pollChecklist, 2000);
 }
 function stopChecklistPolling() { if(clPollInterval) { clearInterval(clPollInterval); clPollInterval = null; } }
 
