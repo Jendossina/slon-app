@@ -33,6 +33,21 @@ async function notifyAdmin(text) {
   await sendTelegram(TG_ADMIN_ID, text);
 }
 
+// Уведомить всех управляющих (роль admin) + владельца — верх иерархии.
+async function notifyAdminsAll(text) {
+  const sent = new Set();
+  try { if(TG_ADMIN_ID) { await sendTelegram(TG_ADMIN_ID, text); sent.add(String(TG_ADMIN_ID)); } } catch(e) {}
+  try {
+    const { data } = await sb.from('profiles').select('user_id,telegram_id').eq('role','admin');
+    for(const p of (data||[])) {
+      if(p.telegram_id && !sent.has(String(p.telegram_id)) && p.user_id !== currentUser?.id) {
+        sent.add(String(p.telegram_id));
+        await sendTelegram(p.telegram_id, text);
+      }
+    }
+  } catch(e) { console.error('notifyAdminsAll', e); }
+}
+
 // Экранирует спецсимволы, чтобы они не ломали HTML-разметку в Telegram-сообщении
 function tgEscape(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');

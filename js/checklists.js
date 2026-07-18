@@ -427,11 +427,10 @@ function _handleChecklistDone(completed, date) {
     clNotified = true;
     const typeLabels = { open:'Открытие смены', second:'2-й официант', close:'Закрытие смены' };
     const msg = `☑️ <b>Чек-лист выполнен!</b>\n\n📋 ${typeLabels[currentChecklistType]||''} · ${currentChecklistDept||''}\n📅 ${date}`;
-    notifyAdmin(msg + `\n\nОткрой приложение: https://slon-app.vercel.app`);
-    // Уведомить старших по этому цеху (все, кто выше линейного уровня в отделе)
-    if(typeof notifyDeptSeniors === 'function' && currentChecklistDept) {
-      notifyDeptSeniors(currentChecklistDept, 1, msg);
-    }
+    // Старшие по цеху + все управляющие (и владелец) — вверх по иерархии
+    if(typeof notifyDeptSeniors === 'function' && currentChecklistDept) notifyDeptSeniors(currentChecklistDept, 1, msg);
+    if(typeof notifyAdminsAll === 'function') notifyAdminsAll(msg + `\n\nОткрой приложение: https://slon-app.vercel.app`);
+    else notifyAdmin(msg);
   }
   if(!completed) clNotified = false;
 }

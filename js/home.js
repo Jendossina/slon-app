@@ -219,19 +219,15 @@ async function checkIn(videoFile) {
     });
 
     showToast(isLate ? `⏰ Опоздание ${lateMin} мин · штраф ${formatNum(penalty)} сум` : '✅ Отмечено вовремя!');
-    if(isLate) {
-      await notifyAdmin(`⏰ <b>Опоздание на смену</b>\n\n👤 ${tgEscape(currentProfile?.name||'')}\n🕐 Пришёл в ${timeStr} (смена с ${myShift?.shift_start||''})\n⏱ Опоздание: ${lateMin} мин\n💸 Штраф: ${formatNum(penalty)} сум`);
-    }
-    // Уведомить старших по цеху об отметке прихода (вверх по иерархии отдела)
+    // Уведомляем вверх по иерархии: старшие по цеху + все управляющие (и владелец)
     try {
       const { data: me } = await sb.from('employees').select('department,role,name').eq('id', currentProfile.employee_id).single();
-      if(me?.department) {
-        const myLevel = (typeof JOB_TITLE_LEVEL !== 'undefined' ? (JOB_TITLE_LEVEL[me.role]||0) : 0);
-        const lateTxt = isLate ? `<span>⏰ опоздал ${lateMin} мин</span>` : 'вовремя';
-        await notifyDeptSeniors(me.department, myLevel,
-          `🎥 <b>Отметка прихода</b>\n\n👤 ${tgEscape(me.name||currentProfile?.name||'')} · ${tgEscape(me.role||'')}\n🕐 Пришёл в ${timeStr} — ${lateTxt}\n📍 ${getFilialName(myShift?.filial||currentFilial)}`);
-      }
-    } catch(e) { console.error('notify seniors (checkin)', e); }
+      const myLevel = (typeof JOB_TITLE_LEVEL !== 'undefined' ? (JOB_TITLE_LEVEL[me?.role]||0) : 0);
+      const lateTxt = isLate ? `⏰ опоздал ${lateMin} мин · штраф ${formatNum(penalty)} сум` : 'вовремя';
+      const msg = `🎥 <b>Отметка прихода</b>\n\n👤 ${tgEscape(me?.name||currentProfile?.name||'')} · ${tgEscape(me?.role||'')}\n🕐 Пришёл в ${timeStr} — ${lateTxt}\n📍 ${getFilialName(myShift?.filial||currentFilial)}`;
+      if(me?.department) await notifyDeptSeniors(me.department, myLevel, msg);
+      await notifyAdminsAll(msg);
+    } catch(e) { console.error('notify checkin', e); }
     loadHome();
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
