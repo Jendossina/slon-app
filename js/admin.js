@@ -220,7 +220,7 @@ async function changePassword() {
     const { data: sessionData } = await sb.auth.getSession();
     const accessToken = sessionData?.session?.access_token;
     if(!accessToken) return showToast('Сессия истекла, войдите заново');
-    const res = await fetch('https://omeomdkurvtvirhfkffu.supabase.co/functions/v1/admin-reset-password', {
+    const res = await fetch('https://omeomdkurvtvirhfkffu.supabase.co/functions/v1/admin-reset-password-ts', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
