@@ -6,6 +6,7 @@ let currentChecklistTemplate = null; // текущий шаблон — чтоб
 let clSaveTimer = null;              // таймер отложенного сохранения (даёт отметить пачку галочек)
 let clSaving = false;               // идёт ли сейчас запись (чтобы не было гонки/дублей)
 let clNotified = false;             // отправляли ли уже уведомление о выполнении
+let clBaseline = [];                // items_done на момент загрузки — для безопасного слияния с чужими правками
 
 const CHECKLIST_DEPTS = ['Официанты','Бармены','Кальянные мастера','Повара'];
 const CHECKLIST_DEPT_ICONS = {'Официанты':'🍽️','Бармены':'🍹','Кальянные мастера':'💨','Повара':'👨‍🍳'};
@@ -83,18 +84,23 @@ async function loadChecklist(type) {
     const items = template.items;
     currentChecklistTemplate = template; // запоминаем, чтобы toggle не лез в базу за total
 
-    // Get today log
+    // Общий чек-лист на отдел/смену: берём лог по (шаблон + дата + филиал), без привязки к пользователю.
+    // Если из-за старых персональных записей строк несколько — берём самую заполненную.
     const todayStr = today();
     const { data: logs } = await sb.from('checklist_logs')
       .select('*')
       .eq('template_id', template.id)
       .eq('date', todayStr)
-      .eq('user_id', currentUser.id)
-      .eq('filial', currentFilial);
-    
-    currentChecklistLog = logs && logs.length > 0 ? logs[0] : null;
+      .eq('filial', currentFilial)
+      .order('id');
+
+    currentChecklistLog = (logs && logs.length)
+      ? logs.reduce((a,b)=> ((b.items_done?.length||0) > (a.items_done?.length||0) ? b : a), logs[0])
+      : null;
+    clBaseline = (currentChecklistLog?.items_done || []).slice();
     clNotified = !!currentChecklistLog?.completed; // не слать повторное уведомление, если уже выполнен
     const donItems = currentChecklistLog?.items_done || [];
+    const itemsBy = currentChecklistLog?.items_by || {};
     const itemsMedia = currentChecklistLog?.items_media || {};
 
     // Group by section
@@ -134,10 +140,12 @@ async function loadChecklist(type) {
         } else {
           mediaSection = `<button class="report-btn" onclick="event.stopPropagation();openChecklistMediaModal(${item.id},${template.id})">📎 Прикрепить фото</button>`;
         }
+        const byName = itemsBy[item.id];
         html += `<div class="task-row" id="cl-row-${item.id}" onclick="toggleChecklistItem(${item.id}, ${template.id}, '${todayStr}')">
           <div class="check ${isDone?'done':''}"></div>
           <div class="task-body">
             <div class="task-text" style="${isDone?'text-decoration:line-through;color:var(--text-muted)':''}">${escapeHtml(item.text)}</div>
+            <div class="cl-by" id="cl-by-${item.id}" style="font-size:11px;color:var(--text-muted);${isDone&&byName?'':'display:none'}">✓ ${byName?escapeHtml(byName):''}</div>
             ${mediaSection}
           </div>
         </div>`;
@@ -223,9 +231,12 @@ function toggleChecklistItem(itemId, templateId, date) {
   const nowDone = idx === -1;
   if(nowDone) donItems.push(itemId); else donItems.splice(idx, 1);
 
+  const myName = currentProfile?.name || currentUser?.email || '—';
   // локальное состояние
-  if(!currentChecklistLog) currentChecklistLog = { items_done: donItems, items_media: {} };
+  if(!currentChecklistLog) currentChecklistLog = { items_done: donItems, items_media: {}, items_by: {} };
   else currentChecklistLog.items_done = donItems;
+  if(!currentChecklistLog.items_by) currentChecklistLog.items_by = {};
+  if(nowDone) currentChecklistLog.items_by[itemId] = myName; else delete currentChecklistLog.items_by[itemId];
 
   // мгновенно перерисовываем только эту строку и прогресс — без полной перезагрузки
   const row = document.getElementById('cl-row-' + itemId);
@@ -235,6 +246,8 @@ function toggleChecklistItem(itemId, templateId, date) {
     if(check) check.classList.toggle('done', nowDone);
     if(text) text.style.cssText = nowDone ? 'text-decoration:line-through;color:var(--text-muted)' : '';
   }
+  const by = document.getElementById('cl-by-' + itemId);
+  if(by) { by.textContent = '✓ ' + (nowDone ? myName : ''); by.style.display = nowDone ? '' : 'none'; }
   updateChecklistProgress(donItems.length);
 
   scheduleChecklistSave(templateId, date);
@@ -264,41 +277,71 @@ async function flushChecklistSave() {
 }
 
 async function saveChecklistNow(templateId, date) {
-  // параметры нужны только для первой вставки; при повторных берём из currentChecklistLog
   templateId = templateId || currentChecklistTemplate?.id;
   date = date || today();
   if(!currentChecklistLog || !currentChecklistTemplate) return;
   if(clSaving) { scheduleChecklistSave(templateId, date); return; } // идёт запись — повторим позже
   clSaving = true;
   try {
-    const donItems = currentChecklistLog.items_done || [];
     const total = currentChecklistTemplate?.items?.length || 0;
-    const completed = total > 0 && donItems.length === total;
+    const myName = currentProfile?.name || currentUser?.email || '—';
+    const local = currentChecklistLog.items_done || [];
+    // мои изменения относительно состояния на момент загрузки/прошлого сохранения
+    const added = local.filter(x => !clBaseline.includes(x));
+    const removed = clBaseline.filter(x => !local.includes(x));
+
+    // если id ещё нет — вдруг общий лог уже создал кто-то другой; используем его
+    if(!currentChecklistLog.id) {
+      const { data: ex } = await sb.from('checklist_logs').select('id')
+        .eq('template_id', templateId).eq('date', date).eq('filial', currentFilial).order('id').limit(1);
+      if(ex && ex.length) currentChecklistLog.id = ex[0].id;
+    }
+
+    let merged, mergedBy;
     if(currentChecklistLog.id) {
-      await sb.from('checklist_logs').update({ items_done: donItems, completed }).eq('id', currentChecklistLog.id);
+      // сливаем свои правки со свежим состоянием строки (чтобы не затереть чужие галочки)
+      const { data: srv } = await sb.from('checklist_logs').select('items_done,items_by').eq('id', currentChecklistLog.id).single();
+      merged = (srv?.items_done || local).slice();
+      added.forEach(x => { if(!merged.includes(x)) merged.push(x); });
+      merged = merged.filter(x => !removed.includes(x));
+      mergedBy = Object.assign({}, srv?.items_by || {});
+      added.forEach(x => { mergedBy[x] = myName; });
+      removed.forEach(x => { delete mergedBy[x]; });
+      const completed = total > 0 && merged.length === total;
+      await sb.from('checklist_logs').update({ items_done: merged, items_by: mergedBy, completed, user_name: myName }).eq('id', currentChecklistLog.id);
       currentChecklistLog.completed = completed;
+      _handleChecklistDone(completed, date);
     } else {
+      merged = local.slice();
+      mergedBy = {}; merged.forEach(x => { mergedBy[x] = myName; });
+      const completed = total > 0 && merged.length === total;
       const { data: newLog, error } = await sb.from('checklist_logs').insert({
-        template_id: templateId, date, user_id: currentUser.id,
-        user_name: currentProfile?.name || currentUser?.email,
-        items_done: donItems, completed, filial: currentFilial
+        template_id: templateId, date, user_id: currentUser.id, user_name: myName,
+        items_done: merged, items_by: mergedBy, completed, filial: currentFilial
       }).select('id').single();
       if(error) throw error;
-      if(newLog) currentChecklistLog.id = newLog.id; // тот же объект, просто получил id
+      if(newLog) currentChecklistLog.id = newLog.id;
+      _handleChecklistDone(completed, date);
     }
-    if(completed && !clNotified) {
-      clNotified = true;
-      const typeLabels = { open:'Открытие смены', second:'2-й официант', close:'Закрытие смены' };
-      notifyAdmin(`☑️ <b>Чек-лист выполнен!</b>\n\n📋 ${typeLabels[currentChecklistType]||''}\n👤 ${currentProfile?.name||''}\n📅 ${date}\n\nОткрой приложение: https://slon-app.vercel.app`);
-    }
-    if(!completed) clNotified = false;
-    if(typeof loadHome === 'function') { /* прогресс на главной обновится при следующем заходе */ }
+    currentChecklistLog.items_done = merged;
+    currentChecklistLog.items_by = mergedBy;
+    clBaseline = merged.slice();
   } catch(e) {
     console.error(e);
     showToast('Ошибка сохранения: ' + e.message);
   } finally {
     clSaving = false;
   }
+}
+
+// Уведомление о выполнении общего чек-листа (один раз на смену)
+function _handleChecklistDone(completed, date) {
+  if(completed && !clNotified) {
+    clNotified = true;
+    const typeLabels = { open:'Открытие смены', second:'2-й официант', close:'Закрытие смены' };
+    notifyAdmin(`☑️ <b>Чек-лист выполнен!</b>\n\n📋 ${typeLabels[currentChecklistType]||''} · ${currentChecklistDept||''}\n📅 ${date}\n\nОткрой приложение: https://slon-app.vercel.app`);
+  }
+  if(!completed) clNotified = false;
 }
 
 // Set today as default date
