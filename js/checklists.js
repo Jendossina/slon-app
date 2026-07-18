@@ -154,40 +154,72 @@ async function loadChecklist(type) {
     });
 
     content.innerHTML = html;
-    startChecklistPolling(); // живая синхронизация общего чек-листа
+    subscribeChecklistRealtime(template.id, todayStr); // мгновенная синхронизация (realtime)
+    startChecklistPolling();                            // запасной опрос, если realtime отвалится
   } catch(e) { console.error(e); content.innerHTML='<div class="loading">Ошибка загрузки</div>'; }
 }
 
-// Живое обновление общего чек-листа: подтягиваем чужие галочки, пока экран открыт.
-// Обновляем ТОЛЬКО когда у пользователя нет несохранённых своих отметок — иначе не трогаем.
+// Живое обновление общего чек-листа. Основной путь — Supabase Realtime (мгновенно),
+// плюс редкий опрос как запасной вариант, если realtime-канал отвалится.
 let clPollInterval = null;
+let clRealtimeChannel = null;
+
 function startChecklistPolling() {
   stopChecklistPolling();
-  clPollInterval = setInterval(pollChecklist, 2000);
+  clPollInterval = setInterval(pollChecklist, 8000); // фолбэк на случай обрыва realtime
 }
 function stopChecklistPolling() { if(clPollInterval) { clearInterval(clPollInterval); clPollInterval = null; } }
 
+// Мгновенные обновления через realtime-подписку на строки этого чек-листа (по template_id),
+// дальше проверяем дату/филиал на клиенте (realtime-фильтр поддерживает только одно условие).
+function subscribeChecklistRealtime(templateId, dateStr) {
+  unsubscribeChecklistRealtime();
+  try {
+    clRealtimeChannel = sb.channel('cl-' + templateId + '-' + currentFilial + '-' + dateStr)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist_logs', filter: 'template_id=eq.' + templateId }, (payload) => {
+        const row = payload.new;
+        if(!row || row.date !== dateStr || row.filial !== currentFilial) return;
+        applyRemoteChecklist(row.items_done, row.items_by, row.completed, row.id);
+      })
+      .subscribe();
+  } catch(e) { /* realtime недоступен — работает поллинг-фолбэк */ }
+}
+function unsubscribeChecklistRealtime() {
+  if(clRealtimeChannel) { try { sb.removeChannel(clRealtimeChannel); } catch(e) {} clRealtimeChannel = null; }
+}
+
 async function pollChecklist() {
   const active = document.getElementById('screen-checklist')?.classList.contains('active');
-  if(!active) { stopChecklistPolling(); return; }
-  if(clSaving || clSaveTimer) return;                 // идёт запись или есть отложенные правки
+  if(!active) { stopChecklistPolling(); unsubscribeChecklistRealtime(); return; }
+  if(clSaving || clSaveTimer) return;
   if(!currentChecklistLog?.id || !currentChecklistTemplate) return;
   const local = currentChecklistLog.items_done || [];
   const dirty = local.length !== clBaseline.length || local.some(x => !clBaseline.includes(x));
-  if(dirty) return;                                   // есть несохранённые свои галочки — не трогаем
+  if(dirty) return;
   try {
     const { data: srv } = await sb.from('checklist_logs').select('items_done,items_by,completed').eq('id', currentChecklistLog.id).single();
-    if(!srv) return;
-    const srvDone = srv.items_done || [];
-    const changed = srvDone.length !== clBaseline.length || srvDone.some(x => !clBaseline.includes(x));
-    if(!changed) return;                              // ничего нового
-    applyChecklistState(srvDone, srv.items_by || {});
-    currentChecklistLog.items_done = srvDone.slice();
-    currentChecklistLog.items_by = srv.items_by || {};
-    currentChecklistLog.completed = srv.completed;
-    clBaseline = srvDone.slice();
-    clNotified = !!srv.completed;
+    if(srv) applyRemoteChecklist(srv.items_done, srv.items_by, srv.completed, currentChecklistLog.id);
   } catch(e) { /* тихо */ }
+}
+
+// Применить удалённое состояние (от realtime или опроса), не затирая несохранённые свои галочки
+function applyRemoteChecklist(srvDone, itemsBy, completed, id) {
+  if(clSaving || clSaveTimer) return;                 // идут мои правки — не трогаем
+  if(!currentChecklistTemplate) return;
+  const local = currentChecklistLog?.items_done || [];
+  const dirty = local.length !== clBaseline.length || local.some(x => !clBaseline.includes(x));
+  if(dirty) return;
+  if(!currentChecklistLog) currentChecklistLog = { items_done: [], items_media: {}, items_by: {} };
+  if(id) currentChecklistLog.id = id;                 // подхватываем id, если лог только что создали
+  srvDone = srvDone || [];
+  const changed = srvDone.length !== clBaseline.length || srvDone.some(x => !clBaseline.includes(x));
+  if(!changed) return;                                // ничего нового (в т.ч. эхо своего сохранения)
+  applyChecklistState(srvDone, itemsBy || {});
+  currentChecklistLog.items_done = srvDone.slice();
+  currentChecklistLog.items_by = itemsBy || {};
+  currentChecklistLog.completed = completed;
+  clBaseline = srvDone.slice();
+  clNotified = !!completed;
 }
 
 // Применить состояние (галочки + кто отметил + прогресс) к уже отрисованному чек-листу
@@ -406,6 +438,9 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 // Досохраняем отложенные отметки чек-листа при сворачивании/закрытии вкладки
-document.addEventListener('visibilitychange', () => { if(document.hidden) flushChecklistSave(); });
-window.addEventListener('pagehide', () => { flushChecklistSave(); });
+// и отключаем живую синхронизацию, чтобы не держать канал/опрос впустую.
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden) { flushChecklistSave(); stopChecklistPolling(); unsubscribeChecklistRealtime(); }
+});
+window.addEventListener('pagehide', () => { flushChecklistSave(); stopChecklistPolling(); unsubscribeChecklistRealtime(); });
 
