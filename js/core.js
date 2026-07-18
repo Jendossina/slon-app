@@ -130,8 +130,13 @@ function canEditData() { const r = currentRole(); return r === 'admin' || r === 
 function canSeeFinance() { const r = currentRole(); return r === 'admin' || r === 'boss'; }
 // Видит зарплаты: менеджер, управляющий, владелец
 function canSeeSalaryRole() { const r = currentRole(); return r === 'manager' || r === 'admin' || r === 'boss'; }
-// Видит админ-панель: управляющий и владелец (владелец — только смотрит)
+// Видит дашборд/финансовую сводку: управляющий и владелец (менеджер — нет)
 function canSeeAdminPanel() { const r = currentRole(); return r === 'admin' || r === 'boss'; }
+// Может открыть админ-панель (Сотрудники/Задачи/История/Чек-листы): + менеджер.
+// Менеджер = как управляющий, но без финансов и дашборда.
+function canOpenAdminPanel() { const r = currentRole(); return r === 'admin' || r === 'manager' || r === 'boss'; }
+// Полные права над сотрудником (удаление, смена пароля, смена роли) — только управляющий
+function canManageStaffFully() { return currentRole() === 'admin'; }
 
 function renderFilialSwitcher() {
   const el = document.getElementById('filial-switcher');
@@ -426,12 +431,18 @@ function applyRolePermissions() {
     if(role === 'admin') {
       ['fab-hr','fab-tasks','fab-finance','fab-crm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
     } else if(role === 'manager') {
-      ['fab-tasks','fab-crm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
+      // менеджер — как управляющий, но без финансов: HR, задачи, брони (без fab-finance)
+      ['fab-hr','fab-tasks','fab-crm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
     }
   }
-  // Кнопка админ-панели в нижней навигации
+  // Менеджер заводит только рядовых сотрудников — оставляем в форме добавления лишь роль «Сотрудник»
+  if(role === 'manager') {
+    const addSel = document.getElementById('emp-system-role');
+    if(addSel) Array.from(addSel.options).forEach(o=>{ if(o.value!=='employee') o.remove(); });
+  }
+  // Кнопка админ-панели в нижней навигации — теперь и у менеджера
   const navAdmin = document.getElementById('nav-admin');
-  if(navAdmin) navAdmin.style.display = canSeeAdminPanel() ? 'flex' : 'none';
+  if(navAdmin) navAdmin.style.display = canOpenAdminPanel() ? 'flex' : 'none';
 
   if(role === 'employee') {
     const statsGrid = document.getElementById('home-stats-grid');
@@ -465,7 +476,7 @@ function openMoreMenu() {
       {id:'finance', label:'💰 Финансы', show: canSeeFinance()},
       {id:'dashboard', label:'📈 Дашборд', show: canSeeAdminPanel()},
       {id:'directory', label:'📇 Справочник', show: canEditData() || isBoss()},
-      {id:'admin', label:'⚙️ Админ-панель', show: canSeeAdminPanel()},
+      {id:'admin', label:'⚙️ Админ-панель', show: canOpenAdminPanel()},
     ]},
   ];
   const menu = document.getElementById('more-menu-items');

@@ -1307,7 +1307,7 @@ if('serviceWorker' in navigator) {
     <div class="form-group"><label class="form-label" for="edit-emp-status">Статус</label>
       <select class="form-select" id="edit-emp-status"><option>Активен</option><option>Отпуск</option><option>Уволен</option></select>
     </div>
-    <div class="form-group"><label class="form-label" for="edit-emp-system-role">Роль в системе</label>
+    <div class="form-group" id="edit-emp-sysrole-group"><label class="form-label" for="edit-emp-system-role">Роль в системе</label>
       <select class="form-select" id="edit-emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option><option value="admin">Управляющий</option><option value="boss">Владелец (наблюдатель)</option></select>
     </div>
     <div class="form-group"><label class="form-label">На каких филиалах может работать</label>
@@ -1317,12 +1317,12 @@ if('serviceWorker' in navigator) {
       </div>
     </div>
     <button class="btn btn-primary" onclick="saveEmployee()">Сохранить</button>
-    <div class="form-group" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+    <div class="form-group" id="edit-emp-pass-group" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
       <label class="form-label" for="edit-emp-password">Новый пароль (оставь пустым если не меняешь)</label>
       <input class="form-input" id="edit-emp-password" placeholder="минимум 6 символов">
     </div>
-    <button class="btn btn-secondary" onclick="changePassword()">Сменить пароль</button>
-    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+    <button class="btn btn-secondary" id="edit-emp-pass-btn" onclick="changePassword()">Сменить пароль</button>
+    <div id="edit-emp-delete-group" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
       <button class="btn btn-secondary" onclick="deleteEmployeeFromCard()" style="background:#FCEBEB;color:#A32D2D">🗑 Удалить сотрудника</button>
       <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center">Удаление безвозвратно уберёт сотрудника и его аккаунт. Если человек просто уволился — лучше поставить статус «Уволен».</div>
     </div>

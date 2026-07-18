@@ -122,6 +122,16 @@ function viewChecklistMedia(itemsMedia, items) {
 }
 
 async function loadAdmin() {
+  // Финансовые/необратимые вкладки — только управляющему/владельцу.
+  // Менеджеру: Сотрудники, Задачи, История, Чек-листы (без «Аналитики» и «Хранилища»).
+  const adminOnly = isAdmin() || isBoss();
+  const at = document.getElementById('atab-analytics'); if(at) at.style.display = adminOnly ? '' : 'none';
+  const st = document.getElementById('atab-storage');   if(st) st.style.display = adminOnly ? '' : 'none';
+  // если менеджер оказался на скрытой вкладке — вернём на «Сотрудники»
+  if(!adminOnly && (currentAdminTab === 'analytics' || currentAdminTab === 'storage')) {
+    switchAdminTab('employees', document.getElementById('atab-employees'));
+    return;
+  }
   loadAdminEmployees();
 }
 
@@ -167,6 +177,12 @@ async function openEditEmployee(id) {
   for(let o of sysRoleEl.options) if(o.value===sysRole) { o.selected=true; break; }
   const empFilials = emp.filials && emp.filials.length ? emp.filials : ['istikbol','chekhov'];
   document.querySelectorAll('.edit-emp-filial-checkbox').forEach(c=>{ c.checked = empFilials.includes(c.value); });
+  // Полные права над сотрудником (роль, пароль, удаление) — только у управляющего.
+  // Менеджер может править имя/телефон/отдел/ставку/статус/филиалы, но не это.
+  const full = canManageStaffFully();
+  ['edit-emp-sysrole-group','edit-emp-pass-group','edit-emp-pass-btn','edit-emp-delete-group'].forEach(gid=>{
+    const el = document.getElementById(gid); if(el) el.style.display = full ? '' : 'none';
+  });
   openModal('modal-edit-employee');
 }
 
@@ -193,7 +209,7 @@ async function saveEmployee() {
 }
 
 async function changePassword() {
-  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
+  if(!canManageStaffFully()) return showToast('Смена пароля доступна только управляющему');
   const pass = document.getElementById('edit-emp-password').value.trim();
   if(!pass || pass.length<6) return showToast('Пароль минимум 6 символов');
   const id = document.getElementById('edit-emp-id').value;
@@ -227,7 +243,7 @@ async function changePassword() {
 }
 
 async function deleteEmployee(id, name) {
-  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
+  if(!canManageStaffFully()) return showToast('Удаление сотрудников доступно только управляющему');
   if(!await confirmDialog('Удалить сотрудника ' + name + '?')) return;
   await sb.from('profiles').delete().eq('employee_id', id);
   await sb.from('employees').delete().eq('id', id);
@@ -239,7 +255,7 @@ async function deleteEmployee(id, name) {
 
 // Удаление из карточки редактирования (берёт id/имя из открытой модалки)
 async function deleteEmployeeFromCard() {
-  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
+  if(!canManageStaffFully()) return showToast('Удаление сотрудников доступно только управляющему');
   const id = document.getElementById('edit-emp-id').value;
   const name = document.getElementById('edit-emp-name').value || 'сотрудника';
   if(!id) return;
