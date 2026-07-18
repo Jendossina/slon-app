@@ -43,6 +43,23 @@ async function notifyEmployee(userId, text) {
   if(data?.telegram_id) await sendTelegram(data.telegram_id, text);
 }
 
+// Уведомить старших по цеху — всех, кто выше по должности в том же отделе (вверх по иерархии).
+// aboveLevel — порог уровня должности; уведомляем тех, у кого уровень строго выше.
+// Уровни берём из JOB_TITLE_LEVEL (объявлен в tasks.js, доступен к моменту вызова).
+async function notifyDeptSeniors(department, aboveLevel, text) {
+  try {
+    if(!department) return;
+    const levels = (typeof JOB_TITLE_LEVEL !== 'undefined') ? JOB_TITLE_LEVEL : {};
+    const { data: emps } = await sb.from('employees').select('id,role').eq('department', department).neq('status','Уволен');
+    const seniorIds = (emps||[]).filter(e => (levels[e.role]||0) > (aboveLevel||0)).map(e=>e.id);
+    if(seniorIds.length === 0) return;
+    const { data: profs } = await sb.from('profiles').select('user_id').in('employee_id', seniorIds);
+    for(const p of (profs||[])) {
+      if(p.user_id && p.user_id !== currentUser?.id) await notifyEmployee(p.user_id, text);
+    }
+  } catch(e) { console.error('notifyDeptSeniors', e); }
+}
+
 async function saveTelegramId() {
   const tgId = document.getElementById('tg-id-input').value.trim();
   if(!tgId || !/^\d+$/.test(tgId)) return showToast('Введите корректный числовой ID');
