@@ -154,7 +154,62 @@ async function loadChecklist(type) {
     });
 
     content.innerHTML = html;
+    startChecklistPolling(); // живая синхронизация общего чек-листа
   } catch(e) { console.error(e); content.innerHTML='<div class="loading">Ошибка загрузки</div>'; }
+}
+
+// Живое обновление общего чек-листа: подтягиваем чужие галочки, пока экран открыт.
+// Обновляем ТОЛЬКО когда у пользователя нет несохранённых своих отметок — иначе не трогаем.
+let clPollInterval = null;
+function startChecklistPolling() {
+  stopChecklistPolling();
+  clPollInterval = setInterval(pollChecklist, 4000);
+}
+function stopChecklistPolling() { if(clPollInterval) { clearInterval(clPollInterval); clPollInterval = null; } }
+
+async function pollChecklist() {
+  const active = document.getElementById('screen-checklist')?.classList.contains('active');
+  if(!active) { stopChecklistPolling(); return; }
+  if(clSaving || clSaveTimer) return;                 // идёт запись или есть отложенные правки
+  if(!currentChecklistLog?.id || !currentChecklistTemplate) return;
+  const local = currentChecklistLog.items_done || [];
+  const dirty = local.length !== clBaseline.length || local.some(x => !clBaseline.includes(x));
+  if(dirty) return;                                   // есть несохранённые свои галочки — не трогаем
+  try {
+    const { data: srv } = await sb.from('checklist_logs').select('items_done,items_by,completed').eq('id', currentChecklistLog.id).single();
+    if(!srv) return;
+    const srvDone = srv.items_done || [];
+    const changed = srvDone.length !== clBaseline.length || srvDone.some(x => !clBaseline.includes(x));
+    if(!changed) return;                              // ничего нового
+    applyChecklistState(srvDone, srv.items_by || {});
+    currentChecklistLog.items_done = srvDone.slice();
+    currentChecklistLog.items_by = srv.items_by || {};
+    currentChecklistLog.completed = srv.completed;
+    clBaseline = srvDone.slice();
+    clNotified = !!srv.completed;
+  } catch(e) { /* тихо */ }
+}
+
+// Применить состояние (галочки + кто отметил + прогресс) к уже отрисованному чек-листу
+function applyChecklistState(doneItems, itemsBy) {
+  const items = currentChecklistTemplate?.items || [];
+  items.forEach(item => {
+    const isDone = doneItems.includes(item.id);
+    const row = document.getElementById('cl-row-' + item.id);
+    if(row) {
+      const check = row.querySelector('.check');
+      const text = row.querySelector('.task-text');
+      if(check) check.classList.toggle('done', isDone);
+      if(text) text.style.cssText = isDone ? 'text-decoration:line-through;color:var(--text-muted)' : '';
+    }
+    const by = document.getElementById('cl-by-' + item.id);
+    if(by) {
+      const n = itemsBy[item.id];
+      by.textContent = '✓ ' + (isDone && n ? n : '');
+      by.style.display = (isDone && n) ? '' : 'none';
+    }
+  });
+  updateChecklistProgress(doneItems.length);
 }
 
 // CHECKLIST MEDIA ATTACHMENTS
