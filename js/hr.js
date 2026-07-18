@@ -30,7 +30,8 @@ async function loadHR() {
     const list = document.getElementById('hr-list');
     const payrollBtnEl = document.getElementById('hr-payroll-btn');
     if(payrollBtnEl) payrollBtnEl.innerHTML = (canSeeSalary && !q)
-      ? `<button onclick="openPayroll()" style="width:100%;background:linear-gradient(135deg,#2d2416,#4a3a1f);color:#f0e9db;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px">💰 Зарплатная ведомость · ${getFilialName(currentFilial)}</button>`
+      ? `<button onclick="openDailyPayroll()" style="width:100%;background:linear-gradient(135deg,#22331d,#3b5a2d);color:#eaf3de;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:10px">💵 Ведомость на сегодня · ${getFilialName(currentFilial)}</button>
+         <button onclick="openPayroll()" style="width:100%;background:linear-gradient(135deg,#2d2416,#4a3a1f);color:#f0e9db;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px">💰 Зарплата за месяц · ${getFilialName(currentFilial)}</button>`
       : '';
     const toggleBtn = q ? '' : `<div style="padding:0 4px 10px"><button onclick="hrShowAll=!hrShowAll;loadHR()" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${hrShowAll?'📍 Показать только этот филиал':'👥 Показать всех сотрудников'}</button></div>`;
     if(!emps||emps.length===0) { list.innerHTML=toggleBtn+'<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">'+(q?'Никто не найден':'Нет сотрудников для этого филиала')+'</div></div>'; return; }
@@ -109,6 +110,103 @@ async function openPayroll() {
         <div style="font-weight:700;font-size:16px;color:var(--gold-dark);white-space:nowrap">${formatNum(grandTotal)}</div>
       </div>`;
   } catch(e) { body.innerHTML = '<div class="empty"><div class="empty-text">Ошибка: '+e.message+'</div></div>'; }
+}
+
+// ===== ДНЕВНАЯ ВЕДОМОСТЬ (кто в смене сегодня + к выплате) =====
+async function openDailyPayroll() {
+  if(!canSeeSalaryRole()) return;
+  openModal('modal-daily-payroll');
+  const body = document.getElementById('daily-payroll-body');
+  body.innerHTML = '<div class="loading">Считаю...</div>';
+  try {
+    const t = today();
+    document.getElementById('daily-payroll-title').textContent =
+      `💵 Ведомость на сегодня · ${new Date(t).toLocaleDateString('ru-RU',{day:'numeric',month:'long'})} · ${getFilialName(currentFilial)}`;
+
+    const [schedR, empR, attR, premR] = await Promise.all([
+      sb.from('schedules').select('employee_id,employee_name,shift_start,shift_end,is_day_off').eq('filial',currentFilial).eq('date',t),
+      sb.from('employees_view').select('id,name,salary,filials'),
+      sb.from('attendance').select('employee_id,check_in_time,is_late,late_minutes,penalty').eq('filial',currentFilial).eq('date',t),
+      sb.from('premiums').select('*').eq('filial',currentFilial).eq('date',t)
+    ]);
+    const sched = (schedR.data||[]).filter(s=>!s.is_day_off);
+    const empById = {}; (empR.data||[]).forEach(e=>{ empById[e.id]=e; });
+    const attById = {}; (attR.data||[]).forEach(a=>{ attById[a.employee_id]=a; });
+    const premByEmp = {}; (premR.data||[]).forEach(p=>{ (premByEmp[p.employee_id]=premByEmp[p.employee_id]||[]).push(p); });
+
+    if(sched.length===0) { body.innerHTML = '<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">На сегодня в смене никого нет</div></div>'; return; }
+
+    const canGive = canEditData(); // менеджер/управляющий дают премии; владелец — только смотрит
+    let grand = 0;
+    let html = `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Ставка − штрафы + премии. По графику на сегодня, филиал «${getFilialName(currentFilial)}».</div>`;
+    sched.forEach(s => {
+      const emp = empById[s.employee_id];
+      const rate = Number(emp?.salary)||0;
+      const a = attById[s.employee_id];
+      const penalty = Number(a?.penalty)||0;
+      const prems = premByEmp[s.employee_id]||[];
+      const premSum = prems.reduce((x,p)=>x+Number(p.amount||0),0);
+      const total = rate - penalty + premSum;
+      grand += total;
+      let status;
+      if(!a || !a.check_in_time) status = '<span style="color:#A13C3C">не отметился</span>';
+      else if(a.is_late) status = `пришёл <b>${a.check_in_time}</b> · <span style="color:#A13C3C">опоздал ${a.late_minutes||''}м</span>`;
+      else status = `пришёл <b>${a.check_in_time}</b> · <span style="color:#3B6D11">вовремя</span>`;
+      html += `<div class="list-item" style="flex-wrap:wrap;align-items:flex-start">
+        <div class="item-info" style="flex:1 1 100%">
+          <div class="item-name">${escapeHtml(s.employee_name||emp?.name||'—')}</div>
+          <div class="item-sub">🕐 ${s.shift_start||''}–${s.shift_end||''} · ${status}</div>
+          <div class="item-sub">Ставка ${formatNum(rate)}${penalty>0?` · <span style="color:#A13C3C">штраф −${formatNum(penalty)}</span>`:''}${premSum>0?` · <span style="color:#3B6D11">премия +${formatNum(premSum)}</span>`:''}</div>
+          ${prems.map(p=>`<div class="item-sub" style="color:var(--text-muted)">+${formatNum(p.amount)} — ${escapeHtml(p.note||'премия')} · ${escapeHtml(p.created_by_name||'')}${canGive?` <span onclick="deletePremium(${p.id})" style="color:#A32D2D;cursor:pointer;font-weight:700">✕</span>`:''}</div>`).join('')}
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;width:100%;justify-content:space-between">
+          ${canGive?`<button onclick="openAddPremium(${s.employee_id},'${escJsAttr(s.employee_name||emp?.name||'')}')" style="background:#EAF3DE;color:#3B6D11;border:none;border-radius:8px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer">+ Премия</button>`:'<span></span>'}
+          <div style="font-weight:700;color:var(--text-primary);white-space:nowrap">К выплате: ${formatNum(total)}</div>
+        </div>
+      </div>`;
+    });
+    html += `<div class="list-item" style="border-top:2px solid var(--border);margin-top:6px">
+      <div class="item-info"><div class="item-name">ИТОГО к выплате за сегодня</div></div>
+      <div style="font-weight:700;font-size:16px;color:var(--gold-dark);white-space:nowrap">${formatNum(grand)}</div>
+    </div>`;
+    body.innerHTML = html;
+  } catch(e) { body.innerHTML = '<div class="empty"><div class="empty-text">Ошибка: '+e.message+'</div></div>'; }
+}
+
+let premiumForEmp = null, premiumForName = '';
+function openAddPremium(empId, empName) {
+  if(!canEditData()) return showToast('Премии может давать менеджер или управляющий');
+  premiumForEmp = empId; premiumForName = empName;
+  document.getElementById('premium-emp-name').textContent = empName;
+  document.getElementById('premium-amount').value = '';
+  document.getElementById('premium-note').value = '';
+  openModal('modal-add-premium');
+}
+async function savePremium() {
+  if(!canEditData()) return showToast('Недоступно');
+  const amount = parseFloat(document.getElementById('premium-amount').value);
+  if(isNaN(amount) || amount<=0) return showToast('Введите сумму премии');
+  const note = document.getElementById('premium-note').value.trim();
+  try {
+    const { error } = await sb.from('premiums').insert({
+      employee_id: premiumForEmp, employee_name: premiumForName, date: today(),
+      amount, note: note||null, filial: currentFilial,
+      created_by: currentUser.id, created_by_name: currentProfile?.name||currentUser?.email
+    });
+    if(error) return showToast('Ошибка: '+error.message);
+    closeModal('modal-add-premium');
+    showToast('✅ Премия добавлена');
+    openDailyPayroll();
+  } catch(e){ showToast('Ошибка: '+e.message); }
+}
+async function deletePremium(id) {
+  if(!canEditData()) return;
+  if(!await confirmDialog('Убрать эту премию?')) return;
+  try {
+    const { error } = await sb.from('premiums').delete().eq('id', id);
+    if(error) return showToast('Ошибка: '+error.message);
+    openDailyPayroll();
+  } catch(e){ showToast('Ошибка: '+e.message); }
 }
 
 async function addEmployee() {

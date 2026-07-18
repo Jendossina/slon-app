@@ -1005,6 +1005,25 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-daily-payroll">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-daily-payroll')">✕</button>
+    <div class="modal-title" id="daily-payroll-title">💵 Ведомость на сегодня</div>
+    <div id="daily-payroll-body"><div class="loading">Загрузка...</div></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-premium">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-add-premium')">✕</button>
+    <div class="modal-title">➕ Премия</div>
+    <div style="font-size:13px;color:var(--gold-dark);margin-bottom:12px" id="premium-emp-name">—</div>
+    <div class="form-group"><label class="form-label" for="premium-amount">Сумма премии (сум)</label><input class="form-input" id="premium-amount" type="number" inputmode="numeric" placeholder="50000"></div>
+    <div class="form-group"><label class="form-label" for="premium-note">За что (необязательно)</label><input class="form-input" id="premium-note" placeholder="Например: помог на кухне"></div>
+    <button class="btn btn-primary" onclick="savePremium()">Добавить премию</button>
+  </div>
+</div>
+
 <!-- SUPPLY: NEW ITEM -->
 <div class="modal-overlay" id="modal-supply-item">
   <div class="modal">
