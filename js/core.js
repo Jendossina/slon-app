@@ -356,7 +356,7 @@ function disableBiometric() {
 
 async function biometricVerify() {
   const credId = localStorage.getItem(BIO_CREDID_KEY);
-  if(!credId) return false;
+  if(!credId) return { ok:false, reason:'Биометрия не настроена на этом устройстве. Войдите паролем и включите её заново в Личном кабинете.' };
   try {
     const a = await navigator.credentials.get({ publicKey: {
       challenge: _bioChallenge(),
@@ -365,8 +365,13 @@ async function biometricVerify() {
       rpId: location.hostname,
       timeout: 60000
     }});
-    return !!a;
-  } catch(e) { return false; }
+    return { ok: !!a };
+  } catch(e) {
+    const n = e && e.name;
+    if(n === 'NotAllowedError') return { ok:false, reason:'Не распознано или отменено. Нажмите «Разблокировать» ещё раз.' };
+    if(n === 'InvalidStateError' || n === 'NotFoundError') return { ok:false, reason:'Отпечаток для этого устройства не найден. Войдите паролем и включите биометрию заново.' };
+    return { ok:false, reason:'Биометрия недоступна: ' + (e && e.message || e) };
+  }
 }
 
 function showBiometricLock() {
@@ -374,16 +379,22 @@ function showBiometricLock() {
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app-page').style.display = 'none';
   if(lock) lock.style.display = 'flex';
-  tryBiometricUnlock();
+  const msg = document.getElementById('bio-lock-msg');
+  if(msg) msg.textContent = 'Нажмите кнопку и приложите палец / посмотрите в камеру.';
+  // НЕ вызываем биометрию автоматически: браузеры блокируют её без нажатия.
+  // Пользователь жмёт кнопку «Разблокировать» — это и есть нужное «действие».
 }
 
 async function tryBiometricUnlock() {
-  const ok = await biometricVerify();
-  if(ok) {
+  const msg = document.getElementById('bio-lock-msg');
+  if(msg) msg.textContent = 'Проверяем…';
+  const res = await biometricVerify();
+  if(res.ok) {
     const lock = document.getElementById('biometric-lock'); if(lock) lock.style.display = 'none';
     showApp();
+  } else if(msg) {
+    msg.textContent = res.reason || 'Не удалось распознать. Попробуйте ещё раз или войдите паролем.';
   }
-  // не разблокировалось — остаёмся на экране блокировки (кнопки «Разблокировать» / «Войти паролем»)
 }
 
 // «Войти паролем» с экрана блокировки — полный выход к вводу пароля
