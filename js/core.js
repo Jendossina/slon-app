@@ -33,19 +33,31 @@ async function notifyAdmin(text) {
   await sendTelegram(TG_ADMIN_ID, text);
 }
 
-// Уведомить всех управляющих (роль admin) + владельца — верх иерархии.
-async function notifyAdminsAll(text) {
+// Хочет ли получатель уведомления этого типа. Отсутствие ключа или true = включено; false = выкл.
+// Настройки есть только у управляющих/владельца; у остальных всегда пусто = всё включено.
+function _wantsNotif(prefs, type) {
+  if(!type) return true;
+  return !prefs || prefs[type] !== false;
+}
+
+// Уведомить всех управляющих (роль admin) + владельца — верх иерархии. Учитывает их настройки.
+async function notifyAdminsAll(text, type) {
   const sent = new Set();
-  try { if(TG_ADMIN_ID) { await sendTelegram(TG_ADMIN_ID, text); sent.add(String(TG_ADMIN_ID)); } } catch(e) {}
+  let ownerCovered = false;
   try {
-    const { data } = await sb.from('profiles').select('user_id,telegram_id').eq('role','admin');
+    const { data } = await sb.from('profiles').select('user_id,telegram_id,notify_prefs').eq('role','admin');
     for(const p of (data||[])) {
-      if(p.telegram_id && !sent.has(String(p.telegram_id)) && p.user_id !== currentUser?.id) {
-        sent.add(String(p.telegram_id));
-        await sendTelegram(p.telegram_id, text);
-      }
+      if(!p.telegram_id || sent.has(String(p.telegram_id)) || p.user_id === currentUser?.id) continue;
+      if(String(p.telegram_id) === String(TG_ADMIN_ID)) ownerCovered = true;
+      if(!_wantsNotif(p.notify_prefs, type)) continue;
+      sent.add(String(p.telegram_id));
+      await sendTelegram(p.telegram_id, text);
     }
   } catch(e) { console.error('notifyAdminsAll', e); }
+  // Страховка: если чат владельца не привязан ни к одному профилю-админу — шлём напрямую
+  if(!ownerCovered && TG_ADMIN_ID && !sent.has(String(TG_ADMIN_ID))) {
+    try { await sendTelegram(TG_ADMIN_ID, text); } catch(e) {}
+  }
 }
 
 // Экранирует спецсимволы, чтобы они не ломали HTML-разметку в Telegram-сообщении
@@ -53,24 +65,25 @@ function tgEscape(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-async function notifyEmployee(userId, text) {
-  const { data } = await sb.from('profiles').select('telegram_id').eq('user_id', userId).single();
-  if(data?.telegram_id) await sendTelegram(data.telegram_id, text);
+async function notifyEmployee(userId, text, type) {
+  const { data } = await sb.from('profiles').select('telegram_id,notify_prefs').eq('user_id', userId).single();
+  if(data?.telegram_id && _wantsNotif(data.notify_prefs, type)) await sendTelegram(data.telegram_id, text);
 }
 
 // Уведомить старших по цеху — всех, кто выше по должности в том же отделе (вверх по иерархии).
 // aboveLevel — порог уровня должности; уведомляем тех, у кого уровень строго выше.
-// Уровни берём из JOB_TITLE_LEVEL (объявлен в tasks.js, доступен к моменту вызова).
-async function notifyDeptSeniors(department, aboveLevel, text) {
+async function notifyDeptSeniors(department, aboveLevel, text, type) {
   try {
     if(!department) return;
     const levels = (typeof JOB_TITLE_LEVEL !== 'undefined') ? JOB_TITLE_LEVEL : {};
     const { data: emps } = await sb.from('employees').select('id,role').eq('department', department).neq('status','Уволен');
     const seniorIds = (emps||[]).filter(e => (levels[e.role]||0) > (aboveLevel||0)).map(e=>e.id);
     if(seniorIds.length === 0) return;
-    const { data: profs } = await sb.from('profiles').select('user_id').in('employee_id', seniorIds);
+    const { data: profs } = await sb.from('profiles').select('user_id,telegram_id,notify_prefs').in('employee_id', seniorIds);
     for(const p of (profs||[])) {
-      if(p.user_id && p.user_id !== currentUser?.id) await notifyEmployee(p.user_id, text);
+      if(p.user_id && p.user_id !== currentUser?.id && p.telegram_id && _wantsNotif(p.notify_prefs, type)) {
+        await sendTelegram(p.telegram_id, text);
+      }
     }
   } catch(e) { console.error('notifyDeptSeniors', e); }
 }

@@ -123,6 +123,21 @@ async function loadProfile2() {
     const passwordBlock = `<div class="section-label">Безопасность</div>
       <div class="card"><button onclick="openMyPasswordModal()" style="width:100%;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;cursor:pointer">🔑 Сменить мой пароль</button>${bioBtn}</div>`;
 
+    // Настройки уведомлений — только управляющему и владельцу (остальным по умолчанию всё включено)
+    let notifBlock = '';
+    if(isAdmin() || isBoss()) {
+      const prefs = currentProfile?.notify_prefs || {};
+      notifBlock = `<div class="section-label">Уведомления в Telegram</div>
+        <div class="card">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">Что присылать вам в Telegram. Настройка только для вашего аккаунта.</div>
+          ${NOTIF_TYPES.map(t=>`
+            <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--border)">
+              <span><span style="font-size:14px;color:var(--text-primary)">${t.label}</span><br><span style="font-size:11px;color:var(--text-muted)">${t.desc}</span></span>
+              <input type="checkbox" class="notif-pref" data-key="${t.key}" ${prefs[t.key]!==false?'checked':''} onchange="saveNotifPrefs()" style="width:20px;height:20px;flex:0 0 auto">
+            </label>`).join('')}
+        </div>`;
+    }
+
     // Определяем доступные вкладки
     const tabs = [{id:'overview',label:'Обзор'},{id:'achievements',label:'🏅 Достижения'},{id:'history',label:'История'}];
     if(isLeader) tabs.push({id:'team',label:'👥 Команда'});
@@ -135,8 +150,30 @@ async function loadProfile2() {
 
     const tabsBar = `<div class="hscroll" style="display:flex;gap:6px;overflow-x:auto;margin-bottom:14px">${tabs.map(t=>`<button onclick="switchProfileTab('${t.id}')" style="flex:0 0 auto;padding:8px 14px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${t.id===profileTab?'var(--gold-dark)':'var(--surface-2)'};color:${t.id===profileTab?'#fff':'var(--text-primary)'}">${t.label}</button>`).join('')}</div>`;
 
-    content.innerHTML = header + tabsBar + `<div id="profile-tab-body">${tabsContent[profileTab]}</div>` + passwordBlock;
+    content.innerHTML = header + tabsBar + `<div id="profile-tab-body">${tabsContent[profileTab]}</div>` + notifBlock + passwordBlock;
   } catch(e) { console.error(e); content.innerHTML = '<div class="loading">Ошибка загрузки</div>'; }
+}
+
+// Типы уведомлений для настроек (управляющий/владелец)
+const NOTIF_TYPES = [
+  { key:'late',           label:'⏰ Опоздания',             desc:'Кто-то опоздал на смену' },
+  { key:'checklist_done', label:'☑️ Выполнение чек-листов', desc:'Чек-лист смены выполнен' },
+  { key:'review_neg',     label:'⭐ Плохие отзывы',          desc:'Негативный отзыв гостя' },
+  { key:'checkin',        label:'🎥 Отметки прихода',        desc:'Приход подчинённых по цеху' },
+  { key:'task_new',       label:'🔔 Новые задачи',           desc:'Вам назначили задачу' },
+  { key:'task_comment',   label:'💬 Комментарии к задачам',  desc:'Новое сообщение в обсуждении' },
+  { key:'schedule',       label:'📅 Изменения графика',      desc:'Ваша смена изменилась' },
+];
+
+async function saveNotifPrefs() {
+  const prefs = {};
+  document.querySelectorAll('.notif-pref').forEach(cb => { prefs[cb.getAttribute('data-key')] = cb.checked; });
+  try {
+    const { error } = await sb.rpc('update_own_notify_prefs', { new_prefs: prefs });
+    if(error) return showToast('Ошибка: ' + error.message);
+    if(currentProfile) currentProfile.notify_prefs = prefs;
+    showToast('✅ Настройки уведомлений сохранены');
+  } catch(e) { showToast('Ошибка: ' + e.message); }
 }
 
 function switchProfileTab(tab) {

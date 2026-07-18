@@ -298,8 +298,8 @@ async function saveWeekFill() {
       });
     }
 
-    const { data: profile } = await sb.from('profiles').select('telegram_id').eq('employee_id', empId).single();
-    if(profile?.telegram_id) {
+    const { data: profile } = await sb.from('profiles').select('telegram_id,notify_prefs').eq('employee_id', empId).single();
+    if(profile?.telegram_id && _wantsNotif(profile.notify_prefs, 'schedule')) {
       await sendTelegram(profile.telegram_id, `📅 <b>Твоё расписание на неделю обновлено!</b>\n\nОткрой приложение чтобы посмотреть: https://slon-app.vercel.app`);
     }
 
@@ -329,9 +329,9 @@ async function addSchedule() {
       is_day_off: isDayOff, note, filial: currentFilial
     });
 
-    const { data: profile } = await sb.from('profiles').select('telegram_id').eq('employee_id', empId).single();
-    if(profile?.telegram_id) {
-      const msg = isDayOff 
+    const { data: profile } = await sb.from('profiles').select('telegram_id,notify_prefs').eq('employee_id', empId).single();
+    if(profile?.telegram_id && _wantsNotif(profile.notify_prefs, 'schedule')) {
+      const msg = isDayOff
         ? `📅 <b>Расписание обновлено</b>\n\n🌴 ${date} — выходной день`
         : `📅 <b>Расписание обновлено</b>\n\n🕐 ${date}: смена ${start}–${end}${note?' ('+note+')':''}`;
       await sendTelegram(profile.telegram_id, msg);

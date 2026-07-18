@@ -231,7 +231,7 @@ async function addTask() {
       await logActivity('add_task', title + ' → ' + empName);
 
       if(profile?.user_id) {
-        await notifyEmployee(profile.user_id, `🐘 <b>Новая задача от управляющего</b>\n\n📋 ${title}${description?'\n📝 '+description:''}\n📅 Срок: ${dueDate}\n\nОткрой приложение: https://slon-app.vercel.app`);
+        await notifyEmployee(profile.user_id, `🐘 <b>Новая задача от управляющего</b>\n\n📋 ${title}${description?'\n📝 '+description:''}\n📅 Срок: ${dueDate}\n\nОткрой приложение: https://slon-app.vercel.app`, 'task_new');
       }
       successCount++;
     }
@@ -404,7 +404,7 @@ async function sendTaskComment() {
       (commenters||[]).forEach(c => { if(c.user_id) notifyIds.add(c.user_id); });
       notifyIds.delete(currentUser.id); // не уведомляем самого себя
       for(const uid of notifyIds) {
-        await notifyEmployee(uid, `💬 <b>Новый комментарий к задаче</b>\n\n📋 ${task.title}\n👤 ${currentProfile?.name||''}: ${text}\n\nОткрой приложение: https://slon-app.vercel.app`);
+        await notifyEmployee(uid, `💬 <b>Новый комментарий к задаче</b>\n\n📋 ${task.title}\n👤 ${currentProfile?.name||''}: ${text}\n\nОткрой приложение: https://slon-app.vercel.app`, 'task_comment');
       }
       if(notifyIds.size===0 && currentProfile?.role !== 'admin') {
         await notifyAdmin(`💬 <b>Новый комментарий к задаче</b>\n\n📋 ${task.title}\n👤 ${currentProfile?.name||''}: ${text}`);

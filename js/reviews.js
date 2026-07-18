@@ -74,7 +74,7 @@ async function saveReview() {
     // Уведомляем руководство о негативном отзыве
     if(sentiment === 'negative') {
       const catLabel = {bar:'🍹 Бар', kitchen:'🍽️ Кухня', hookah:'💨 Кальян', other:'💬 Прочее'}[category] || '💬';
-      await notifyAdmin(`⚠️ <b>Негативный отзыв</b> · ${getFilialName(currentFilial)}\n\n${catLabel}\n${guest?'👤 Гость: '+tgEscape(guest)+'\n':''}💬 «${tgEscape(text)}»\n\nЗаписал: ${tgEscape(currentProfile?.name||'')}`);
+      await notifyAdminsAll(`⚠️ <b>Негативный отзыв</b> · ${getFilialName(currentFilial)}\n\n${catLabel}\n${guest?'👤 Гость: '+tgEscape(guest)+'\n':''}💬 «${tgEscape(text)}»\n\nЗаписал: ${tgEscape(currentProfile?.name||'')}`, 'review_neg');
     }
     loadReviews();
   } catch(e) { showToast('Ошибка: '+e.message); }
