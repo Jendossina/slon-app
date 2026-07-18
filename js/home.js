@@ -225,8 +225,8 @@ async function checkIn(videoFile) {
       const myLevel = (typeof JOB_TITLE_LEVEL !== 'undefined' ? (JOB_TITLE_LEVEL[me?.role]||0) : 0);
       const lateTxt = isLate ? `⏰ опоздал ${lateMin} мин · штраф ${formatNum(penalty)} сум` : 'вовремя';
       const msg = `🎥 <b>Отметка прихода</b>\n\n👤 ${tgEscape(me?.name||currentProfile?.name||'')} · ${tgEscape(me?.role||'')}\n🕐 Пришёл в ${timeStr} — ${lateTxt}\n📍 ${getFilialName(myShift?.filial||currentFilial)}`;
-      if(me?.department) await notifyDeptSeniors(me.department, myLevel, msg);
-      await notifyAdminsAll(msg);
+      if(me?.department) await notifyDeptSeniors(me.department, myLevel, msg); // старшим по цеху — все отметки
+      if(isLate) await notifyAdminsAll(msg);                                   // управляющим — только опоздания
     } catch(e) { console.error('notify checkin', e); }
     loadHome();
   } catch(e) { showToast('Ошибка: '+e.message); }
