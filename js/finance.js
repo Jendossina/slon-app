@@ -34,24 +34,80 @@ async function loadFinance() {
 
 // «Касса дня»: одна запись выручки на день — при повторном внесении перезаписываем,
 // чтобы не задваивать выручку (иначе поедет ФОТ% и прибыль в дашборде).
+function _kv(id){ const v=parseFloat(document.getElementById(id).value); return isNaN(v)?0:v; }
+// Итог = наличные + карты + безнал; проставляем в поле «Итого», если не правят вручную
+function recalcKassa() {
+  const sum = _kv('kassa-cash') + _kv('kassa-card') + _kv('kassa-cashback');
+  document.getElementById('kassa-amount').value = sum || '';
+  return sum;
+}
+
 async function openKassaModal() {
   const t = today();
   document.getElementById('kassa-date-display').textContent = '📅 ' + t + ' · ' + getFilialName(currentFilial);
-  document.getElementById('kassa-existing-id').value = '';
-  document.getElementById('kassa-amount').value = '';
+  ['kassa-existing-id','kassa-amount','kassa-cash','kassa-card','kassa-cashback','kassa-deposits','kassa-withdrawals','kassa-photo-url'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+  document.getElementById('kassa-photo-preview').innerHTML = '';
+  document.getElementById('kassa-scan-status').textContent = 'Сфоткайте Z-отчёт — суммы подставятся сами, останется сверить.';
   document.getElementById('kassa-hint').textContent = 'Загрузка...';
   openModal('modal-kassa');
   try {
-    const { data } = await sb.from('finances').select('id,amount').eq('filial',currentFilial).eq('type','income').eq('category','Выручка').eq('date',t).order('id',{ascending:false}).limit(1);
+    const { data } = await sb.from('finances').select('id,amount,breakdown,photo_url').eq('filial',currentFilial).eq('type','income').eq('category','Выручка').eq('date',t).order('id',{ascending:false}).limit(1);
     const existing = data && data[0];
     if(existing) {
       document.getElementById('kassa-existing-id').value = existing.id;
       document.getElementById('kassa-amount').value = existing.amount;
+      const b = existing.breakdown || {};
+      const set = (id,v)=>{ const e=document.getElementById(id); if(e && v!=null) e.value=v; };
+      set('kassa-cash', b.cash); set('kassa-card', b.card); set('kassa-cashback', b.cashback);
+      set('kassa-deposits', b.deposits); set('kassa-withdrawals', b.withdrawals);
+      if(existing.photo_url) {
+        document.getElementById('kassa-photo-url').value = existing.photo_url;
+        document.getElementById('kassa-photo-preview').innerHTML = `<img src="${escapeHtml(existing.photo_url)}" style="max-width:100%;border-radius:10px;max-height:160px;object-fit:cover" onclick="viewReport('${escJsAttr(existing.photo_url)}','image')">`;
+      }
       document.getElementById('kassa-hint').textContent = 'Касса на сегодня уже внесена: '+formatNum(existing.amount)+' сум. Сохранение перезапишет её.';
     } else {
-      document.getElementById('kassa-hint').textContent = 'Введите итоговую выручку за сегодня.';
+      document.getElementById('kassa-hint').textContent = 'Введите выручку или считайте с чека.';
     }
   } catch(e) { document.getElementById('kassa-hint').textContent = ''; }
+}
+
+// «Считать с чека»: фото → хранилище → распознавание (Claude Vision) → подстановка сумм
+function scanReceipt() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
+  input.onchange = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    const status = document.getElementById('kassa-scan-status');
+    status.textContent = '⏳ Загружаю фото...';
+    try {
+      const fileToUpload = await compressImage(file, 1600, 0.8);
+      const path = `receipt-${Date.now()}.jpg`;
+      const { error: upErr } = await sb.storage.from('task-reports').upload(path, fileToUpload);
+      if(upErr) { status.textContent = 'Ошибка загрузки: '+upErr.message; return; }
+      const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
+      const photoUrl = urlData.publicUrl;
+      document.getElementById('kassa-photo-url').value = photoUrl;
+      document.getElementById('kassa-photo-preview').innerHTML = `<img src="${escapeHtml(photoUrl)}" style="max-width:100%;border-radius:10px;max-height:160px;object-fit:cover">`;
+      status.textContent = '🔍 Распознаю чек...';
+      const { data: sessionData } = await sb.auth.getSession();
+      const token = sessionData?.session?.access_token || SUPABASE_KEY;
+      const res = await fetch('https://omeomdkurvtvirhfkffu.supabase.co/functions/v1/read-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer '+token },
+        body: JSON.stringify({ imageUrl: photoUrl })
+      });
+      const result = await res.json();
+      if(!result.ok || !result.data) { status.textContent = '⚠️ Не удалось распознать. Впишите вручную.'; return; }
+      const d = result.data;
+      const set = (id,v)=>{ const el=document.getElementById(id); if(el && v!=null) el.value=v; };
+      set('kassa-cash', d.cash); set('kassa-card', d.card); set('kassa-cashback', d.cashback);
+      set('kassa-deposits', d.deposits); set('kassa-withdrawals', d.withdrawals);
+      document.getElementById('kassa-amount').value = (d.total!=null ? d.total : recalcKassa());
+      status.textContent = '✅ Распознано — проверьте и поправьте, если нужно.';
+    } catch(err) { status.textContent = 'Ошибка: '+err.message; }
+  };
+  input.click();
 }
 
 async function saveKassa() {
@@ -59,13 +115,24 @@ async function saveKassa() {
   const raw = document.getElementById('kassa-amount').value;
   const amount = parseFloat(raw);
   if(!raw || isNaN(amount) || amount<0) return showToast('Введите сумму кассы');
+  const breakdown = {
+    cash: _kv('kassa-cash'), card: _kv('kassa-card'), cashback: _kv('kassa-cashback'),
+    deposits: _kv('kassa-deposits'), withdrawals: _kv('kassa-withdrawals')
+  };
+  const photo_url = document.getElementById('kassa-photo-url').value || null;
+  const parts = [];
+  if(breakdown.cash) parts.push('нал '+formatNum(breakdown.cash));
+  if(breakdown.card) parts.push('карты '+formatNum(breakdown.card));
+  if(breakdown.cashback) parts.push('безнал '+formatNum(breakdown.cashback));
+  const description = parts.length ? parts.join(' · ') : 'Касса дня';
   const existingId = document.getElementById('kassa-existing-id').value;
   try {
     let err;
+    const row = { amount, breakdown, photo_url, description };
     if(existingId) {
-      ({ error: err } = await sb.from('finances').update({ amount }).eq('id', existingId));
+      ({ error: err } = await sb.from('finances').update(row).eq('id', existingId));
     } else {
-      ({ error: err } = await sb.from('finances').insert({ type:'income', amount, category:'Выручка', description:'Касса дня', date:today(), filial: currentFilial }));
+      ({ error: err } = await sb.from('finances').insert({ type:'income', category:'Выручка', date:today(), filial: currentFilial, ...row }));
     }
     if(err) return showToast('Ошибка: '+err.message);
     closeModal('modal-kassa');
