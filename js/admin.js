@@ -143,7 +143,9 @@ async function loadAdminEmployees() {
     (profiles||[]).forEach(p=>{ if(p.employee_id) profileMap[p.employee_id]=p.role; });
     const empList = document.getElementById('admin-employees-list');
     if(!emps||emps.length===0) { empList.innerHTML='<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Сотрудников нет</div></div>'; return; }
-    empList.innerHTML = emps.map(e=>`
+
+    // Карточка сотрудника
+    const empItem = e => `
       <div class="list-item">
         <div class="avatar ${getColor(e.name)}">${escapeHtml(getInitials(e.name))}</div>
         <div class="item-info">
@@ -152,7 +154,19 @@ async function loadAdminEmployees() {
           <div class="item-sub">${e.salary?formatNum(e.salary)+' сум':''}</div>
         </div>
         ${!isBoss()?`<button onclick="openEditEmployee(${e.id})" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">✏️</button>`:''}
-      </div>`).join('');
+      </div>`;
+
+    // Группируем по цехам (порядок как в графике), имена внутри — по алфавиту (emps уже отсортированы)
+    const order = (typeof DEPARTMENTS !== 'undefined') ? DEPARTMENTS : [];
+    const groups = {};
+    emps.forEach(e=>{ const d = e.department || 'Без отдела'; (groups[d]=groups[d]||[]).push(e); });
+    const deptKeys = [
+      ...order.filter(d=>groups[d]),
+      ...Object.keys(groups).filter(d=>!order.includes(d)), // прочие/«Без отдела» в конце
+    ];
+    empList.innerHTML = deptKeys.map(dept=>`
+      <div class="section-label" style="margin-top:14px">${escapeHtml(dept)} · ${groups[dept].length}</div>
+      ${groups[dept].map(empItem).join('')}`).join('');
   } catch(e) { console.error(e); document.getElementById('admin-employees-list').innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div>'; }
 }
 
