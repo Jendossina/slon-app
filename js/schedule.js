@@ -261,6 +261,7 @@ function pickWeekPreset(start, end) {
   if(selects.length) {
     const v = start+'|'+end;
     selects.forEach(s => { s.value = v; });
+    document.querySelectorAll('.wf-custom').forEach(el => { el.style.display = 'none'; }); // прячем ручной ввод
   } else {
     document.getElementById('week-default-start').value = start;
     document.getElementById('week-default-end').value = end;
@@ -335,21 +336,29 @@ async function renderWeekFillDays() {
     const ex = existingMap[dateStr];
     const isOff = ex?.is_day_off || false;
 
-    // Цех с пресетами — выпадающий список смен на день (без ручного ввода)
+    // Цех с пресетами — выпадающий список смен на день + пункт «Другое время…» для ручного ввода
     if(presets.length) {
-      const curVal = isOff ? 'off' : (ex?.shift_start ? ex.shift_start+'|'+(ex.shift_end||'') : presets[0].start+'|'+presets[0].end);
+      const exVal = ex?.shift_start ? ex.shift_start+'|'+(ex.shift_end||'') : '';
+      const isCustom = !isOff && ex?.shift_start && !presets.some(p=>p.start+'|'+p.end===exVal);
+      const curVal = isOff ? 'off' : isCustom ? 'custom' : (exVal || presets[0].start+'|'+presets[0].end);
+      const mStart = ex?.shift_start || presets[0].start;
+      const mEnd = ex?.shift_end || presets[0].end;
       let opts = presets.map(p=>{
         const v = p.start+'|'+p.end;
         return `<option value="${v}" ${v===curVal?'selected':''}>${p.start}–${p.end} · ${shiftDurLabel(p.start,p.end)}${p.full?' · весь день':''}</option>`;
       }).join('');
-      // если у дня стоит нестандартное время — сохраняем его как отдельный пункт
-      if(!isOff && ex?.shift_start && !presets.some(p=>p.start+'|'+p.end===curVal)) {
-        opts += `<option value="${curVal}" selected>${ex.shift_start}–${ex.shift_end||''} · своё</option>`;
-      }
+      opts += `<option value="custom" ${isCustom?'selected':''}>✏️ Другое время…</option>`;
       opts += `<option value="off" ${isOff?'selected':''}>🌴 Выходной</option>`;
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-        ${dayLabel(d,i)}
-        <select class="form-select wf-select" data-idx="${i}" style="flex:1;padding:9px 10px;font-size:13px">${opts}</select>
+      return `<div style="display:flex;flex-direction:column;gap:6px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:10px">
+          ${dayLabel(d,i)}
+          <select class="form-select wf-select" data-idx="${i}" onchange="toggleWfCustom(${i})" style="flex:1;padding:9px 10px;font-size:13px">${opts}</select>
+        </div>
+        <div class="wf-custom" data-idx="${i}" style="display:${isCustom?'flex':'none'};gap:8px;align-items:center;padding-left:106px">
+          <input type="time" class="wf-start form-input" data-idx="${i}" value="${mStart}" style="padding:6px 8px;font-size:12px">
+          <span style="font-size:12px;color:var(--text-muted)">—</span>
+          <input type="time" class="wf-end form-input" data-idx="${i}" value="${mEnd}" style="padding:6px 8px;font-size:12px">
+        </div>
       </div>`;
     }
 
@@ -366,6 +375,13 @@ async function renderWeekFillDays() {
       <input type="time" class="wf-end form-input" data-idx="${i}" value="${endVal}" style="padding:6px 8px;font-size:12px;${isOff?'display:none':''}">
     </div>`;
   }).join('');
+}
+
+// Показать поля ручного ввода времени, когда в списке дня выбрано «Другое время…»
+function toggleWfCustom(idx) {
+  const sel = document.querySelector(`.wf-select[data-idx="${idx}"]`);
+  const custom = document.querySelector(`.wf-custom[data-idx="${idx}"]`);
+  if(sel && custom) custom.style.display = (sel.value === 'custom') ? 'flex' : 'none';
 }
 
 function toggleWfDayOff(idx) {
@@ -403,8 +419,13 @@ async function saveWeekFill() {
       const daySel = document.querySelector(`.wf-select[data-idx="${i}"]`);
       if(daySel) { // цех с пресетами — значение из выпадающего списка
         if(daySel.value === 'off') { isOff = true; }
+        else if(daySel.value === 'custom') { // ручной ввод для этого дня
+          isOff = false;
+          start = document.querySelector(`.wf-start[data-idx="${i}"]`).value;
+          end = document.querySelector(`.wf-end[data-idx="${i}"]`).value;
+        }
         else { isOff = false; [start, end] = daySel.value.split('|'); }
-      } else {     // ручной ввод
+      } else {     // ручной ввод (цех без пресетов)
         isOff = document.querySelector(`.wf-dayoff[data-idx="${i}"]`).checked;
         start = document.querySelector(`.wf-start[data-idx="${i}"]`).value;
         end = document.querySelector(`.wf-end[data-idx="${i}"]`).value;
