@@ -69,39 +69,57 @@ async function openPayroll() {
     const lastStr = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
     document.getElementById('payroll-title').textContent = `💰 Ведомость · ${now.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})} · ${getFilialName(currentFilial)}`;
 
-    // Сотрудники этого филиала
-    const { data: allEmps } = await sb.from('employees_view').select('*').order('name');
+    // Сотрудники этого филиала + график за месяц (для точного расчёта по каждой смене)
+    const [{ data: allEmps }, { data: att }, { data: sched }] = await Promise.all([
+      sb.from('employees_view').select('*').order('name'),
+      sb.from('attendance').select('employee_id,date,check_in_time,penalty').eq('filial', currentFilial).gte('date', firstStr).lte('date', lastStr),
+      sb.from('schedules').select('employee_id,date,shift_start,is_day_off').eq('filial', currentFilial).gte('date', firstStr).lte('date', lastStr),
+    ]);
     const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
+    const empDept = {}; (allEmps||[]).forEach(e=>{ empDept[e.id]=e.department; });
 
-    // Явка за месяц по этому филиалу
-    const { data: att } = await sb.from('attendance').select('*').eq('filial', currentFilial).gte('date', firstStr).lte('date', lastStr);
-    const byEmp = {};
+    // Отработанные дни (по явке) и штрафы за месяц
+    const workedByEmp = {};
     (att||[]).forEach(a=>{
       const k = a.employee_id;
-      if(!byEmp[k]) byEmp[k] = { shifts:0, penalty:0 };
-      if(a.check_in_time) byEmp[k].shifts++;
-      byEmp[k].penalty += Number(a.penalty)||0;
+      if(!workedByEmp[k]) workedByEmp[k] = { dates:[], penalty:0 };
+      if(a.check_in_time) workedByEmp[k].dates.push(a.date);
+      workedByEmp[k].penalty += Number(a.penalty)||0;
+    });
+
+    // Смена по дню + сколько барменов в графике на каждый день (для бонуса «один в баре»)
+    const shiftMap = {};          // empId_date -> shift_start
+    const bartendersByDate = {};  // date -> кол-во барменов
+    (sched||[]).forEach(s=>{
+      if(s.is_day_off) return;
+      shiftMap[s.employee_id+'_'+s.date] = s.shift_start;
+      if(empDept[s.employee_id]==='Бармены') bartendersByDate[s.date] = (bartendersByDate[s.date]||0)+1;
     });
 
     let grandTotal = 0;
     const rows = emps.map(e=>{
-      const rate = Number(e.salary)||0;
-      const d = byEmp[e.id] || { shifts:0, penalty:0 };
-      const earned = d.shifts * rate;
-      const total = earned - d.penalty;
+      const salary = Number(e.salary)||0;
+      const w = workedByEmp[e.id] || { dates:[], penalty:0 };
+      let earned = 0;
+      w.dates.forEach(date=>{
+        const shiftStart = shiftMap[e.id+'_'+date];
+        const isAlone = e.department==='Бармены' && bartendersByDate[date]===1;
+        earned += computeShiftPay(e.role, salary, shiftStart, isAlone).amount;
+      });
+      const total = earned - w.penalty;
       grandTotal += total;
-      return { name:e.name, rate, shifts:d.shifts, earned, penalty:d.penalty, total };
+      return { name:e.name, rate:salary, shifts:w.dates.length, earned, penalty:w.penalty, total };
     }).filter(r=>r.shifts>0 || r.rate>0);
 
     if(rows.length===0) { body.innerHTML = '<div class="empty"><div class="empty-text">Нет данных за месяц</div></div>'; return; }
 
     body.innerHTML = `
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Смены × ставка − штрафы за опоздания. Данные по филиалу «${getFilialName(currentFilial)}».</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Оплата по сменам (с учётом вида смены и «один в баре») − штрафы за опоздания. Данные по филиалу «${getFilialName(currentFilial)}».</div>
       ${rows.map(r=>`
         <div class="list-item">
           <div class="item-info">
             <div class="item-name">${escapeHtml(r.name)}</div>
-            <div class="item-sub">${r.shifts} смен × ${formatNum(r.rate)} = ${formatNum(r.earned)}${r.penalty>0?` · <span style="color:#A13C3C">штраф −${formatNum(r.penalty)}</span>`:''}</div>
+            <div class="item-sub">${r.shifts} смен · ставка ${formatNum(r.rate)} = ${formatNum(r.earned)}${r.penalty>0?` · <span style="color:#A13C3C">штраф −${formatNum(r.penalty)}</span>`:''}</div>
           </div>
           <div style="font-weight:700;color:var(--text-primary);white-space:nowrap">${formatNum(r.total)}</div>
         </div>`).join('')}
