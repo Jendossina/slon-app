@@ -177,6 +177,7 @@ async function openEditEmployee(id) {
   for(let o of sysRoleEl.options) if(o.value===sysRole) { o.selected=true; break; }
   const empFilials = emp.filials && emp.filials.length ? emp.filials : ['istikbol','chekhov'];
   document.querySelectorAll('.edit-emp-filial-checkbox').forEach(c=>{ c.checked = empFilials.includes(c.value); });
+  renderSalaryPresets();
   // Полные права над сотрудником (роль, пароль, удаление) — только у управляющего.
   // Менеджер может править имя/телефон/отдел/ставку/статус/филиалы, но не это.
   const full = canManageStaffFully();
@@ -184,6 +185,29 @@ async function openEditEmployee(id) {
     const el = document.getElementById(gid); if(el) el.style.display = full ? '' : 'none';
   });
   openModal('modal-edit-employee');
+}
+
+// Кнопки готовых ставок по выбранной должности (вызывается при открытии карточки и смене должности)
+function renderSalaryPresets() {
+  const el = document.getElementById('emp-salary-presets');
+  if(!el) return;
+  const role = document.getElementById('edit-emp-role').value;
+  const presets = SALARY_PRESETS[role];
+  const curVal = String(document.getElementById('edit-emp-salary').value || '');
+  if(!presets || !presets.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  el.innerHTML = presets.map(p=>{
+    const active = curVal === String(p.amount);
+    return `<button type="button" onclick="pickSalary(${p.amount})"
+      style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;background:${active?'var(--gold-light)':'var(--surface-2)'};color:var(--text-primary);border:1px solid ${active?'var(--gold-dark)':'var(--border)'};border-radius:10px;padding:8px 10px;font-size:14px;font-weight:700;cursor:pointer">
+      <span>${formatNum(p.amount)}</span>
+      <span style="font-size:10px;font-weight:400;color:var(--text-muted)">${escapeHtml(p.label)}</span>
+    </button>`;
+  }).join('');
+}
+function pickSalary(amount) {
+  document.getElementById('edit-emp-salary').value = amount;
+  renderSalaryPresets(); // подсветить выбранную
 }
 
 async function saveEmployee() {

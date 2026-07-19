@@ -246,12 +246,13 @@ async function loadBadgesBlock(employeeId) {
 
     // Явка (30 дней), задачи и бой посуды — параллельно
     const empName = currentProfile?.name;
-    const [attR, myTasksR, breaksR] = await Promise.all([
+    const [attR, myTasksR, breaksR, empR] = await Promise.all([
       sb.from('attendance').select('date,is_late').eq('employee_id', employeeId).gte('date', monthAgoStr).order('date',{ascending:false}),
       sb.from('tasks').select('status').eq('assigned_to_id', currentUser.id),
       empName
         ? sb.from('dishware_moves').select('id').eq('move_type','break').eq('user_name', empName).gte('created_at', monthAgoStr+'T00:00:00')
         : Promise.resolve({ data: [] }),
+      sb.from('employees').select('role,salary').eq('id', employeeId).single(),
     ]);
     const attList = attR.data || [];
     const lateInMonth = attList.filter(a=>a.is_late).length;
@@ -272,6 +273,22 @@ async function loadBadgesBlock(employeeId) {
       { icon:'🏆', name:'Мастер задач', desc:'100 выполненных задач', earned: doneTasks>=100, prog: Math.min(1, doneTasks/100), progText: `${Math.min(doneTasks,100)}/100` },
       { icon:'🍽️', name:'Аккуратные руки', desc:'Месяц без боя посуды', earned: breakCount===0, prog: breakCount===0?1:0, progText: breakCount===0?'ни одной!':`${breakCount} боя` },
     ];
+
+    // Аттестация: стимул для тех, кто ещё на базовой ставке (официанты/бармены/кальянщики).
+    // Статус выводим из ставки: 250 000+ = сдал. Уволенных/сеньоров это не касается.
+    const emp = empR?.data;
+    if(emp && ATTESTATION_ROLES.includes(emp.role)) {
+      const passed = Number(emp.salary||0) >= ATTESTATION_PASSED;
+      const isWaiter = emp.role === 'Официант';
+      badges.push({
+        icon: '🎓',
+        name: isWaiter ? 'Меню сдано' : 'Аттестация сдана',
+        desc: isWaiter ? 'Сдай меню — ставка станет 250 000' : 'Сдай аттестации — ставка станет 250 000',
+        earned: passed,
+        prog: passed ? 1 : 0,
+        progText: passed ? 'ставка 250 000 ✓' : 'сейчас 200 000 → будет 250 000',
+      });
+    }
 
     const earned = badges.filter(b=>b.earned);
     const inProgress = badges.filter(b=>!b.earned);

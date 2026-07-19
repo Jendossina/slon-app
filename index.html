@@ -1335,13 +1335,16 @@ if('serviceWorker' in navigator) {
     <input type="hidden" id="edit-emp-id">
     <div class="form-group"><label class="form-label" for="edit-emp-name">Имя и фамилия</label><input class="form-input" id="edit-emp-name" placeholder="Алиша Каримова"></div>
     <div class="form-group"><label class="form-label" for="edit-emp-role">Должность</label>
-      <select class="form-select" id="edit-emp-role"><optgroup label="Зал"><option>Официант</option><option>Администратор</option></optgroup><optgroup label="Бар"><option>Бармен</option><option>Старший бармен</option><option>Шеф бармен</option><option>Бар менеджер</option></optgroup><optgroup label="Кальянная"><option>Кальянный мастер</option><option>Старший кальянный мастер</option><option>Шеф кальянной станции</option></optgroup><optgroup label="Кухня"><option>Повар</option><option>Су-шеф</option><option>Шеф повар</option></optgroup><optgroup label="Руководство"><option>Управляющий</option><option>BOSS</option></optgroup><optgroup label="Прочее"><option>Менеджер</option><option>Охранник</option><option>Уборщик</option></optgroup></select>
+      <select class="form-select" id="edit-emp-role" onchange="renderSalaryPresets()"><optgroup label="Зал"><option>Официант</option><option>Администратор</option></optgroup><optgroup label="Бар"><option>Бармен</option><option>Старший бармен</option><option>Шеф бармен</option><option>Бар менеджер</option></optgroup><optgroup label="Кальянная"><option>Кальянный мастер</option><option>Старший кальянный мастер</option><option>Шеф кальянной станции</option></optgroup><optgroup label="Кухня"><option>Повар</option><option>Су-шеф</option><option>Шеф повар</option></optgroup><optgroup label="Руководство"><option>Управляющий</option><option>BOSS</option></optgroup><optgroup label="Прочее"><option>Менеджер</option><option>Охранник</option><option>Уборщик</option></optgroup></select>
     </div>
     <div class="form-group"><label class="form-label" for="edit-emp-department">Отдел (для графика)</label>
       <select class="form-select" id="edit-emp-department"><option>Официанты</option><option>Бармены</option><option>Кальянные мастера</option><option>Повара</option><option>Техперсонал</option><option>Менеджеры</option></select>
     </div>
     <div class="form-group"><label class="form-label" for="edit-emp-phone">Телефон</label><input class="form-input" id="edit-emp-phone" placeholder="+998 90 123 45 67"></div>
-    <div class="form-group"><label class="form-label" for="edit-emp-salary">Ставка за смену (сум)</label><input class="form-input" id="edit-emp-salary" type="number"></div>
+    <div class="form-group"><label class="form-label" for="edit-emp-salary">Ставка за смену (сум)</label>
+      <div id="emp-salary-presets" style="display:none;gap:8px;margin-bottom:8px"></div>
+      <input class="form-input" id="edit-emp-salary" type="number">
+    </div>
     <div class="form-group"><label class="form-label" for="edit-emp-status">Статус</label>
       <select class="form-select" id="edit-emp-status"><option>Активен</option><option>Отпуск</option><option>Уволен</option></select>
     </div>
