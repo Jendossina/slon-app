@@ -34,7 +34,8 @@ async function loadHR() {
          <button onclick="openPayroll()" style="width:100%;background:linear-gradient(135deg,#2d2416,#4a3a1f);color:#f0e9db;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px">💰 Зарплата за месяц · ${getFilialName(currentFilial)}</button>`
       : '';
     const toggleBtn = q ? '' : `<div style="padding:0 4px 10px"><button onclick="hrShowAll=!hrShowAll;loadHR()" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${hrShowAll?'📍 Показать только этот филиал':'👥 Показать всех сотрудников'}</button></div>`;
-    if(!emps||emps.length===0) { list.innerHTML=toggleBtn+'<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">'+(q?'Никто не найден':'Нет сотрудников для этого филиала')+'</div></div>'; return; }
+    const geoBtn = (q || !canEditData()) ? '' : `<div style="padding:0 4px 10px"><button onclick="openFilialGeo()" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">📍 Гео-отметка прихода · ${getFilialName(currentFilial)}</button></div>`;
+    if(!emps||emps.length===0) { list.innerHTML=geoBtn+toggleBtn+'<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">'+(q?'Никто не найден':'Нет сотрудников для этого филиала')+'</div></div>'; return; }
 
     // Группировка по отделам
     const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара','Техперсонал'];
@@ -49,10 +50,60 @@ async function loadHR() {
         ${canSeeSalary?`<span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}">${escapeHtml(e.status||'Активен')}</span>`:''}
       </div>`;
 
-    list.innerHTML = toggleBtn + orderedDepts.map(dept=>
+    list.innerHTML = geoBtn + toggleBtn + orderedDepts.map(dept=>
       deptSection(dept, groups[dept].length, groups[dept].map(empCard).join(''))
     ).join('');
   } catch(e) { document.getElementById('hr-list').innerHTML='<div class="loading">Ошибка</div>'; }
+}
+
+// ===== Гео-отметка прихода: задать точку филиала =====
+async function openFilialGeo() {
+  if(!canEditData()) return showToast('Недоступно в режиме наблюдателя');
+  document.getElementById('fg-filial-display').textContent = '📍 ' + getFilialName(currentFilial);
+  document.getElementById('fg-lat').value = '';
+  document.getElementById('fg-lng').value = '';
+  const cur = await loadFilialGeo(currentFilial);
+  if(cur) {
+    document.getElementById('fg-radius').value = cur.radius_m || 150;
+    document.getElementById('fg-lat').value = cur.lat;
+    document.getElementById('fg-lng').value = cur.lng;
+    document.getElementById('fg-status').innerHTML = `✅ Точка задана: <b>${(+cur.lat).toFixed(5)}, ${(+cur.lng).toFixed(5)}</b> · радиус ${cur.radius_m||150} м<br><span style="color:var(--text-muted)">обновил: ${escapeHtml(cur.updated_by||'—')}</span>`;
+  } else {
+    document.getElementById('fg-radius').value = 150;
+    document.getElementById('fg-status').textContent = 'Точка ещё не задана — гео-проверка отключена. Встаньте внутри филиала и нажмите «Поставить точку здесь».';
+  }
+  openModal('modal-filial-geo');
+}
+async function captureFilialGeoPoint() {
+  showToast('📍 Определяю координаты...');
+  let pos;
+  try { pos = await getGpsPosition(); }
+  catch(e) { return showToast('Не удалось получить GPS. Включите геолокацию и разрешите доступ сайту.'); }
+  document.getElementById('fg-lat').value = pos.lat.toFixed(6);
+  document.getElementById('fg-lng').value = pos.lng.toFixed(6);
+  document.getElementById('fg-status').innerHTML = `Новая точка: <b>${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}</b><br><span style="color:var(--text-muted)">точность GPS ±${Math.round(pos.accuracy||0)} м · нажмите «Сохранить»</span>`;
+  showToast('✅ Координаты пойманы — нажмите «Сохранить»');
+}
+async function saveFilialGeo() {
+  if(!canEditData()) return showToast('Недоступно');
+  const lat = parseFloat(document.getElementById('fg-lat').value);
+  const lng = parseFloat(document.getElementById('fg-lng').value);
+  const radius = parseInt(document.getElementById('fg-radius').value) || 150;
+  if(isNaN(lat) || isNaN(lng)) return showToast('Сначала поставьте точку кнопкой «Поставить точку здесь»');
+  const { error } = await sb.from('filial_geo').upsert({
+    filial: currentFilial, lat, lng, radius_m: radius,
+    updated_by: currentProfile?.name || '', updated_at: new Date().toISOString()
+  });
+  if(error) return showToast('Ошибка: '+error.message);
+  closeModal('modal-filial-geo');
+  showToast(`✅ Точка «${getFilialName(currentFilial)}» сохранена (радиус ${radius} м)`);
+}
+async function removeFilialGeo() {
+  if(!canEditData()) return showToast('Недоступно');
+  const { error } = await sb.from('filial_geo').delete().eq('filial', currentFilial);
+  if(error) return showToast('Ошибка: '+error.message);
+  closeModal('modal-filial-geo');
+  showToast('Гео-проверка отключена для этого филиала');
 }
 
 // Зарплатная ведомость за текущий месяц (admin/manager)

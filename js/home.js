@@ -192,6 +192,17 @@ async function checkIn(videoFile) {
     // Видео обязательно — защита от отметки не на рабочем месте
     if(!videoFile) { startCheckIn(); return; }
 
+    const todayStr = today();
+    const timeStr = getCurrentTimeStr();
+    const { data: myShifts } = await sb.from('schedules').select('*').eq('date', todayStr).eq('employee_id', currentProfile.employee_id);
+    const myShift = myShifts && myShifts[0];
+    const geoFilial = myShift?.filial || currentFilial;
+
+    // Гео-проверка ДО загрузки видео: если точка филиала задана — должны быть рядом
+    showToast('📍 Проверяю геопозицию...');
+    const geoCheck = await verifyCheckinLocation(geoFilial);
+    if(!geoCheck.ok) { showToast(geoCheck.message); return; }
+
     showToast('⏳ Загружаю видео...');
     let videoUrl = null;
     const ext = (file => { const p=(file.name||'').split('.'); return p.length>1?p.pop():'mp4'; })(videoFile);
@@ -200,11 +211,6 @@ async function checkIn(videoFile) {
     if(upErr) { showToast('Ошибка загрузки видео: '+upErr.message); return; }
     const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
     videoUrl = urlData.publicUrl;
-
-    const todayStr = today();
-    const timeStr = getCurrentTimeStr();
-    const { data: myShifts } = await sb.from('schedules').select('*').eq('date', todayStr).eq('employee_id', currentProfile.employee_id);
-    const myShift = myShifts && myShifts[0];
     const lateMin = myShift ? Math.max(0, minutesFromStr(timeStr) - minutesFromStr(myShift.shift_start)) : 0;
     const penalty = myShift ? calcLatePenalty(lateMin) : 0;
     const isLate = penalty > 0;
@@ -215,7 +221,8 @@ async function checkIn(videoFile) {
       date: todayStr, check_in_time: timeStr, is_late: isLate,
       late_minutes: lateMin, penalty: penalty,
       filial: myShift?.filial || currentFilial,
-      checkin_video: videoUrl
+      checkin_video: videoUrl,
+      checkin_geo: geoCheck.geo
     });
 
     showToast(isLate ? `⏰ Опоздание ${lateMin} мин · штраф ${formatNum(penalty)} сум` : '✅ Отмечено вовремя!');

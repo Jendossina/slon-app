@@ -49,6 +49,49 @@ function deptSection(dept, count, innerHtml) {
   </div>`;
 }
 
+// ===== Геолокация отметки прихода =====
+// Расстояние между двумя точками в метрах (формула гаверсинуса)
+function haversineMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000, toRad = x => x * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+// Текущая позиция телефона (Promise): высокая точность + таймаут
+function getGpsPosition() {
+  return new Promise((resolve, reject) => {
+    if(!navigator.geolocation) { reject(new Error('no-geo')); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+      err => reject(err),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  });
+}
+// Сохранённая точка филиала (или null, если гео-проверка не настроена)
+async function loadFilialGeo(filial) {
+  try { const { data } = await sb.from('filial_geo').select('*').eq('filial', filial).maybeSingle(); return data || null; }
+  catch(e) { return null; }
+}
+// Проверка, что сотрудник рядом с филиалом. → { ok, message?, geo? }
+async function verifyCheckinLocation(filial) {
+  const point = await loadFilialGeo(filial);
+  if(!point) return { ok: true, geo: null }; // точка не задана — гео-проверки нет
+  let pos;
+  try { pos = await getGpsPosition(); }
+  catch(e) {
+    return { ok: false, message: '📍 Включите геолокацию и разрешите доступ к местоположению — без этого отметить приход нельзя.' };
+  }
+  const dist = Math.round(haversineMeters(pos.lat, pos.lng, point.lat, point.lng));
+  const geo = { lat:+pos.lat.toFixed(6), lng:+pos.lng.toFixed(6), accuracy:Math.round(pos.accuracy||0), distance_m:dist };
+  // Допуск = радиус + погрешность GPS (до 60 м), чтобы не блокировать из-за «гуляющего» сигнала
+  const allowed = (point.radius_m||150) + Math.min(pos.accuracy||0, 60);
+  if(dist > allowed) {
+    return { ok: false, geo, message: `📍 Вы в ${dist} м от «${getFilialName(filial)}» (нужно быть ближе ${point.radius_m||150} м). Отметиться можно только на месте.` };
+  }
+  return { ok: true, geo };
+}
+
 // Отдельный клиент только для auth.signUp() при создании сотрудника из HR-панели.
 // sb.auth.signUp() на ОСНОВНОМ клиенте молча подменяет активную сессию браузера
 // на сессию только что созданного пользователя — из-за этого следующий запрос
