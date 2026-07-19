@@ -171,8 +171,8 @@ function isAdmin() { return currentRole() === 'admin'; }
 function isManager() { return currentRole() === 'manager'; }
 // Может ли реально что-то менять (BOSS — нет, только смотрит)
 function canEditData() { const r = currentRole(); return r === 'admin' || r === 'manager'; }
-// Видит финансы (доходы/расходы): управляющий и владелец
-function canSeeFinance() { const r = currentRole(); return r === 'admin' || r === 'boss'; }
+// Видит финансы (доходы/расходы): менеджер, управляющий, владелец (дашборд — отдельно, без менеджера)
+function canSeeFinance() { const r = currentRole(); return r === 'admin' || r === 'manager' || r === 'boss'; }
 // Видит зарплаты: менеджер, управляющий, владелец
 function canSeeSalaryRole() { const r = currentRole(); return r === 'manager' || r === 'admin' || r === 'boss'; }
 // Видит дашборд/финансовую сводку: управляющий и владелец (менеджер — нет)
@@ -487,8 +487,8 @@ function applyRolePermissions() {
     if(role === 'admin') {
       ['fab-hr','fab-tasks','fab-finance','fab-crm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
     } else if(role === 'manager') {
-      // менеджер — как управляющий, но без финансов: HR, задачи, брони (без fab-finance)
-      ['fab-hr','fab-tasks','fab-crm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
+      // менеджер — как управляющий, но без дашборда: HR, задачи, брони, финансы
+      ['fab-hr','fab-tasks','fab-crm','fab-finance'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
     }
   }
   // Менеджер заводит только рядовых сотрудников — оставляем в форме добавления лишь роль «Сотрудник»
