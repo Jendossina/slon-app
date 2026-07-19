@@ -125,7 +125,7 @@ async function openDailyPayroll() {
 
     const [schedR, empR, attR, premR] = await Promise.all([
       sb.from('schedules').select('employee_id,employee_name,shift_start,shift_end,is_day_off').eq('filial',currentFilial).eq('date',t),
-      sb.from('employees_view').select('id,name,salary,filials'),
+      sb.from('employees_view').select('id,name,salary,filials,role,department'),
       sb.from('attendance').select('employee_id,check_in_time,is_late,late_minutes,penalty').eq('filial',currentFilial).eq('date',t),
       sb.from('premiums').select('*').eq('filial',currentFilial).eq('date',t)
     ]);
@@ -137,11 +137,15 @@ async function openDailyPayroll() {
     if(sched.length===0) { body.innerHTML = '<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">На сегодня в смене никого нет</div></div>'; return; }
 
     const canGive = canEditData(); // менеджер/управляющий дают премии; владелец — только смотрит
+    // «Один в графике» — сколько барменов в смене сегодня (для бонуса +100 000)
+    const bartenderCount = sched.filter(s => empById[s.employee_id]?.department === 'Бармены').length;
     let grand = 0;
-    let html = `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Ставка − штрафы + премии. По графику на сегодня, филиал «${getFilialName(currentFilial)}».</div>`;
+    let html = `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Оплата по смене − штрафы + премии. По графику на сегодня, филиал «${getFilialName(currentFilial)}».</div>`;
     sched.forEach(s => {
       const emp = empById[s.employee_id];
-      const rate = Number(emp?.salary)||0;
+      const isAlone = emp?.department === 'Бармены' && bartenderCount === 1;
+      const pay = computeShiftPay(emp?.role, emp?.salary, s.shift_start, isAlone);
+      const rate = pay.amount;
       const a = attById[s.employee_id];
       const penalty = Number(a?.penalty)||0;
       const prems = premByEmp[s.employee_id]||[];
@@ -156,7 +160,7 @@ async function openDailyPayroll() {
         <div class="item-info" style="flex:1 1 100%">
           <div class="item-name">${escapeHtml(s.employee_name||emp?.name||'—')}</div>
           <div class="item-sub">🕐 ${s.shift_start||''}–${s.shift_end||''} · ${status}</div>
-          <div class="item-sub">Ставка ${formatNum(rate)}${penalty>0?` · <span style="color:#A13C3C">штраф −${formatNum(penalty)}</span>`:''}${premSum>0?` · <span style="color:#3B6D11">премия +${formatNum(premSum)}</span>`:''}</div>
+          <div class="item-sub">Ставка ${formatNum(rate)}${pay.note?` <span style="color:var(--gold-dark)">· ${pay.note}</span>`:''}${penalty>0?` · <span style="color:#A13C3C">штраф −${formatNum(penalty)}</span>`:''}${premSum>0?` · <span style="color:#3B6D11">премия +${formatNum(premSum)}</span>`:''}</div>
           ${prems.map(p=>`<div class="item-sub" style="color:var(--text-muted)">+${formatNum(p.amount)} — ${escapeHtml(p.note||'премия')} · ${escapeHtml(p.created_by_name||'')}${canGive?` <span onclick="deletePremium(${p.id})" style="color:#A32D2D;cursor:pointer;font-weight:700">✕</span>`:''}</div>`).join('')}
         </div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:8px;width:100%;justify-content:space-between">
