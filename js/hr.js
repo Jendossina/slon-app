@@ -38,7 +38,6 @@ async function loadHR() {
 
     // Группировка по отделам
     const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара','Техперсонал'];
-    const DEPT_ICONS = {'Менеджеры':'📋','Официанты':'🍽️','Бармены':'🍹','Кальянные мастера':'💨','Повара':'👨‍🍳','Техперсонал':'🔧'};
     const groups = {};
     emps.forEach(e=>{ const d = e.department || 'Без отдела'; (groups[d]=groups[d]||[]).push(e); });
     const orderedDepts = [...DEPT_ORDER.filter(d=>groups[d]), ...Object.keys(groups).filter(d=>!DEPT_ORDER.includes(d))];
@@ -50,10 +49,9 @@ async function loadHR() {
         ${canSeeSalary?`<span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}">${escapeHtml(e.status||'Активен')}</span>`:''}
       </div>`;
 
-    list.innerHTML = toggleBtn + orderedDepts.map(dept=>`
-      <div style="margin:14px 4px 6px;font-size:13px;font-weight:700;color:var(--gold-dark);text-transform:uppercase;letter-spacing:0.5px">${DEPT_ICONS[dept]||'👥'} ${dept} · ${groups[dept].length}</div>
-      ${groups[dept].map(empCard).join('')}
-    `).join('');
+    list.innerHTML = toggleBtn + orderedDepts.map(dept=>
+      deptSection(dept, groups[dept].length, groups[dept].map(empCard).join(''))
+    ).join('');
   } catch(e) { document.getElementById('hr-list').innerHTML='<div class="loading">Ошибка</div>'; }
 }
 

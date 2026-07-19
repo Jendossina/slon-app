@@ -36,6 +36,19 @@ function computeShiftPay(role, salary, shiftStart, isAlone) {
   return { amount: salary, note: '' };
 }
 
+// Единый вид секции цеха для списков сотрудников (HR и админ-панель)
+const DEPT_ICONS = { 'Менеджеры':'📋', 'Официанты':'🍽️', 'Бармены':'🍹', 'Кальянные мастера':'💨', 'Повара':'👨‍🍳', 'Техперсонал':'🔧', 'Без отдела':'👥' };
+function deptSection(dept, count, innerHtml) {
+  return `<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+    <div style="display:flex;align-items:center;gap:8px;padding:11px 14px;background:linear-gradient(135deg,var(--surface-2),var(--surface));border-bottom:1px solid var(--border)">
+      <span style="font-size:17px">${DEPT_ICONS[dept]||'👥'}</span>
+      <span style="font-size:13px;font-weight:700;color:var(--text-primary);text-transform:uppercase;letter-spacing:0.5px">${escapeHtml(dept)}</span>
+      <span style="margin-left:auto;font-size:12px;font-weight:700;color:#fff;background:var(--gold-dark);border-radius:20px;padding:2px 10px;min-width:22px;text-align:center">${count}</span>
+    </div>
+    <div style="padding:0 14px">${innerHtml}</div>
+  </div>`;
+}
+
 // Отдельный клиент только для auth.signUp() при создании сотрудника из HR-панели.
 // sb.auth.signUp() на ОСНОВНОМ клиенте молча подменяет активную сессию браузера
 // на сессию только что созданного пользователя — из-за этого следующий запрос

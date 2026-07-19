@@ -164,9 +164,9 @@ async function loadAdminEmployees() {
       ...order.filter(d=>groups[d]),
       ...Object.keys(groups).filter(d=>!order.includes(d)), // прочие/«Без отдела» в конце
     ];
-    empList.innerHTML = deptKeys.map(dept=>`
-      <div class="section-label" style="margin-top:14px">${escapeHtml(dept)} · ${groups[dept].length}</div>
-      ${groups[dept].map(empItem).join('')}`).join('');
+    empList.innerHTML = deptKeys.map(dept=>
+      deptSection(dept, groups[dept].length, groups[dept].map(empItem).join(''))
+    ).join('');
   } catch(e) { console.error(e); document.getElementById('admin-employees-list').innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div>'; }
 }
 
