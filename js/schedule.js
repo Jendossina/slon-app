@@ -1,5 +1,45 @@
 // SCHEDULE - WEEKLY GRID VIEW
 const DEPARTMENTS = ['Официанты','Бармены','Кальянные мастера','Повара','Техперсонал','Менеджеры'];
+
+// Готовые варианты смен по цехам — управляющий выбирает кнопкой, а не вводит время вручную.
+// end <= start означает переход через полночь (напр. 15:00–03:00). Цеха без списка (Техперсонал,
+// Менеджеры) используют ручной ввод времени.
+const SHIFT_PRESETS = {
+  'Официанты': [
+    { start: '11:00', end: '23:00' },
+    { start: '15:00', end: '03:00' },
+  ],
+  'Бармены': [
+    { start: '11:30', end: '00:00' },
+    { start: '15:00', end: '02:00' },
+    { start: '11:30', end: '02:00', full: true }, // весь день, +100 000
+  ],
+  'Кальянные мастера': [
+    { start: '11:30', end: '00:00' },
+    { start: '12:45', end: '01:00' },
+    { start: '14:45', end: '03:00' },
+  ],
+  'Повара': [
+    { start: '11:00', end: '23:00' },
+    { start: '14:30', end: '02:30' },
+  ],
+};
+
+// Длина смены в минутах с учётом перехода через полночь
+function shiftDurationMin(start, end) {
+  if(!start || !end) return 0;
+  const [sh,sm] = start.split(':').map(Number);
+  const [eh,em] = end.split(':').map(Number);
+  let s = sh*60+sm, e = eh*60+em;
+  if(e <= s) e += 24*60;
+  return e - s;
+}
+function shiftDurLabel(start, end) {
+  const m = shiftDurationMin(start, end);
+  const h = Math.floor(m/60), mm = m%60;
+  return mm ? `${h} ч ${mm} м` : `${h} ч`;
+}
+
 let currentDept = 'Официанты';
 let scheduleWeekStart = getMonday(new Date());
 let scheduleAutoJumped = false; // чтобы автопереход в свой отдел не откатывал ручной выбор вкладки
@@ -173,14 +213,52 @@ function quickEditSchedule(empId, empName, date) {
   document.getElementById('sch-filial-display').textContent = '📍 ' + getFilialName(currentFilial);
   document.getElementById('sch-dayoff').checked = false;
   document.getElementById('sch-time-fields').style.display = 'block';
-  document.getElementById('sch-start').value = '11:00';
-  document.getElementById('sch-end').value = '23:00';
+  const firstPreset = (SHIFT_PRESETS[currentDept]||[])[0];
+  document.getElementById('sch-start').value = firstPreset ? firstPreset.start : '11:00';
+  document.getElementById('sch-end').value = firstPreset ? firstPreset.end : '23:00';
   document.getElementById('sch-note').value = '';
+  renderShiftPresets('sch-presets', 'pickShiftPreset');
   openModal('modal-add-schedule');
 }
 
 function toggleDayOff(cb) {
   document.getElementById('sch-time-fields').style.display = cb.checked ? 'none' : 'block';
+  const presets = document.getElementById('sch-presets');
+  if(presets) presets.style.display = (cb.checked || !SHIFT_PRESETS[currentDept]) ? 'none' : 'block';
+}
+
+// Кнопки смен цеха. applyFn — имя функции, которой передаём start/end при нажатии.
+function renderShiftPresets(containerId, applyFn) {
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const presets = SHIFT_PRESETS[currentDept];
+  if(!presets || !presets.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML =
+    `<div class="form-label" style="margin-bottom:6px">Смены цеха «${escapeHtml(currentDept)}» — нажми, чтобы выбрать</div>
+     <div style="display:flex;flex-wrap:wrap;gap:6px">
+       ${presets.map(p=>`
+         <button type="button" onclick="${applyFn}('${p.start}','${p.end}')"
+           style="display:flex;flex-direction:column;align-items:center;gap:1px;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer">
+           <span>${p.start}–${p.end}</span>
+           <span style="font-size:10px;font-weight:400;color:var(--text-muted)">${shiftDurLabel(p.start,p.end)}${p.full?' · весь день':''}</span>
+         </button>`).join('')}
+     </div>`;
+}
+
+// Выбор смены в модалке «Назначить смену» (одна ячейка)
+function pickShiftPreset(start, end) {
+  document.getElementById('sch-dayoff').checked = false;
+  document.getElementById('sch-time-fields').style.display = 'block';
+  document.getElementById('sch-start').value = start;
+  document.getElementById('sch-end').value = end;
+}
+
+// Выбор смены в модалке «Заполнить неделю» — ставим как значение по умолчанию и раскидываем на все дни
+function pickWeekPreset(start, end) {
+  document.getElementById('week-default-start').value = start;
+  document.getElementById('week-default-end').value = end;
+  applyToAllDays();
 }
 
 async function loadScheduleEmployees() {
@@ -215,6 +293,12 @@ async function openWeekFillPicker() {
   const sel = document.getElementById('week-employee');
   sel.innerHTML = emps.map(e=>`<option value="${e.id}" data-name="${escapeHtml(e.name)}">${escapeHtml(e.name)}</option>`).join('');
   document.getElementById('wf-filial-display').textContent = '📍 ' + getFilialName(currentFilial);
+  const firstPreset = (SHIFT_PRESETS[currentDept]||[])[0];
+  if(firstPreset) {
+    document.getElementById('week-default-start').value = firstPreset.start;
+    document.getElementById('week-default-end').value = firstPreset.end;
+  }
+  renderShiftPresets('wf-presets', 'pickWeekPreset');
   await renderWeekFillDays();
   openModal('modal-week-fill');
 }
@@ -241,8 +325,9 @@ async function renderWeekFillDays() {
     const dateStr = dateStrs[i];
     const ex = existingMap[dateStr];
     const isOff = ex?.is_day_off || false;
-    const startVal = ex?.shift_start || '11:00';
-    const endVal = ex?.shift_end || '23:00';
+    const dflt = (SHIFT_PRESETS[currentDept]||[])[0] || { start:'11:00', end:'23:00' };
+    const startVal = ex?.shift_start || dflt.start;
+    const endVal = ex?.shift_end || dflt.end;
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="width:90px;font-size:13px;color:var(--text-primary);font-weight:500">${dayNames[i]}<div style="font-size:11px;color:var(--text-muted)">${d.getDate()}.${d.getMonth()+1}</div></div>
       <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted)">
