@@ -255,11 +255,17 @@ function pickShiftPreset(start, end) {
   document.getElementById('sch-end').value = end;
 }
 
-// Выбор смены в модалке «Заполнить неделю» — ставим как значение по умолчанию и раскидываем на все дни
+// Кнопка смены в «Заполнить неделю» — применяет её ко всем 7 дням
 function pickWeekPreset(start, end) {
-  document.getElementById('week-default-start').value = start;
-  document.getElementById('week-default-end').value = end;
-  applyToAllDays();
+  const selects = document.querySelectorAll('.wf-select');
+  if(selects.length) {
+    const v = start+'|'+end;
+    selects.forEach(s => { s.value = v; });
+  } else {
+    document.getElementById('week-default-start').value = start;
+    document.getElementById('week-default-end').value = end;
+    applyToAllDays();
+  }
 }
 
 async function loadScheduleEmployees() {
@@ -294,11 +300,10 @@ async function openWeekFillPicker() {
   const sel = document.getElementById('week-employee');
   sel.innerHTML = emps.map(e=>`<option value="${e.id}" data-name="${escapeHtml(e.name)}">${escapeHtml(e.name)}</option>`).join('');
   document.getElementById('wf-filial-display').textContent = '📍 ' + getFilialName(currentFilial);
-  const firstPreset = (SHIFT_PRESETS[currentDept]||[])[0];
-  if(firstPreset) {
-    document.getElementById('week-default-start').value = firstPreset.start;
-    document.getElementById('week-default-end').value = firstPreset.end;
-  }
+  const hasPresets = !!(SHIFT_PRESETS[currentDept]||[]).length;
+  // Ручной блок «Начало/Конец/Всем дням» нужен только цехам без пресетов
+  const manualRow = document.getElementById('wf-manual-default');
+  if(manualRow) manualRow.style.display = hasPresets ? 'none' : 'flex';
   renderShiftPresets('wf-presets', 'pickWeekPreset');
   await renderWeekFillDays();
   openModal('modal-week-fill');
@@ -321,16 +326,38 @@ async function renderWeekFillDays() {
   const existingMap = {};
   (existing||[]).forEach(s => { existingMap[s.date] = s; });
 
+  const presets = SHIFT_PRESETS[currentDept] || [];
+  const dayLabel = (d,i) => `<div style="width:96px;flex:0 0 auto;font-size:13px;color:var(--text-primary);font-weight:500">${dayNames[i]}<div style="font-size:11px;color:var(--text-muted)">${d.getDate()}.${d.getMonth()+1}</div></div>`;
+
   const container = document.getElementById('week-fill-days');
   container.innerHTML = weekFillDates.map((d,i) => {
     const dateStr = dateStrs[i];
     const ex = existingMap[dateStr];
     const isOff = ex?.is_day_off || false;
-    const dflt = (SHIFT_PRESETS[currentDept]||[])[0] || { start:'11:00', end:'23:00' };
-    const startVal = ex?.shift_start || dflt.start;
-    const endVal = ex?.shift_end || dflt.end;
+
+    // Цех с пресетами — выпадающий список смен на день (без ручного ввода)
+    if(presets.length) {
+      const curVal = isOff ? 'off' : (ex?.shift_start ? ex.shift_start+'|'+(ex.shift_end||'') : presets[0].start+'|'+presets[0].end);
+      let opts = presets.map(p=>{
+        const v = p.start+'|'+p.end;
+        return `<option value="${v}" ${v===curVal?'selected':''}>${p.start}–${p.end} · ${shiftDurLabel(p.start,p.end)}${p.full?' · весь день':''}</option>`;
+      }).join('');
+      // если у дня стоит нестандартное время — сохраняем его как отдельный пункт
+      if(!isOff && ex?.shift_start && !presets.some(p=>p.start+'|'+p.end===curVal)) {
+        opts += `<option value="${curVal}" selected>${ex.shift_start}–${ex.shift_end||''} · своё</option>`;
+      }
+      opts += `<option value="off" ${isOff?'selected':''}>🌴 Выходной</option>`;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        ${dayLabel(d,i)}
+        <select class="form-select wf-select" data-idx="${i}" style="flex:1;padding:9px 10px;font-size:13px">${opts}</select>
+      </div>`;
+    }
+
+    // Цех без пресетов — ручной ввод времени
+    const startVal = ex?.shift_start || '11:00';
+    const endVal = ex?.shift_end || '23:00';
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="width:90px;font-size:13px;color:var(--text-primary);font-weight:500">${dayNames[i]}<div style="font-size:11px;color:var(--text-muted)">${d.getDate()}.${d.getMonth()+1}</div></div>
+      ${dayLabel(d,i)}
       <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted)">
         <input type="checkbox" class="wf-dayoff" data-idx="${i}" ${isOff?'checked':''} onchange="toggleWfDayOff(${i})"> Вых
       </label>
@@ -372,9 +399,16 @@ async function saveWeekFill() {
   try {
     for(let i=0; i<7; i++) {
       const dateStr = fmtDate(weekFillDates[i]);
-      const isOff = document.querySelector(`.wf-dayoff[data-idx="${i}"]`).checked;
-      const start = document.querySelector(`.wf-start[data-idx="${i}"]`).value;
-      const end = document.querySelector(`.wf-end[data-idx="${i}"]`).value;
+      let isOff, start, end;
+      const daySel = document.querySelector(`.wf-select[data-idx="${i}"]`);
+      if(daySel) { // цех с пресетами — значение из выпадающего списка
+        if(daySel.value === 'off') { isOff = true; }
+        else { isOff = false; [start, end] = daySel.value.split('|'); }
+      } else {     // ручной ввод
+        isOff = document.querySelector(`.wf-dayoff[data-idx="${i}"]`).checked;
+        start = document.querySelector(`.wf-start[data-idx="${i}"]`).value;
+        end = document.querySelector(`.wf-end[data-idx="${i}"]`).value;
+      }
 
       await sb.from('schedules').delete().eq('employee_id', empId).eq('date', dateStr).eq('filial', currentFilial);
       await sb.from('schedules').insert({
