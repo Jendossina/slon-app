@@ -24,7 +24,8 @@ const PROMPT = `Ты распознаёшь печатный Z-отчёт кас
 «ИТОГО (Наличные)», «ИТОГО (Терминал)», «ИТОГО (Rahmat)», «ИТОГО (SLON CASHBACK)», «ИТОГО (Долговой)», «ИТОГО (Карта ...)» и т.п.
 НЕ включай групповые итоги («ИТОГО (Банковские карты)», «ИТОГО (Оплата наличными)», «ИТОГО (Безналичный расчет)») и не включай отдельные чеки.
 В "writeoffs" — «Списания» и «Без выручки» (напр. «На счет заведения», «Удаления блюд», «Комплименты», «Кальянная часть»).
-Если раздела/поля нет — null или [].`;
+Если раздела/поля нет — null или [].
+Выведи ТОЛЬКО JSON-объект, без markdown-обёртки и без пояснений.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -50,7 +51,7 @@ Deno.serve(async (req) => {
       headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        max_tokens: 800,
+        max_tokens: 2000,
         messages: [{ role: "user", content: [imageBlock, { type: "text", text: PROMPT }] }]
       })
     });
@@ -63,7 +64,8 @@ Deno.serve(async (req) => {
     const data = await resp.json();
     let raw = "";
     if (Array.isArray(data.content)) raw = data.content.filter((b) => b.type === "text").map((b) => b.text).join("");
-    // Достаём JSON из ответа (на случай лишнего текста)
+    // Убираем markdown-обёртку ```json ... ``` и достаём JSON-объект
+    raw = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
     const m = raw.match(/\{[\s\S]*\}/);
     let parsed = null;
     if (m) { try { parsed = JSON.parse(m[0]); } catch (_e) {} }
