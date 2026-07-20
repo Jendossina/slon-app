@@ -195,12 +195,21 @@ async function loadTaskEmployees() {
   const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
   const list = document.getElementById('task-assigned-list');
   if(!emps || emps.length===0) { list.innerHTML='<div style="padding:10px;color:var(--text-muted);font-size:13px">Нет сотрудников для филиала «' + getFilialName(currentFilial) + '»</div>'; return; }
-  list.innerHTML = emps.map(e=>`
+
+  // Группируем по подразделениям (имена внутри — по алфавиту, emps уже отсортированы)
+  const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара','Техперсонал'];
+  const groups = {};
+  emps.forEach(e=>{ const d = e.department || 'Без отдела'; (groups[d]=groups[d]||[]).push(e); });
+  const ordered = [...DEPT_ORDER.filter(d=>groups[d]), ...Object.keys(groups).filter(d=>!DEPT_ORDER.includes(d))];
+  const icon = d => (typeof DEPT_ICONS !== 'undefined' ? (DEPT_ICONS[d]||'👥') : '👥');
+  const empRow = e => `
     <label style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer">
       <input type="checkbox" class="task-emp-checkbox" value="${e.id}" data-name="${escapeHtml(e.name)}" style="width:18px;height:18px">
       <span style="font-size:14px;color:var(--text-primary)">${escapeHtml(e.name)}</span>
-      <span style="font-size:11px;color:var(--text-muted);margin-left:auto">${escapeHtml(e.department||'')}</span>
-    </label>`).join('');
+    </label>`;
+  list.innerHTML = ordered.map(dept=>`
+    <div style="display:flex;align-items:center;gap:6px;margin:12px 2px 4px;font-size:12px;font-weight:700;color:var(--gold-dark);text-transform:uppercase;letter-spacing:0.4px">${icon(dept)} ${escapeHtml(dept)} · ${groups[dept].length}</div>
+    ${groups[dept].map(empRow).join('')}`).join('');
 }
 
 async function addTask() {
