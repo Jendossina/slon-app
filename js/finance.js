@@ -136,15 +136,23 @@ function recalcKassa() {
 let kassaEditDate = null; // день, для которого редактируется касса
 
 async function openKassaModal(date) {
-  const t = date || today();
+  const t = date || financeSelectedDate || today();
+  const di = document.getElementById('kassa-date'); if(di) di.value = t;
+  document.getElementById('kassa-filial-label').textContent = getFilialName(currentFilial);
+  document.getElementById('kassa-scan-status').textContent = 'Сфоткайте Z-отчёт — строки заполнятся сами, останется сверить.';
+  openModal('modal-kassa');
+  await loadKassaForDate(t);
+}
+
+// Смена даты прямо в модалке — подгружаем кассу за выбранное число (или чистим форму)
+function onKassaDateChange(v) { loadKassaForDate(v || today()); }
+
+async function loadKassaForDate(t) {
   kassaEditDate = t;
-  document.getElementById('kassa-date-display').textContent = '📅 ' + t + ' · ' + getFilialName(currentFilial);
   ['kassa-existing-id','kassa-amount','kassa-deposits','kassa-withdrawals','kassa-expected','kassa-photo-url'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
   kassaClearLines();
   document.getElementById('kassa-photo-preview').innerHTML = '';
-  document.getElementById('kassa-scan-status').textContent = 'Сфоткайте Z-отчёт — строки заполнятся сами, останется сверить.';
   document.getElementById('kassa-hint').textContent = 'Загрузка...';
-  openModal('modal-kassa');
   try {
     const { data } = await sb.from('finances').select('id,amount,breakdown,photo_url').eq('filial',currentFilial).eq('type','income').eq('category','Выручка').eq('date',t).order('id',{ascending:false}).limit(1);
     const existing = data && data[0];
@@ -238,6 +246,7 @@ async function saveKassa() {
     if(err) return showToast('Ошибка: '+err.message);
     closeModal('modal-kassa');
     showToast('✅ Касса сохранена');
+    if(kassaEditDate) financeSelectedDate = kassaEditDate; // экран прыгает на день сохранённой кассы
     loadFinance();
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
