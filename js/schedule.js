@@ -79,7 +79,7 @@ async function loadSchedule() {
   const nav = document.getElementById('schedule-dept-nav');
   nav.innerHTML = DEPARTMENTS.map(d => {
     const isActive = d === currentDept;
-    return `<button onclick="selectDept('${d}')" style="background:${isActive?'var(--gold-dark)':'rgba(255,255,255,0.15)'};color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:12px;white-space:nowrap;cursor:pointer">${d}</button>`;
+    return `<button onclick="selectDept('${d}')" class="chip${isActive?' on':''}">${d}</button>`;
   }).join('');
 
   const weekEnd = new Date(scheduleWeekStart);

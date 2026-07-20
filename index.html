@@ -313,6 +313,10 @@ body.boss-readonly [data-edit-only] { display: none !important; }
    и она візуально "ложится" прямо на кнопки */
 .hscroll::-webkit-scrollbar { display: none; }
 .hscroll { scrollbar-width: none; -ms-overflow-style: none; }
+/* Полоски вкладок (админка/график/чек-листы) — блендятся с темой, без синего фона */
+.tabbar { padding: 10px 16px 12px; display: flex; gap: 8px; overflow-x: auto; }
+.chip { background: var(--surface-2); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 20px; padding: 7px 15px; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; flex: 0 0 auto; transition: background .15s, color .15s, border-color .15s; }
+.chip.on { background: var(--gold-dark); color: #fff; border-color: var(--gold-dark); }
 
 /* Меню "Ещё": лёгкая полупрозрачность без backdrop-filter — на слабых
    телефонах размытие фона очень дорогое и заметно тормозит. */
@@ -476,13 +480,13 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 
   <div class="screen" id="screen-admin">
     <div class="header"><h1>⚙️ Админ-панель</h1><p>Только для управляющего</p></div>
-    <div class="hscroll" style="background:#1a1a2e;padding:0 16px 12px;display:flex;gap:8px;overflow-x:auto">
-      <button onclick="switchAdminTab('employees',this)" id="atab-employees" class="atab active-tab" style="background:var(--gold-dark);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">👥 Сотрудники</button>
-      <button onclick="switchAdminTab('tasks',this)" id="atab-tasks" class="atab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">📋 Задачи</button>
-      <button onclick="switchAdminTab('analytics',this)" id="atab-analytics" class="atab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">📊 Аналитика</button>
-      <button onclick="switchAdminTab('activity',this)" id="atab-activity" class="atab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">📜 История</button>
-      <button onclick="switchAdminTab('checklists',this)" id="atab-checklists" class="atab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">☑️ Чек-листы</button>
-      <button onclick="switchAdminTab('storage',this)" id="atab-storage" class="atab" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">🗄 Хранилище</button>
+    <div class="hscroll tabbar">
+      <button onclick="switchAdminTab('employees',this)" id="atab-employees" class="chip on">👥 Сотрудники</button>
+      <button onclick="switchAdminTab('tasks',this)" id="atab-tasks" class="chip">📋 Задачи</button>
+      <button onclick="switchAdminTab('analytics',this)" id="atab-analytics" class="chip">📊 Аналитика</button>
+      <button onclick="switchAdminTab('activity',this)" id="atab-activity" class="chip">📜 История</button>
+      <button onclick="switchAdminTab('checklists',this)" id="atab-checklists" class="chip">☑️ Чек-листы</button>
+      <button onclick="switchAdminTab('storage',this)" id="atab-storage" class="chip">🗄 Хранилище</button>
     </div>
     <div class="content">
       <!-- EMPLOYEES TAB -->
@@ -577,7 +581,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
         </div>
       </div>
     </div>
-    <div class="hscroll" style="background:#1a1a2e;padding:0 16px 12px;display:flex;gap:6px;overflow-x:auto" id="schedule-dept-nav"></div>
+    <div class="hscroll tabbar" style="gap:6px" id="schedule-dept-nav"></div>
     <div class="content" id="schedule-content" style="padding:8px">
       <div class="loading">Загрузка...</div>
     </div>
@@ -589,8 +593,8 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <h1>☑️ Чек-листы</h1>
       <p id="checklist-date"></p>
     </div>
-    <div class="hscroll" id="checklist-dept-switcher" style="background:#12121e;padding:8px 16px;display:none;gap:8px;overflow-x:auto"></div>
-    <div class="hscroll" style="background:#1a1a2e;padding:8px 16px 12px;display:flex;gap:8px;overflow-x:auto" id="checklist-tabs"></div>
+    <div class="hscroll tabbar" id="checklist-dept-switcher" style="display:none;padding-bottom:2px"></div>
+    <div class="hscroll tabbar" style="padding-top:2px" id="checklist-tabs"></div>
     <div class="content" id="checklist-content">
       <div class="loading">Загрузка...</div>
     </div>

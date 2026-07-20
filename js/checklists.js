@@ -28,7 +28,7 @@ async function initChecklistScreen() {
   const deptSwitcher = document.getElementById('checklist-dept-switcher');
   if(canSeeAll) {
     deptSwitcher.style.display = 'flex';
-    deptSwitcher.innerHTML = CHECKLIST_DEPTS.map(d=>`<button onclick="switchChecklistDept('${d}')" style="background:${d===currentChecklistDept?'var(--gold-dark)':'rgba(255,255,255,0.15)'};color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer">${CHECKLIST_DEPT_ICONS[d]||''} ${d}</button>`).join('');
+    deptSwitcher.innerHTML = CHECKLIST_DEPTS.map(d=>`<button onclick="switchChecklistDept('${d}')" class="chip${d===currentChecklistDept?' on':''}">${CHECKLIST_DEPT_ICONS[d]||''} ${d}</button>`).join('');
   } else {
     deptSwitcher.style.display = 'none';
     currentChecklistDept = myDept || 'Официанты';
@@ -58,7 +58,7 @@ async function buildChecklistTabs() {
     if(!currentChecklistType || !templates.find(t=>t.type===currentChecklistType)) {
       currentChecklistType = templates[0].type;
     }
-    tabsEl.innerHTML = templates.map(t=>`<button onclick="switchChecklistTab('${escJsAttr(t.type)}')" class="ctab" style="background:${t.type===currentChecklistType?'var(--gold-dark)':'rgba(255,255,255,0.15)'};color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:13px;white-space:nowrap;cursor:pointer">${escapeHtml(t.name)}</button>`).join('');
+    tabsEl.innerHTML = templates.map(t=>`<button onclick="switchChecklistTab('${escJsAttr(t.type)}')" class="chip${t.type===currentChecklistType?' on':''}">${escapeHtml(t.name)}</button>`).join('');
     await loadChecklist(currentChecklistType);
   } catch(e) {
     content.innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки чек-листов</div></div>';

@@ -6,7 +6,7 @@ function switchAdminTab(tab, btn) {
     const el = document.getElementById('admin-tab-'+t);
     const b = document.getElementById('atab-'+t);
     if(el) el.style.display = t===tab ? 'block' : 'none';
-    if(b) { b.style.background = t===tab ? 'var(--gold-dark)' : 'rgba(255,255,255,0.15)'; }
+    if(b) b.classList.toggle('on', t===tab);
   });
   if(tab==='employees') loadAdminEmployees();
   if(tab==='tasks') loadAdminTasks();
