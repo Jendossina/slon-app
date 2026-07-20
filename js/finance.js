@@ -39,6 +39,16 @@ async function loadFinance() {
     pEl.textContent = formatNum(profit);
     pEl.className = 'stat-val '+(profit>=0?'finance-positive':'finance-negative');
 
+    // Посещаемость и средний чек за месяц
+    const monthGuests = all.filter(f=>f.type==='income' && f.breakdown)
+      .reduce((s,f)=>s+(Number(f.breakdown.guests)||0), 0);
+    const monthAvg = monthGuests > 0 ? Math.round(income/monthGuests) : null;
+    const visEl = document.getElementById('finance-month-visits');
+    if(visEl) visEl.innerHTML = `<div class="card" style="display:flex;gap:8px">
+      <div style="flex:1;text-align:center"><div class="stat-sub">Гостей за месяц</div><div style="font-size:22px;font-weight:800">${monthGuests || '—'}</div></div>
+      <div style="flex:1;text-align:center;border-left:1px solid var(--border)"><div class="stat-sub">Средний чек</div><div style="font-size:22px;font-weight:800" class="finance-positive">${monthAvg!=null?formatNum(monthAvg):'—'}</div></div>
+    </div>`;
+
     // Разбивка выручки по типам оплат за месяц
     const typeTotals = {};
     all.filter(f=>f.type==='income' && f.breakdown && Array.isArray(f.breakdown.lines)).forEach(f=>{
@@ -91,6 +101,13 @@ function renderFinanceDay(sel, all, canEdit) {
     if(b.withdrawals!=null) mv.push(`изъятия <b class="finance-negative">${formatNum(b.withdrawals)}</b>`);
     if(b.cash_expected!=null) mv.push(`в кассе <b>${formatNum(b.cash_expected)}</b>`);
     if(mv.length) html += `<div style="margin-top:8px;font-size:13px;color:var(--text-secondary)">${mv.join(' · ')}</div>`;
+    // Гости и средний чек
+    const guests = Number(b.guests) || 0;
+    const avg = guests > 0 ? Math.round(Number(dayIncome.amount)/guests) : null;
+    html += `<div style="display:flex;gap:8px;margin-top:10px">
+      <div style="flex:1;background:var(--surface-2);border-radius:10px;padding:10px;text-align:center"><div class="stat-sub">Гостей</div><div style="font-size:18px;font-weight:700">${guests || '—'}</div></div>
+      <div style="flex:1;background:var(--surface-2);border-radius:10px;padding:10px;text-align:center"><div class="stat-sub">Средний чек</div><div style="font-size:18px;font-weight:700" class="finance-positive">${avg!=null?formatNum(avg):'—'}</div></div>
+    </div>`;
     if(dayIncome.photo_url) html += `<img src="${escapeHtml(dayIncome.photo_url)}" onclick="viewReport('${escJsAttr(dayIncome.photo_url)}','image')" style="margin-top:10px;max-width:100%;border-radius:10px;max-height:140px;object-fit:cover;cursor:pointer">`;
   } else {
     html += `<div style="color:var(--text-muted);font-size:13px;padding:6px 0">Касса за этот день не внесена.</div>`;
@@ -130,7 +147,17 @@ function recalcKassa() {
   let sum = 0;
   document.querySelectorAll('.kassa-line-amount').forEach(i=>{ const v=parseFloat(i.value); if(!isNaN(v)) sum+=v; });
   document.getElementById('kassa-amount').value = sum || '';
+  updateAvgCheck();
   return sum;
+}
+
+// Средний чек = выручка ÷ гости (живой пересчёт в модалке)
+function updateAvgCheck() {
+  const amount = parseFloat(document.getElementById('kassa-amount').value);
+  const guests = parseFloat(document.getElementById('kassa-guests').value);
+  const el = document.getElementById('kassa-avg-check');
+  if(!el) return;
+  el.textContent = (guests > 0 && !isNaN(amount) && amount > 0) ? formatNum(Math.round(amount/guests)) : '—';
 }
 
 let kassaEditDate = null; // день, для которого редактируется касса
@@ -149,8 +176,9 @@ function onKassaDateChange(v) { loadKassaForDate(v || businessToday()); }
 
 async function loadKassaForDate(t) {
   kassaEditDate = t;
-  ['kassa-existing-id','kassa-amount','kassa-deposits','kassa-withdrawals','kassa-expected','kassa-photo-url'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+  ['kassa-existing-id','kassa-amount','kassa-deposits','kassa-withdrawals','kassa-expected','kassa-guests','kassa-photo-url'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
   kassaClearLines();
+  updateAvgCheck();
   document.getElementById('kassa-photo-preview').innerHTML = '';
   document.getElementById('kassa-hint').textContent = 'Загрузка...';
   try {
@@ -163,6 +191,8 @@ async function loadKassaForDate(t) {
       (b.lines || []).forEach(l => kassaAddLine(l.label, l.amount));
       const set = (id,v)=>{ const e=document.getElementById(id); if(e && v!=null) e.value=v; };
       set('kassa-deposits', b.deposits); set('kassa-withdrawals', b.withdrawals); set('kassa-expected', b.cash_expected);
+      set('kassa-guests', b.guests);
+      updateAvgCheck();
       if(existing.photo_url) {
         document.getElementById('kassa-photo-url').value = existing.photo_url;
         document.getElementById('kassa-photo-preview').innerHTML = `<img src="${escapeHtml(existing.photo_url)}" style="max-width:100%;border-radius:10px;max-height:160px;object-fit:cover" onclick="viewReport('${escJsAttr(existing.photo_url)}','image')">`;
@@ -228,7 +258,8 @@ async function saveKassa() {
   });
   const breakdown = {
     lines,
-    deposits: _kv('kassa-deposits'), withdrawals: _kv('kassa-withdrawals'), cash_expected: _kv('kassa-expected')
+    deposits: _kv('kassa-deposits'), withdrawals: _kv('kassa-withdrawals'), cash_expected: _kv('kassa-expected'),
+    guests: _kv('kassa-guests') || null
   };
   const photo_url = document.getElementById('kassa-photo-url').value || null;
   const description = lines.length

@@ -454,6 +454,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
         <div class="card"><div class="card-title">Расходы</div><div class="stat-val finance-negative" id="finance-expense">—</div><div class="stat-sub">сум за месяц</div></div>
       </div>
       <div class="card"><div class="card-title">Прибыль за месяц</div><div class="stat-val" id="finance-profit" style="font-size:28px">—</div><div class="stat-sub">сум</div></div>
+      <div id="finance-month-visits"></div>
       <div id="finance-month-breakdown"></div>
 
       <!-- Детализация выбранного дня -->
@@ -1262,7 +1263,13 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <div class="form-group"><label class="form-label" for="kassa-expected">В кассе</label><input class="form-input" id="kassa-expected" type="number" inputmode="numeric" placeholder="0"></div>
     </div>
 
-    <div id="kassa-photo-preview" style="margin-bottom:10px"></div>
+    <div style="font-size:12px;color:var(--text-muted);margin:10px 0 6px">Посещаемость:</div>
+    <div style="display:flex;gap:10px;align-items:flex-end">
+      <div class="form-group" style="flex:1;margin:0"><label class="form-label" for="kassa-guests">Гостей за день</label><input class="form-input" id="kassa-guests" type="number" inputmode="numeric" placeholder="0" oninput="updateAvgCheck()"></div>
+      <div class="form-group" style="flex:1;margin:0"><label class="form-label">Средний чек</label><div id="kassa-avg-check" class="finance-positive" style="padding:11px 0;font-weight:700;font-size:17px">—</div></div>
+    </div>
+
+    <div id="kassa-photo-preview" style="margin:10px 0"></div>
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px" id="kassa-hint"></div>
     <button class="btn btn-primary" onclick="saveKassa()">Сохранить кассу</button>
   </div>
