@@ -150,29 +150,14 @@ async function renderTasksEmpFilter(role) {
   </button>`;
 }
 
-// Список сотрудников по цехам в модалке
-function openTaskEmpFilter() {
+// Список сотрудников по цехам в модалке (с бейджем активных задач)
+async function openTaskEmpFilter() {
   const emps = _tasksEmpCache?.emps || [];
-  const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара','Техперсонал'];
-  const groups = {};
-  emps.forEach(e=>{ const d = e.department || 'Без отдела'; (groups[d]=groups[d]||[]).push(e); });
-  const ordered = [...DEPT_ORDER.filter(d=>groups[d]), ...Object.keys(groups).filter(d=>!DEPT_ORDER.includes(d))];
-
-  const empRow = e => {
-    const active = tasksSelectedEmp === e.name;
-    return `<div onclick="selectTaskEmpFromModal('${escJsAttr(e.name)}')" style="display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid var(--border);cursor:pointer">
-      <div class="avatar ${getColor(e.name)}" style="width:32px;height:32px;font-size:11px">${escapeHtml(getInitials(e.name))}</div>
-      <span style="font-size:14px;color:var(--text-primary);flex:1">${escapeHtml(e.name)}</span>
-      ${active?'<span style="color:var(--gold-dark);font-weight:700">✓</span>':''}
-    </div>`;
-  };
-
-  const allActive = !tasksSelectedEmp;
   const body = document.getElementById('task-emp-filter-list');
-  body.innerHTML =
-    `<div onclick="selectTaskEmpFromModal('')" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:14px;border:1px solid ${allActive?'var(--gold-dark)':'var(--border)'};border-radius:12px;background:${allActive?'var(--gold-light)':'var(--surface)'};cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary)">👥 Все сотрудники ${allActive?'<span style="margin-left:auto;color:var(--gold-dark)">✓</span>':''}</div>` +
-    ordered.map(dept => deptSection(dept, groups[dept].length, groups[dept].map(empRow).join(''))).join('');
+  body.innerHTML = '<div class="loading">Загрузка...</div>';
   openModal('modal-task-emp-filter');
+  const counts = await taskCountByName();
+  body.innerHTML = empDeptPickerHTML(emps, tasksSelectedEmp, 'selectTaskEmpFromModal', counts);
 }
 
 function selectTaskEmpFromModal(val) {

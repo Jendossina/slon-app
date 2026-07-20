@@ -59,11 +59,21 @@ async function cleanupMedia(days) {
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
 
+let adminChecklistEmp = ''; // '' = все сотрудники
+
 async function loadAdminChecklists() {
   try {
+    // Кнопка фильтра по сотруднику (по цехам)
+    const empBtn = document.getElementById('admin-checklist-emp-btn');
+    if(empBtn) empBtn.innerHTML = `<button onclick="openAdminChecklistEmpFilter()" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px;cursor:pointer">
+      <span>${adminChecklistEmp ? '👤 '+escapeHtml(adminChecklistEmp) : '👥 Все сотрудники'}</span>
+      <span style="color:var(--text-muted);font-size:12px">по цехам ▾</span>
+    </button>`;
+
     const dateFilter = document.getElementById('admin-checklist-date-filter').value;
     let query = sb.from('checklist_logs').select('*').eq('filial', currentFilial).order('date',{ascending:false}).order('created_at',{ascending:false});
     if(dateFilter) query = query.eq('date', dateFilter);
+    if(adminChecklistEmp) query = query.eq('user_name', adminChecklistEmp);
     const { data: logs } = await query;
 
     const list = document.getElementById('admin-checklists-list');
@@ -102,6 +112,22 @@ async function loadAdminChecklists() {
       </div>`;
     }).join('');
   } catch(e) { console.error(e); document.getElementById('admin-checklists-list').innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div></div>'; }
+}
+
+// Пикер сотрудника по цехам для истории чек-листов
+async function openAdminChecklistEmpFilter() {
+  const body = document.getElementById('checklist-emp-filter-list');
+  body.innerHTML = '<div class="loading">Загрузка...</div>';
+  openModal('modal-checklist-emp-filter');
+  const { data: allEmps } = await sb.from('employees').select('id,name,department,filials,status').order('name');
+  const emps = (allEmps||[]).filter(e => (e.status!=='Уволен') && (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
+  const counts = await taskCountByName();
+  body.innerHTML = empDeptPickerHTML(emps, adminChecklistEmp, 'selectAdminChecklistEmp', counts);
+}
+function selectAdminChecklistEmp(name) {
+  closeModal('modal-checklist-emp-filter');
+  adminChecklistEmp = name;
+  loadAdminChecklists();
 }
 
 function viewChecklistMedia(itemsMedia, items) {

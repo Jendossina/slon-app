@@ -92,6 +92,42 @@ async function verifyCheckinLocation(filial) {
   return { ok: true, geo };
 }
 
+// ===== Общий пикер сотрудников по цехам (для задач и чек-листов) =====
+// Активные (невыполненные) задачи по сотруднику: имя → кол-во, по текущему филиалу
+async function taskCountByName() {
+  const map = {};
+  try {
+    const { data } = await sb.from('tasks').select('assigned_to_name,status').eq('filial', currentFilial);
+    (data||[]).forEach(t => { if(t.status !== 'done' && t.assigned_to_name) map[t.assigned_to_name] = (map[t.assigned_to_name]||0)+1; });
+  } catch(e) {}
+  return map;
+}
+// HTML списка сотрудников карточками-цехами. onPickFn(name) — обработчик выбора ('' = все).
+// countByName — необязательный счётчик (бейдж справа от имени).
+function empDeptPickerHTML(emps, selectedName, onPickFn, countByName) {
+  countByName = countByName || {};
+  const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара','Техперсонал'];
+  const groups = {};
+  (emps||[]).forEach(e => { const d = e.department || 'Без отдела'; (groups[d]=groups[d]||[]).push(e); });
+  const ordered = [...DEPT_ORDER.filter(d=>groups[d]), ...Object.keys(groups).filter(d=>!DEPT_ORDER.includes(d))];
+  const cntBadge = name => {
+    const c = countByName[name] || 0;
+    return `<span title="активных задач" style="font-size:11px;font-weight:700;color:${c?'#fff':'var(--text-muted)'};background:${c?'var(--gold-dark)':'var(--surface-2)'};border:1px solid var(--border);border-radius:20px;padding:2px 8px;min-width:22px;text-align:center">${c}</span>`;
+  };
+  const row = e => {
+    const active = selectedName === e.name;
+    return `<div onclick="${onPickFn}('${escJsAttr(e.name)}')" style="display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid var(--border);cursor:pointer">
+      <div class="avatar ${getColor(e.name)}" style="width:32px;height:32px;font-size:11px">${escapeHtml(getInitials(e.name))}</div>
+      <span style="font-size:14px;color:var(--text-primary);flex:1">${escapeHtml(e.name)}</span>
+      ${cntBadge(e.name)}
+      ${active?'<span style="color:var(--gold-dark);font-weight:700">✓</span>':''}
+    </div>`;
+  };
+  const allActive = !selectedName;
+  return `<div onclick="${onPickFn}('')" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:14px;border:1px solid ${allActive?'var(--gold-dark)':'var(--border)'};border-radius:12px;background:${allActive?'var(--gold-light)':'var(--surface)'};cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary)">👥 Все сотрудники${allActive?'<span style="margin-left:auto;color:var(--gold-dark)">✓</span>':''}</div>`
+    + ordered.map(dept => deptSection(dept, groups[dept].length, groups[dept].map(row).join(''))).join('');
+}
+
 // Отдельный клиент только для auth.signUp() при создании сотрудника из HR-панели.
 // sb.auth.signUp() на ОСНОВНОМ клиенте молча подменяет активную сессию браузера
 // на сессию только что созданного пользователя — из-за этого следующий запрос

@@ -505,6 +505,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       </div>
       <!-- CHECKLISTS TAB -->
       <div id="admin-tab-checklists" style="display:none">
+        <div id="admin-checklist-emp-btn" style="margin-bottom:10px"></div>
         <div class="form-group">
           <select class="form-select" id="admin-checklist-date-filter" onchange="loadAdminChecklists()">
             <option value="">Все даты</option>
@@ -1333,6 +1334,14 @@ if('serviceWorker' in navigator) {
     <button class="modal-close" onclick="closeModal('modal-task-emp-filter')">✕</button>
     <div class="modal-title">👥 Задачи по сотруднику</div>
     <div id="task-emp-filter-list"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-checklist-emp-filter">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-checklist-emp-filter')">✕</button>
+    <div class="modal-title">👥 Чек-листы по сотруднику</div>
+    <div id="checklist-emp-filter-list"></div>
   </div>
 </div>
 
