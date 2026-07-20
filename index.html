@@ -1328,6 +1328,14 @@ if('serviceWorker' in navigator) {
 </script>
 
 <!-- EDIT EMPLOYEE MODAL -->
+<div class="modal-overlay" id="modal-task-emp-filter">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-task-emp-filter')">✕</button>
+    <div class="modal-title">👥 Задачи по сотруднику</div>
+    <div id="task-emp-filter-list"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-filial-geo">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-filial-geo')">✕</button>

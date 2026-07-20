@@ -143,20 +143,41 @@ async function renderTasksEmpFilter(role) {
     const emps = (allEmps||[]).filter(e => (e.status!=='Уволен') && (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
     _tasksEmpCache = { filial: currentFilial, emps };
   }
-  const emps = _tasksEmpCache.emps;
+  // Кнопка-фильтр: открывает список сотрудников по цехам (карточками с границами)
+  wrap.innerHTML = `<button onclick="openTaskEmpFilter()" aria-label="Фильтр по сотруднику" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px;cursor:pointer">
+    <span>${tasksSelectedEmp ? '👤 '+escapeHtml(tasksSelectedEmp) : '👥 Все сотрудники'}</span>
+    <span style="color:var(--text-muted);font-size:12px">по цехам ▾</span>
+  </button>`;
+}
 
-  // Группируем по цехам (optgroup); имена внутри — по алфавиту (emps уже отсортированы)
+// Список сотрудников по цехам в модалке
+function openTaskEmpFilter() {
+  const emps = _tasksEmpCache?.emps || [];
   const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара','Техперсонал'];
   const groups = {};
   emps.forEach(e=>{ const d = e.department || 'Без отдела'; (groups[d]=groups[d]||[]).push(e); });
   const ordered = [...DEPT_ORDER.filter(d=>groups[d]), ...Object.keys(groups).filter(d=>!DEPT_ORDER.includes(d))];
-  const icon = d => (typeof DEPT_ICONS !== 'undefined' ? (DEPT_ICONS[d]||'👥') : '👥');
-  const optForEmp = e => `<option value="${escapeHtml(e.name)}" ${tasksSelectedEmp===e.name?'selected':''}>${escapeHtml(e.name)}</option>`;
 
-  wrap.innerHTML = `<select onchange="selectTaskEmp(this.value)" aria-label="Фильтр по сотруднику" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px">
-    <option value="">👥 Все сотрудники</option>
-    ${ordered.map(dept=>`<optgroup label="${icon(dept)} ${escapeHtml(dept)}">${groups[dept].map(optForEmp).join('')}</optgroup>`).join('')}
-  </select>`;
+  const empRow = e => {
+    const active = tasksSelectedEmp === e.name;
+    return `<div onclick="selectTaskEmpFromModal('${escJsAttr(e.name)}')" style="display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid var(--border);cursor:pointer">
+      <div class="avatar ${getColor(e.name)}" style="width:32px;height:32px;font-size:11px">${escapeHtml(getInitials(e.name))}</div>
+      <span style="font-size:14px;color:var(--text-primary);flex:1">${escapeHtml(e.name)}</span>
+      ${active?'<span style="color:var(--gold-dark);font-weight:700">✓</span>':''}
+    </div>`;
+  };
+
+  const allActive = !tasksSelectedEmp;
+  const body = document.getElementById('task-emp-filter-list');
+  body.innerHTML =
+    `<div onclick="selectTaskEmpFromModal('')" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:14px;border:1px solid ${allActive?'var(--gold-dark)':'var(--border)'};border-radius:12px;background:${allActive?'var(--gold-light)':'var(--surface)'};cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary)">👥 Все сотрудники ${allActive?'<span style="margin-left:auto;color:var(--gold-dark)">✓</span>':''}</div>` +
+    ordered.map(dept => deptSection(dept, groups[dept].length, groups[dept].map(empRow).join(''))).join('');
+  openModal('modal-task-emp-filter');
+}
+
+function selectTaskEmpFromModal(val) {
+  closeModal('modal-task-emp-filter');
+  selectTaskEmp(val);
 }
 
 function selectTaskEmp(val) {
