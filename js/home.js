@@ -10,6 +10,7 @@ async function loadHome() {
   loadHomeAnnouncements();
   try {
     const todayStr = today();
+    const shiftDay = businessToday(); // смена 12:00–03:00 = один кассовый день (ночью = вчера)
     let tasksQuery = sb.from('tasks').select('*').eq('due_date', todayStr);
     if(role === 'employee') tasksQuery = tasksQuery.eq('assigned_to_id', currentUser.id);
     else tasksQuery = tasksQuery.eq('filial', currentFilial);
@@ -28,7 +29,7 @@ async function loadHome() {
 
     // Show my shift on home screen
     if(currentProfile?.employee_id) {
-      const { data: myShifts } = await sb.from('schedules').select('*').eq('date', todayStr).eq('employee_id', currentProfile.employee_id);
+      const { data: myShifts } = await sb.from('schedules').select('*').eq('date', shiftDay).eq('employee_id', currentProfile.employee_id);
       const myShift = myShifts && myShifts.length > 0 ? myShifts[0] : null;
       const shiftEl = document.getElementById('home-shift-card');
       if(shiftEl) {
@@ -43,7 +44,7 @@ async function loadHome() {
 
       // Attendance check-in/out
       if(myShift && !myShift.is_day_off) {
-        await loadAttendanceCard(todayStr, myShift);
+        await loadAttendanceCard(shiftDay, myShift);
       } else {
         const attEl = document.getElementById('home-attendance-card');
         if(attEl) attEl.innerHTML = '';
@@ -82,7 +83,7 @@ async function loadHome() {
       const revEl = document.getElementById('home-revenue');
       const revCard = revEl ? revEl.closest('.card') : null;
       if(canSeeFinance()) {
-        const { data: fins } = await sb.from('finances').select('amount').eq('date', todayStr).eq('type','income').eq('filial', currentFilial);
+        const { data: fins } = await sb.from('finances').select('amount').eq('date', shiftDay).eq('type','income').eq('filial', currentFilial);
         revEl.textContent = formatNum((fins||[]).reduce((s,f)=>s+Number(f.amount),0));
         if(revCard) revCard.style.display = '';
       } else {
@@ -146,7 +147,7 @@ async function loadSalaryCard() {
     const rate = Number(emp?.salary) || 0;
     if(!rate) return;
 
-    const todayStr = today();
+    const todayStr = businessToday();
     const { data: att } = await sb.from('attendance').select('penalty,check_in_time')
       .eq('employee_id', currentProfile.employee_id).eq('date', todayStr);
     const record = att && att[0];
@@ -192,7 +193,7 @@ async function checkIn(videoFile) {
     // Видео обязательно — защита от отметки не на рабочем месте
     if(!videoFile) { startCheckIn(); return; }
 
-    const todayStr = today();
+    const todayStr = businessToday(); // отметка прихода записывается на кассовый день смены
     const timeStr = getCurrentTimeStr();
     const { data: myShifts } = await sb.from('schedules').select('*').eq('date', todayStr).eq('employee_id', currentProfile.employee_id);
     const myShift = myShifts && myShifts[0];

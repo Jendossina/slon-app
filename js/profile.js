@@ -216,7 +216,7 @@ async function leaderAttentionBlock() {
 // Блок "Моя команда сегодня" для руководителей
 async function leaderTeamTodayBlock() {
   try {
-    const todayStr = new Date().toISOString().slice(0,10);
+    const todayStr = businessToday(); // «команда сегодня» = кассовый день (смена 12:00–03:00)
     // кто в графике сегодня на этом филиале
     const { data: sched } = await sb.from('schedules').select('*').eq('filial',currentFilial).eq('date',todayStr).eq('is_day_off',false);
     if(!sched || sched.length===0) return '';

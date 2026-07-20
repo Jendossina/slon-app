@@ -156,7 +156,7 @@ async function loadScheduleGrid() {
 
     weekDates.forEach((d, di) => {
       const dateStr = dateStrs[di];
-      const isToday = dateStr === today();
+      const isToday = dateStr === businessToday();
       html += `<tr style="${isToday?'background:#F5F3FF':''}">
         <td style="padding:8px;font-size:12px;font-weight:600;color:var(--text-primary);border-top:1px solid var(--border);position:sticky;left:0;background:${isToday?'var(--surface-2)':'var(--surface)'};z-index:1">${dayNames[di]}<br><span style="font-weight:400;color:var(--text-muted);font-size:11px">${d.getDate()}.${d.getMonth()+1}</span></td>`;
       
@@ -183,7 +183,7 @@ async function loadScheduleGrid() {
 
     // My shift today card (for employees)
     if(currentProfile?.employee_id) {
-      const myTodaySched = schedMap[today()+'_'+currentProfile.employee_id];
+      const myTodaySched = schedMap[businessToday()+'_'+currentProfile.employee_id];
       if(myTodaySched) {
         let card = '';
         if(myTodaySched.is_day_off) {
@@ -289,7 +289,7 @@ async function pickEmployeeForSchedule() {
 
 function choosePickedEmployee(id, name) {
   closeModal('modal-pick-employee');
-  quickEditSchedule(id, name, today());
+  quickEditSchedule(id, name, businessToday());
 }
 
 // WEEK FILL
@@ -454,7 +454,7 @@ async function addSchedule() {
   if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
   const empId = quickEditEmpId;
   const empName = quickEditEmpName;
-  const date = quickEditDate || today();
+  const date = quickEditDate || businessToday();
   const isDayOff = document.getElementById('sch-dayoff').checked;
   const start = document.getElementById('sch-start').value;
   const end = document.getElementById('sch-end').value;

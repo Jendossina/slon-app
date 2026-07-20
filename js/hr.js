@@ -186,7 +186,7 @@ async function openDailyPayroll() {
   const body = document.getElementById('daily-payroll-body');
   body.innerHTML = '<div class="loading">Считаю...</div>';
   try {
-    const t = today();
+    const t = businessToday(); // ведомость за кассовый день (смена 12:00–03:00)
     document.getElementById('daily-payroll-title').textContent =
       `💵 Ведомость на сегодня · ${new Date(t).toLocaleDateString('ru-RU',{day:'numeric',month:'long'})} · ${getFilialName(currentFilial)}`;
 
@@ -260,7 +260,7 @@ async function savePremium() {
   const note = document.getElementById('premium-note').value.trim();
   try {
     const { error } = await sb.from('premiums').insert({
-      employee_id: premiumForEmp, employee_name: premiumForName, date: today(),
+      employee_id: premiumForEmp, employee_name: premiumForName, date: businessToday(),
       amount, note: note||null, filial: currentFilial,
       created_by: currentUser.id, created_by_name: currentProfile?.name||currentUser?.email
     });
