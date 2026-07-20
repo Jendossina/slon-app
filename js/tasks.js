@@ -139,15 +139,23 @@ async function renderTasksEmpFilter(role) {
   if(role==='employee') { wrap.innerHTML=''; return; }
   // загружаем сотрудников филиала (кэш на текущий филиал)
   if(!_tasksEmpCache || _tasksEmpCache.filial !== currentFilial) {
-    const { data: allEmps } = await sb.from('employees').select('id,name,filials,status').order('name');
+    const { data: allEmps } = await sb.from('employees').select('id,name,department,filials,status').order('name');
     const emps = (allEmps||[]).filter(e => (e.status!=='Уволен') && (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
     _tasksEmpCache = { filial: currentFilial, emps };
   }
   const emps = _tasksEmpCache.emps;
-  // сопоставляем employee_id -> user_id (задачи привязаны к user_id). Нужен профиль.
+
+  // Группируем по цехам (optgroup); имена внутри — по алфавиту (emps уже отсортированы)
+  const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара','Техперсонал'];
+  const groups = {};
+  emps.forEach(e=>{ const d = e.department || 'Без отдела'; (groups[d]=groups[d]||[]).push(e); });
+  const ordered = [...DEPT_ORDER.filter(d=>groups[d]), ...Object.keys(groups).filter(d=>!DEPT_ORDER.includes(d))];
+  const icon = d => (typeof DEPT_ICONS !== 'undefined' ? (DEPT_ICONS[d]||'👥') : '👥');
+  const optForEmp = e => `<option value="${escapeHtml(e.name)}" ${tasksSelectedEmp===e.name?'selected':''}>${escapeHtml(e.name)}</option>`;
+
   wrap.innerHTML = `<select onchange="selectTaskEmp(this.value)" aria-label="Фильтр по сотруднику" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px">
     <option value="">👥 Все сотрудники</option>
-    ${emps.map(e=>`<option value="${escapeHtml(e.name)}" ${tasksSelectedEmp===e.name?'selected':''}>${escapeHtml(e.name)}</option>`).join('')}
+    ${ordered.map(dept=>`<optgroup label="${icon(dept)} ${escapeHtml(dept)}">${groups[dept].map(optForEmp).join('')}</optgroup>`).join('')}
   </select>`;
 }
 
