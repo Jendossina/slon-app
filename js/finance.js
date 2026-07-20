@@ -1,28 +1,65 @@
+let financeSelectedDate = null; // выбранный день (YYYY-MM-DD)
+
+function onFinanceDateChange(v) { financeSelectedDate = v || today(); loadFinance(); }
+function shiftFinanceDay(delta) {
+  const d = new Date(financeSelectedDate || today());
+  d.setDate(d.getDate() + delta);
+  financeSelectedDate = d.toISOString().slice(0,10);
+  loadFinance();
+}
+
 async function loadFinance() {
   try {
-    const { data: fins } = await sb.from('finances').select('*').eq('filial', currentFilial).order('date',{ascending:false}).order('id',{ascending:false});
+    if(!financeSelectedDate) financeSelectedDate = today();
+    const sel = financeSelectedDate;
+    const y = +sel.slice(0,4), m = +sel.slice(5,7);
+    const monthStart = `${sel.slice(0,7)}-01`;
+    const monthEnd = new Date(y, m, 0).toISOString().slice(0,10); // последний день месяца
+    const canEdit = canEditData();
+
+    const dateInput = document.getElementById('finance-date'); if(dateInput) dateInput.value = sel;
+    document.getElementById('finance-period').textContent = getFilialName(currentFilial);
+    document.getElementById('finance-month-label').textContent =
+      'Месяц · ' + new Date(sel).toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
+    document.getElementById('finance-day-label').textContent =
+      'День · ' + new Date(sel).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+
+    // Финансы за выбранный месяц
+    const { data: fins } = await sb.from('finances').select('*').eq('filial', currentFilial)
+      .gte('date', monthStart).lte('date', monthEnd).order('date',{ascending:false}).order('id',{ascending:false});
     const all = fins||[];
+
+    // --- Сводка за месяц ---
     const income = all.filter(f=>f.type==='income').reduce((s,f)=>s+Number(f.amount),0);
     const expense = all.filter(f=>f.type==='expense').reduce((s,f)=>s+Number(f.amount),0);
+    const profit = income - expense;
     document.getElementById('finance-income').textContent = formatNum(income);
     document.getElementById('finance-expense').textContent = formatNum(expense);
-    const profit = income-expense;
-    const el = document.getElementById('finance-profit');
-    el.textContent = formatNum(profit);
-    el.className = 'stat-val '+(profit>=0?'finance-positive':'finance-negative');
+    const pEl = document.getElementById('finance-profit');
+    pEl.textContent = formatNum(profit);
+    pEl.className = 'stat-val '+(profit>=0?'finance-positive':'finance-negative');
 
-    // Итоги за сегодня + быстрые кнопки
-    const t = today();
-    const todayIncome = all.filter(f=>f.type==='income' && f.date===t).reduce((s,f)=>s+Number(f.amount),0);
-    const todayExpense = all.filter(f=>f.type==='expense' && f.date===t).reduce((s,f)=>s+Number(f.amount),0);
-    const tiEl = document.getElementById('fin-today-income'); if(tiEl) tiEl.textContent = formatNum(todayIncome);
-    const teEl = document.getElementById('fin-today-expense'); if(teEl) teEl.textContent = formatNum(todayExpense);
-    const actions = document.getElementById('fin-quick-actions'); if(actions) actions.style.display = canEditData() ? 'flex' : 'none';
+    // Разбивка выручки по типам оплат за месяц
+    const typeTotals = {};
+    all.filter(f=>f.type==='income' && f.breakdown && Array.isArray(f.breakdown.lines)).forEach(f=>{
+      f.breakdown.lines.forEach(l=>{ if(l && l.label) typeTotals[l.label] = (typeTotals[l.label]||0) + Number(l.amount||0); });
+    });
+    const typeRows = Object.entries(typeTotals).sort((a,b)=>b[1]-a[1]);
+    const mbEl = document.getElementById('finance-month-breakdown');
+    mbEl.innerHTML = typeRows.length ? `<div class="card">
+      <div class="card-title" style="margin-bottom:6px">Выручка по типам оплат · за месяц</div>
+      ${typeRows.map(([label,sum])=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:14px">
+        <span style="color:var(--text-secondary)">${escapeHtml(label)}</span>
+        <b class="finance-positive">${formatNum(sum)}</b></div>`).join('')}
+    </div>` : '';
 
-    const canEdit = canEditData();
+    // --- Детализация выбранного дня ---
+    renderFinanceDay(sel, all, canEdit);
+
+    // --- Операции за месяц ---
     const list = document.getElementById('finance-list');
-    if(all.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">💰</div><div class="empty-text">Операций пока нет.<br>Внесите кассу или расход выше.</div></div>'; return; }
-    list.innerHTML = all.slice(0,30).map(f=>`
+    if(all.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">💰</div><div class="empty-text">За этот месяц операций нет.</div></div>'; }
+    else list.innerHTML = all.map(f=>`
       <div class="list-item">
         <div class="avatar ${f.type==='income'?'av-teal':'av-coral'}">${f.type==='income'?'↑':'↓'}</div>
         <div class="item-info"><div class="item-name">${escapeHtml(f.category||'')}</div><div class="item-sub">${escapeHtml(f.description||'')}${f.description?' · ':''}${f.date||''}</div></div>
@@ -30,6 +67,46 @@ async function loadFinance() {
         ${canEdit?`<button onclick="deleteFinance(${f.id})" aria-label="Удалить" style="background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;padding:0 4px;margin-left:6px">✕</button>`:''}
       </div>`).join('');
   } catch(e) { console.error(e); document.getElementById('finance-list').innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div>'; }
+}
+
+// Карточка выбранного дня: касса с разбивкой + движение + расходы + кнопки (без модалок для просмотра)
+function renderFinanceDay(sel, all, canEdit) {
+  const card = document.getElementById('finance-day-card');
+  const dayIncome = all.find(f=>f.type==='income' && f.category==='Выручка' && f.date===sel);
+  const dayExpenses = all.filter(f=>f.type==='expense' && f.date===sel);
+  const expSum = dayExpenses.reduce((s,f)=>s+Number(f.amount),0);
+  const b = dayIncome?.breakdown || {};
+  const lines = Array.isArray(b.lines) ? b.lines : [];
+
+  let html = `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+    <div><div class="stat-sub">Касса</div><div style="font-size:24px;font-weight:800" class="finance-positive">${dayIncome?formatNum(dayIncome.amount):'—'}</div></div>
+    <div style="text-align:right"><div class="stat-sub">Расходы</div><div style="font-size:20px;font-weight:700" class="finance-negative">${expSum?('−'+formatNum(expSum)):'0'}</div></div>
+  </div>`;
+
+  if(dayIncome) {
+    if(lines.length) html += `<div style="margin:6px 0 4px;font-size:12px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.4px">Типы оплат</div>`
+      + lines.map(l=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:14px"><span style="color:var(--text-secondary)">${escapeHtml(l.label||'')}</span><b>${formatNum(l.amount||0)}</b></div>`).join('');
+    const mv = [];
+    if(b.deposits!=null) mv.push(`внесения <b class="finance-positive">${formatNum(b.deposits)}</b>`);
+    if(b.withdrawals!=null) mv.push(`изъятия <b class="finance-negative">${formatNum(b.withdrawals)}</b>`);
+    if(b.cash_expected!=null) mv.push(`в кассе <b>${formatNum(b.cash_expected)}</b>`);
+    if(mv.length) html += `<div style="margin-top:8px;font-size:13px;color:var(--text-secondary)">${mv.join(' · ')}</div>`;
+    if(dayIncome.photo_url) html += `<img src="${escapeHtml(dayIncome.photo_url)}" onclick="viewReport('${escJsAttr(dayIncome.photo_url)}','image')" style="margin-top:10px;max-width:100%;border-radius:10px;max-height:140px;object-fit:cover;cursor:pointer">`;
+  } else {
+    html += `<div style="color:var(--text-muted);font-size:13px;padding:6px 0">Касса за этот день не внесена.</div>`;
+  }
+
+  if(dayExpenses.length) html += `<div style="margin:10px 0 4px;font-size:12px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.4px">Расходы дня</div>`
+    + dayExpenses.map(f=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:14px">
+        <span style="color:var(--text-secondary)">${escapeHtml(f.description||f.category||'Расход')}</span>
+        <span style="display:flex;align-items:center;gap:8px"><b class="finance-negative">−${formatNum(f.amount)}</b>${canEdit?`<button onclick="deleteFinance(${f.id})" style="background:none;border:none;color:var(--text-muted);font-size:15px;cursor:pointer">✕</button>`:''}</span></div>`).join('');
+
+  if(canEdit) html += `<div style="display:flex;gap:8px;margin-top:12px">
+    <button onclick="openKassaModal('${sel}')" style="flex:1;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer">${dayIncome?'✏️ Редактировать кассу':'💵 Внести кассу'}</button>
+    <button onclick="openExpenseModal('${sel}')" style="flex:1;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer">➖ Расход</button>
+  </div>`;
+
+  card.innerHTML = html;
 }
 
 // «Касса дня»: одна запись выручки на день — при повторном внесении перезаписываем,
@@ -56,8 +133,11 @@ function recalcKassa() {
   return sum;
 }
 
-async function openKassaModal() {
-  const t = today();
+let kassaEditDate = null; // день, для которого редактируется касса
+
+async function openKassaModal(date) {
+  const t = date || today();
+  kassaEditDate = t;
   document.getElementById('kassa-date-display').textContent = '📅 ' + t + ' · ' + getFilialName(currentFilial);
   ['kassa-existing-id','kassa-amount','kassa-deposits','kassa-withdrawals','kassa-expected','kassa-photo-url'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
   kassaClearLines();
@@ -79,7 +159,7 @@ async function openKassaModal() {
         document.getElementById('kassa-photo-url').value = existing.photo_url;
         document.getElementById('kassa-photo-preview').innerHTML = `<img src="${escapeHtml(existing.photo_url)}" style="max-width:100%;border-radius:10px;max-height:160px;object-fit:cover" onclick="viewReport('${escJsAttr(existing.photo_url)}','image')">`;
       }
-      document.getElementById('kassa-hint').textContent = 'Касса на сегодня уже внесена: '+formatNum(existing.amount)+' сум. Сохранение перезапишет её.';
+      document.getElementById('kassa-hint').textContent = 'Касса за '+t+' уже внесена: '+formatNum(existing.amount)+' сум. Сохранение перезапишет её.';
     } else {
       document.getElementById('kassa-hint').textContent = 'Считайте с чека или добавьте строки вручную.';
     }
@@ -153,7 +233,7 @@ async function saveKassa() {
     if(existingId) {
       ({ error: err } = await sb.from('finances').update(row).eq('id', existingId));
     } else {
-      ({ error: err } = await sb.from('finances').insert({ type:'income', category:'Выручка', date:today(), filial: currentFilial, ...row }));
+      ({ error: err } = await sb.from('finances').insert({ type:'income', category:'Выручка', date: kassaEditDate || today(), filial: currentFilial, ...row }));
     }
     if(err) return showToast('Ошибка: '+err.message);
     closeModal('modal-kassa');
@@ -162,8 +242,11 @@ async function saveKassa() {
   } catch(e) { showToast('Ошибка: '+e.message); }
 }
 
-function openExpenseModal() {
-  document.getElementById('exp-date-display').textContent = '📅 ' + today() + ' · ' + getFilialName(currentFilial);
+let expenseDate = null; // день, к которому добавляется расход
+
+function openExpenseModal(date) {
+  expenseDate = date || today();
+  document.getElementById('exp-date-display').textContent = '📅 ' + expenseDate + ' · ' + getFilialName(currentFilial);
   document.getElementById('exp-amount').value = '';
   document.getElementById('exp-desc').value = '';
   openModal('modal-expense');
@@ -174,7 +257,7 @@ async function saveExpense() {
   const amount = parseFloat(document.getElementById('exp-amount').value);
   if(isNaN(amount) || amount<=0) return showToast('Введите сумму');
   try {
-    const { error: err } = await sb.from('finances').insert({ type:'expense', amount, category:document.getElementById('exp-category').value, description:document.getElementById('exp-desc').value, date:today(), filial: currentFilial });
+    const { error: err } = await sb.from('finances').insert({ type:'expense', amount, category:document.getElementById('exp-category').value, description:document.getElementById('exp-desc').value, date: expenseDate || today(), filial: currentFilial });
     if(err) return showToast('Ошибка: '+err.message);
     closeModal('modal-expense');
     showToast('✅ Расход добавлен');

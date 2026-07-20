@@ -440,23 +440,28 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="screen" id="screen-finance">
     <div class="header"><h1>Финансы</h1><p id="finance-period"></p></div>
     <div class="content">
+      <!-- Выбор дня -->
+      <div class="card" style="display:flex;align-items:center;gap:8px;padding:10px 12px">
+        <button onclick="shiftFinanceDay(-1)" aria-label="Предыдущий день" style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;width:38px;height:38px;font-size:18px;color:var(--text-primary);cursor:pointer;flex:0 0 auto">‹</button>
+        <input type="date" id="finance-date" onchange="onFinanceDateChange(this.value)" style="flex:1;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:15px;text-align:center">
+        <button onclick="shiftFinanceDay(1)" aria-label="Следующий день" style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;width:38px;height:38px;font-size:18px;color:var(--text-primary);cursor:pointer;flex:0 0 auto">›</button>
+      </div>
+
+      <!-- Сводка за месяц -->
+      <div class="section-label" id="finance-month-label">Месяц</div>
       <div class="grid2">
-        <div class="card"><div class="card-title">Доходы</div><div class="stat-val finance-positive" id="finance-income">—</div><div class="stat-sub">сум</div></div>
-        <div class="card"><div class="card-title">Расходы</div><div class="stat-val finance-negative" id="finance-expense">—</div><div class="stat-sub">сум</div></div>
+        <div class="card"><div class="card-title">Доходы</div><div class="stat-val finance-positive" id="finance-income">—</div><div class="stat-sub">сум за месяц</div></div>
+        <div class="card"><div class="card-title">Расходы</div><div class="stat-val finance-negative" id="finance-expense">—</div><div class="stat-sub">сум за месяц</div></div>
       </div>
-      <div class="card"><div class="card-title">Прибыль</div><div class="stat-val" id="finance-profit" style="font-size:28px">—</div><div class="stat-sub">сум</div></div>
-      <div class="card">
-        <div class="card-title">Сегодня</div>
-        <div style="display:flex;justify-content:space-between;margin:6px 0 12px">
-          <div><div class="stat-sub">Касса</div><div style="font-size:20px;font-weight:700" class="finance-positive" id="fin-today-income">—</div></div>
-          <div style="text-align:right"><div class="stat-sub">Расходы</div><div style="font-size:20px;font-weight:700" class="finance-negative" id="fin-today-expense">—</div></div>
-        </div>
-        <div id="fin-quick-actions" style="display:none;gap:8px">
-          <button onclick="openKassaModal()" style="flex:1;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer">💵 Касса дня</button>
-          <button onclick="openExpenseModal()" style="flex:1;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer">➖ Расход</button>
-        </div>
-      </div>
-      <div class="section-label">Последние операции</div>
+      <div class="card"><div class="card-title">Прибыль за месяц</div><div class="stat-val" id="finance-profit" style="font-size:28px">—</div><div class="stat-sub">сум</div></div>
+      <div id="finance-month-breakdown"></div>
+
+      <!-- Детализация выбранного дня -->
+      <div class="section-label" id="finance-day-label">День</div>
+      <div class="card" id="finance-day-card"><div class="loading">Загрузка...</div></div>
+
+      <!-- Операции за месяц -->
+      <div class="section-label">Операции за месяц</div>
       <div class="card" id="finance-list"><div class="loading">Загрузка...</div></div>
     </div>
     <button class="fab" id="fab-finance" onclick="openModal('modal-add-finance')" style="display:none">+</button>
