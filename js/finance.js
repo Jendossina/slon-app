@@ -10,7 +10,7 @@ function shiftFinanceDay(delta) {
 
 async function loadFinance() {
   try {
-    if(!financeSelectedDate) financeSelectedDate = today();
+    if(!financeSelectedDate) financeSelectedDate = businessToday();
     const sel = financeSelectedDate;
     const y = +sel.slice(0,4), m = +sel.slice(5,7);
     const monthStart = `${sel.slice(0,7)}-01`;
@@ -136,7 +136,7 @@ function recalcKassa() {
 let kassaEditDate = null; // день, для которого редактируется касса
 
 async function openKassaModal(date) {
-  const t = date || financeSelectedDate || today();
+  const t = date || financeSelectedDate || businessToday();
   const di = document.getElementById('kassa-date'); if(di) di.value = t;
   document.getElementById('kassa-filial-label').textContent = getFilialName(currentFilial);
   document.getElementById('kassa-scan-status').textContent = 'Сфоткайте Z-отчёт — строки заполнятся сами, останется сверить.';
@@ -145,7 +145,7 @@ async function openKassaModal(date) {
 }
 
 // Смена даты прямо в модалке — подгружаем кассу за выбранное число (или чистим форму)
-function onKassaDateChange(v) { loadKassaForDate(v || today()); }
+function onKassaDateChange(v) { loadKassaForDate(v || businessToday()); }
 
 async function loadKassaForDate(t) {
   kassaEditDate = t;
@@ -241,7 +241,7 @@ async function saveKassa() {
     if(existingId) {
       ({ error: err } = await sb.from('finances').update(row).eq('id', existingId));
     } else {
-      ({ error: err } = await sb.from('finances').insert({ type:'income', category:'Выручка', date: kassaEditDate || today(), filial: currentFilial, ...row }));
+      ({ error: err } = await sb.from('finances').insert({ type:'income', category:'Выручка', date: kassaEditDate || businessToday(), filial: currentFilial, ...row }));
     }
     if(err) return showToast('Ошибка: '+err.message);
     closeModal('modal-kassa');
@@ -254,7 +254,7 @@ async function saveKassa() {
 let expenseDate = null; // день, к которому добавляется расход
 
 function openExpenseModal(date) {
-  expenseDate = date || today();
+  expenseDate = date || businessToday();
   document.getElementById('exp-date-display').textContent = '📅 ' + expenseDate + ' · ' + getFilialName(currentFilial);
   document.getElementById('exp-amount').value = '';
   document.getElementById('exp-desc').value = '';
@@ -266,7 +266,7 @@ async function saveExpense() {
   const amount = parseFloat(document.getElementById('exp-amount').value);
   if(isNaN(amount) || amount<=0) return showToast('Введите сумму');
   try {
-    const { error: err } = await sb.from('finances').insert({ type:'expense', amount, category:document.getElementById('exp-category').value, description:document.getElementById('exp-desc').value, date: expenseDate || today(), filial: currentFilial });
+    const { error: err } = await sb.from('finances').insert({ type:'expense', amount, category:document.getElementById('exp-category').value, description:document.getElementById('exp-desc').value, date: expenseDate || businessToday(), filial: currentFilial });
     if(err) return showToast('Ошибка: '+err.message);
     closeModal('modal-expense');
     showToast('✅ Расход добавлен');

@@ -360,6 +360,16 @@ function fmtDateShort(d, opts) {
 }
 function today() { return new Date().toISOString().split('T')[0]; }
 
+// «Кассовый день»: смена идёт с 12:00 до ~03:00 следующего дня, поэтому касса,
+// закрытая ночью, относится к дню НАЧАЛА смены. Всё, что до 8:00 утра (по местному
+// времени телефона) — это ещё вчерашний кассовый день. Дальше — сегодняшний.
+const BUSINESS_DAY_CUTOFF_HOUR = 8;
+function businessToday() {
+  const d = new Date();
+  if(d.getHours() < BUSINESS_DAY_CUTOFF_HOUR) d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 // THEME
 function initTheme() {
   const saved = localStorage.getItem('slon-theme');
