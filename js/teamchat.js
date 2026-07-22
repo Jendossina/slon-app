@@ -4,6 +4,7 @@ const CHAT_CHANNELS = ['Официанты','Бармены','Кальянные
 let currentChatChannel = 'Официанты';
 let teamChatPollInterval = null;
 let lastTeamChatCount = 0;
+let hasUnreadChat = false;
 let teamChatDefaultChannelSet = false;
 
 async function initTeamChat() {
@@ -187,16 +188,22 @@ async function checkUnreadMessages() {
       query = query.in('channel', channels);
     }
     const { data } = await query.limit(1);
+    hasUnreadChat = !!(data && data.length > 0);
     const dot = document.getElementById('unread-dot');
-    if(dot) dot.style.display = (data && data.length > 0) ? 'block' : 'none';
+    if(dot) dot.style.display = hasUnreadChat ? 'block' : 'none';
+    const menuDot = document.getElementById('teamchat-menu-dot');
+    if(menuDot) menuDot.style.display = hasUnreadChat ? 'inline-block' : 'none';
   } catch(e) { console.error(e); }
 }
 
 function markMessagesSeen() {
   if(!currentUser) return;
   localStorage.setItem('slon-lastseen-' + currentUser.id, new Date().toISOString());
+  hasUnreadChat = false;
   const dot = document.getElementById('unread-dot');
   if(dot) dot.style.display = 'none';
+  const menuDot = document.getElementById('teamchat-menu-dot');
+  if(menuDot) menuDot.style.display = 'none';
 }
 
 setInterval(checkUnreadMessages, 15000);

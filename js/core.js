@@ -680,7 +680,10 @@ function openMoreMenu() {
         const sp = i.label.indexOf(' ');
         const icon = i.label.slice(0, sp);
         const text = i.label.slice(sp+1);
-        return `<button class="more-menu-item" onclick="showScreen('${i.id}', null)"><span class="more-menu-icon">${icon}</span><span>${text}</span></button>`;
+        const showDot = (i.id==='teamchat' && typeof hasUnreadChat!=='undefined' && hasUnreadChat);
+        const dot = (i.id==='teamchat')
+          ? `<span id="teamchat-menu-dot" style="display:${showDot?'inline-block':'none'};width:8px;height:8px;margin-left:8px;background:#A13C3C;border-radius:50%;vertical-align:middle"></span>` : '';
+        return `<button class="more-menu-item" onclick="showScreen('${i.id}', null)"><span class="more-menu-icon">${icon}</span><span>${text}</span>${dot}</button>`;
       }).join('');
   }).join('');
   openModal('modal-more-menu');
