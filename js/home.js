@@ -5,7 +5,7 @@ async function loadHome() {
   const role = currentProfile?.role;
   const name = currentProfile?.name || currentUser?.email;
   document.getElementById('home-welcome-text').textContent = `Привет, ${name}!`;
-  const roleLabels = { admin: '👑 Управляющий', manager: '📋 Менеджер', employee: '👤 Сотрудник', boss: '🦉 Владелец (наблюдатель)' };
+  const roleLabels = { admin: t('role.admin'), manager: t('role.manager'), employee: t('role.employee'), boss: t('role.boss') };
   document.getElementById('home-role-text').textContent = roleLabels[role] || '';
   loadHomeAnnouncements();
   try {

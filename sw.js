@@ -3,7 +3,7 @@
 // Данные (Supabase API) НЕ кешируются — только сеть, чтобы никогда
 // не показывать устаревшие задачи/чат/финансы как актуальные.
 
-const CACHE_VERSION = 'slon-shell-v6';
+const CACHE_VERSION = 'slon-shell-v7';
 
 const SHELL_FILES = [
   '/',
@@ -12,6 +12,7 @@ const SHELL_FILES = [
   '/icon-192.png',
   '/icon-512.png',
   '/logo-head.png',
+  '/js/i18n.js',
   '/js/core.js',
   '/js/home.js',
   '/js/profile.js',

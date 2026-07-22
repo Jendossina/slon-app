@@ -123,6 +123,9 @@ async function loadProfile2() {
     const passwordBlock = `<div class="section-label">Безопасность</div>
       <div class="card"><button onclick="openMyPasswordModal()" style="width:100%;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;cursor:pointer">🔑 Сменить мой пароль</button>${bioBtn}</div>`;
 
+    // Переключатель языка приложения (RU / UZ) — доступен всем
+    const langBlock = `<div class="section-label">🌐 ${t('profile.language')}</div><div class="card">${langSwitcherHTML()}</div>`;
+
     // Настройки уведомлений — только управляющему и владельцу (остальным по умолчанию всё включено)
     let notifBlock = '';
     if(isAdmin() || isBoss()) {
@@ -150,7 +153,7 @@ async function loadProfile2() {
 
     const tabsBar = `<div class="hscroll" style="display:flex;gap:6px;overflow-x:auto;margin-bottom:14px">${tabs.map(t=>`<button onclick="switchProfileTab('${t.id}')" style="flex:0 0 auto;padding:8px 14px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${t.id===profileTab?'var(--gold-dark)':'var(--surface-2)'};color:${t.id===profileTab?'#fff':'var(--text-primary)'}">${t.label}</button>`).join('')}</div>`;
 
-    content.innerHTML = header + tabsBar + `<div id="profile-tab-body">${tabsContent[profileTab]}</div>` + notifBlock + passwordBlock;
+    content.innerHTML = header + tabsBar + `<div id="profile-tab-body">${tabsContent[profileTab]}</div>` + langBlock + notifBlock + passwordBlock;
   } catch(e) { console.error(e); content.innerHTML = '<div class="loading">Ошибка загрузки</div>'; }
 }
 

@@ -450,7 +450,7 @@ async function doLogin() {
   document.getElementById('login-error').textContent = '';
   const email = login.includes('@') ? login : login + '@slon.uz';
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-  if(error) { document.getElementById('login-error').textContent = 'Неверный логин или пароль'; return; }
+  if(error) { document.getElementById('login-error').textContent = t('login.error'); return; }
   // Запомнить логин, если стоит галочка
   const remember = document.getElementById('login-remember')?.checked;
   if(remember) localStorage.setItem('slon-remember-login', login);
@@ -654,28 +654,28 @@ function applyRolePermissions() {
 function openMoreMenu() {
   // Группы разделов. show определяет, кому пункт виден.
   const groups = [
-    { title:'Личное', items:[
-      {id:'profile', label:'📄 Личный кабинет', show:true},
-      {id:'mynotes', label:'📝 Мой задачник', show: canEditData() || isBoss()},
-      {id:'help', label:'💡 Помощник', show:true},
+    { title:t('more.group.personal'), items:[
+      {id:'profile', label:'📄 '+t('more.profile'), show:true},
+      {id:'mynotes', label:'📝 '+t('more.mynotes'), show: canEditData() || isBoss()},
+      {id:'help', label:'💡 '+t('more.help'), show:true},
     ]},
-    { title:'Работа', items:[
-      {id:'knowledge', label:'📚 База знаний', show:true},
-      {id:'supply', label:'🧴 Хозчасть', show:true},
-      {id:'dishware', label:'🍽️ Посуда', show:true},
-      {id:'calendar', label:'📅 Календарь', show:true},
+    { title:t('more.group.work'), items:[
+      {id:'knowledge', label:'📚 '+t('more.knowledge'), show:true},
+      {id:'supply', label:'🧴 '+t('more.supply'), show:true},
+      {id:'dishware', label:'🍽️ '+t('more.dishware'), show:true},
+      {id:'calendar', label:'📅 '+t('more.calendar'), show:true},
     ]},
-    { title:'Команда', items:[
-      {id:'hr', label:'👥 Сотрудники', show:true},
-      {id:'teamchat', label:'💬 Общий чат', show:true},
-      {id:'feed', label:'📢 Лента', show:true},
-      {id:'reviews', label:'⭐ Отзывы', show:true},
+    { title:t('more.group.team'), items:[
+      {id:'hr', label:'👥 '+t('more.hr'), show:true},
+      {id:'teamchat', label:'💬 '+t('more.teamchat'), show:true},
+      {id:'feed', label:'📢 '+t('more.feed'), show:true},
+      {id:'reviews', label:'⭐ '+t('more.reviews'), show:true},
     ]},
-    { title:'Управление', items:[
-      {id:'finance', label:'💰 Финансы', show: canSeeFinance()},
-      {id:'dashboard', label:'📈 Дашборд', show: canSeeAdminPanel()},
-      {id:'directory', label:'📇 Справочник', show: canEditData() || isBoss()},
-      {id:'admin', label:'⚙️ Админ-панель', show: canOpenAdminPanel()},
+    { title:t('more.group.manage'), items:[
+      {id:'finance', label:'💰 '+t('more.finance'), show: canSeeFinance()},
+      {id:'dashboard', label:'📈 '+t('more.dashboard'), show: canSeeAdminPanel()},
+      {id:'directory', label:'📇 '+t('more.directory'), show: canEditData() || isBoss()},
+      {id:'admin', label:'⚙️ '+t('more.admin'), show: canOpenAdminPanel()},
     ]},
   ];
   const menu = document.getElementById('more-menu-items');
