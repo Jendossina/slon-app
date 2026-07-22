@@ -10,7 +10,7 @@ function dashActiveFilials() {
 }
 
 function dashPeriodLabel() {
-  return dashPeriod==='today' ? 'сегодня' : dashPeriod==='week' ? 'за неделю' : 'за месяц';
+  return dashPeriod==='today' ? t('dash.plToday') : dashPeriod==='week' ? t('dash.plWeek') : t('dash.plMonth');
 }
 
 // Текущий период
@@ -57,11 +57,11 @@ function dashDelta(cur, prev, inverse) {
 
 async function loadDashboard() {
   const sw = document.getElementById('dash-period-switcher');
-  const periods = [{id:'today',label:'Сегодня'},{id:'week',label:'Неделя'},{id:'month',label:'Месяц'}];
+  const periods = [{id:'today',label:t('dash.periodToday')},{id:'week',label:t('dash.periodWeek')},{id:'month',label:t('dash.periodMonth')}];
   if(sw) sw.innerHTML = periods.map(p=>`<button onclick="setDashPeriod('${p.id}')" style="flex:1;padding:9px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:${p.id===dashPeriod?'var(--gold-dark)':'var(--surface-2)'};color:${p.id===dashPeriod?'#fff':'var(--text-primary)'}">${p.label}</button>`).join('');
 
   const content = document.getElementById('dashboard-content');
-  content.innerHTML = '<div class="loading">Собираю данные...</div>';
+  content.innerHTML = `<div class="loading">${t('dash.collecting')}</div>`;
 
   const activeFilials = dashActiveFilials();
   const fids = activeFilials.map(f=>f.id);
@@ -74,7 +74,7 @@ async function loadDashboard() {
   const canFin = canSeeFinance();
   const money = n => formatNum(Math.round(n));
   const pl = dashPeriodLabel();
-  const scope = activeFilials.length===1 ? activeFilials[0].name : 'Вся сеть';
+  const scope = activeFilials.length===1 ? activeFilials[0].name : t('dash.allNetwork');
 
   try {
     // ---- Текущий период ----
@@ -155,69 +155,69 @@ async function loadDashboard() {
     html += `<div class="card" style="background:linear-gradient(135deg,#1a2e1a,#2d4a2d);border:none;color:#e9f0e9;margin-bottom:12px">
       <div style="font-size:11px;opacity:0.7;margin-bottom:10px;text-transform:uppercase">${scope} · ${pl}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-        ${canFin?`<div><div style="font-size:22px;font-weight:700">${money(income)}${dashDelta(income,pIncome)}</div><div style="font-size:11px;opacity:0.7">выручка, сум</div></div>
-        <div><div style="font-size:22px;font-weight:700;color:${profit>=0?'#a3e07a':'#ff9b9b'}">${money(profit)}${dashDelta(profit,pProfit)}</div><div style="font-size:11px;opacity:0.7">прибыль, сум</div></div>`:''}
-        <div><div style="font-size:22px;font-weight:700">${tasksDone}/${tasksTotal}</div><div style="font-size:11px;opacity:0.7">задачи · ${taskPct}%</div></div>
-        <div><div style="font-size:22px;font-weight:700;color:${lates>0?'#ff9b9b':'#a3e07a'}">${lates}${dashDelta(lates,pLates,true)}</div><div style="font-size:11px;opacity:0.7">опозданий</div></div>
+        ${canFin?`<div><div style="font-size:22px;font-weight:700">${money(income)}${dashDelta(income,pIncome)}</div><div style="font-size:11px;opacity:0.7">${t('dash.revenue')}</div></div>
+        <div><div style="font-size:22px;font-weight:700;color:${profit>=0?'#a3e07a':'#ff9b9b'}">${money(profit)}${dashDelta(profit,pProfit)}</div><div style="font-size:11px;opacity:0.7">${t('dash.profit')}</div></div>`:''}
+        <div><div style="font-size:22px;font-weight:700">${tasksDone}/${tasksTotal}</div><div style="font-size:11px;opacity:0.7">${t('dash.tasksPct',{n:taskPct})}</div></div>
+        <div><div style="font-size:22px;font-weight:700;color:${lates>0?'#ff9b9b':'#a3e07a'}">${lates}${dashDelta(lates,pLates,true)}</div><div style="font-size:11px;opacity:0.7">${t('dash.lates')}</div></div>
       </div>
-      <div style="font-size:10px;opacity:0.55;margin-top:10px">↑↓ — сравнение с предыдущим периодом</div>
+      <div style="font-size:10px;opacity:0.55;margin-top:10px">${t('dash.compare')}</div>
     </div>`;
 
     // ФОТ как доля от выручки (главная цифра) + суммы факт/прогноз
     if(canFin) {
       const share = income>0 ? Math.round(actualFOT/income*100) : null;
-      const forecastLabel = dashPeriod==='month' ? 'прогноз к концу месяца' : 'по графику';
+      const forecastLabel = dashPeriod==='month' ? t('dash.forecastMonth') : t('dash.forecastSched');
       // Для гостевого бизнеса ФОТ обычно 25–35% от выручки: <30% зелёный, 30–45% жёлтый, выше красный
       const shareColor = share===null ? 'var(--text-muted)' : share>45 ? '#A32D2D' : share>30 ? '#8a6a2f' : '#3B6D11';
       html += `<div class="card">
-        <div style="font-size:13px;font-weight:700;color:var(--gold-dark);margin-bottom:8px">💰 ФОТ · доля от выручки · ${pl}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--gold-dark);margin-bottom:8px">${t('dash.fotShare',{pl})}</div>
         <div style="font-size:34px;font-weight:800;color:${shareColor};line-height:1">${share!==null?share+'%':'—'}</div>
-        ${share===null?`<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Нет выручки за период — внесите доходы в разделе «Финансы», чтобы увидеть долю</div>`:''}
+        ${share===null?`<div style="font-size:11px;color:var(--text-muted);margin-top:4px">${t('dash.noRevenue')}</div>`:''}
         <div style="display:flex;gap:16px;font-size:12px;color:var(--text-muted);margin-top:10px;flex-wrap:wrap">
-          <div>ФОТ факт: <b style="color:var(--text-primary)">${money(actualFOT)}</b></div>
+          <div>${t('dash.fotActual')}<b style="color:var(--text-primary)">${money(actualFOT)}</b></div>
           <div>${forecastLabel}: <b style="color:var(--text-primary)">${money(plannedFOT)}</b></div>
-          ${income>0?`<div>выручка: <b style="color:var(--text-primary)">${money(income)}</b></div>`:''}
+          ${income>0?`<div>${t('dash.revenueLabel')}<b style="color:var(--text-primary)">${money(income)}</b></div>`:''}
         </div>
       </div>`;
     }
 
     // Явка и дисциплина
     html += `<div class="card">
-      <div style="font-size:13px;font-weight:700;color:var(--gold-dark);margin-bottom:10px">📋 Явка и дисциплина · ${pl}</div>
+      <div style="font-size:13px;font-weight:700;color:var(--gold-dark);margin-bottom:10px">${t('dash.attendance',{pl})}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center">
-        <div><div style="font-size:20px;font-weight:700;color:${attendPct>=90?'#3B6D11':attendPct>=70?'#8a6a2f':'#A32D2D'}">${plannedShifts?attendPct+'%':'—'}</div><div style="font-size:11px;color:var(--text-muted)">явка<br>${checkins}/${plannedShifts} смен</div></div>
-        <div><div style="font-size:20px;font-weight:700;color:${taskPct>=80?'#3B6D11':'#8a6a2f'}">${tasksTotal?taskPct+'%':'—'}</div><div style="font-size:11px;color:var(--text-muted)">задачи<br>${tasksDone}/${tasksTotal}</div></div>
-        <div><div style="font-size:20px;font-weight:700;color:${avgLate>0?'#A32D2D':'#3B6D11'}">${lates?avgLate+'м':'0'}</div><div style="font-size:11px;color:var(--text-muted)">ср. опоздание<br>${lates} случаев</div></div>
+        <div><div style="font-size:20px;font-weight:700;color:${attendPct>=90?'#3B6D11':attendPct>=70?'#8a6a2f':'#A32D2D'}">${plannedShifts?attendPct+'%':'—'}</div><div style="font-size:11px;color:var(--text-muted)">${t('dash.attend')}<br>${t('dash.shiftsOf',{done:checkins,total:plannedShifts})}</div></div>
+        <div><div style="font-size:20px;font-weight:700;color:${taskPct>=80?'#3B6D11':'#8a6a2f'}">${tasksTotal?taskPct+'%':'—'}</div><div style="font-size:11px;color:var(--text-muted)">${t('dash.tasks')}<br>${tasksDone}/${tasksTotal}</div></div>
+        <div><div style="font-size:20px;font-weight:700;color:${avgLate>0?'#A32D2D':'#3B6D11'}">${lates?avgLate+'м':'0'}</div><div style="font-size:11px;color:var(--text-muted)">${t('dash.avgLate')}<br>${t('dash.cases',{n:lates})}</div></div>
       </div>
-      ${penalties>0&&canFin?`<div style="font-size:11px;color:#A32D2D;margin-top:8px">Удержано штрафов за период: −${money(penalties)} сум</div>`:''}
+      ${penalties>0&&canFin?`<div style="font-size:11px;color:#A32D2D;margin-top:8px">${t('dash.penaltiesPeriod',{n:money(penalties)})}</div>`:''}
     </div>`;
 
     // Рейтинг сотрудников
     const medal = ['🥇','🥈','🥉'];
     let ratingHtml = '';
     if(topDone.length) {
-      ratingHtml += `<div style="font-size:12px;font-weight:600;color:#3B6D11;margin-bottom:6px">✅ Больше всего задач</div>`;
+      ratingHtml += `<div style="font-size:12px;font-weight:600;color:#3B6D11;margin-bottom:6px">${t('dash.mostTasks')}</div>`;
       ratingHtml += topDone.map((e,i)=>`<div class="list-item"><div class="item-info"><div class="item-name">${medal[i]||''} ${escapeHtml(e[0])}</div></div><span style="font-weight:700;color:var(--gold-dark)">${e[1]}</span></div>`).join('');
     }
     if(topLate.length) {
-      ratingHtml += `<div style="font-size:12px;font-weight:600;color:#A32D2D;margin:12px 0 6px">⏰ Больше всего опозданий</div>`;
+      ratingHtml += `<div style="font-size:12px;font-weight:600;color:#A32D2D;margin:12px 0 6px">${t('dash.mostLates')}</div>`;
       ratingHtml += topLate.map(e=>`<div class="list-item"><div class="item-info"><div class="item-name">${escapeHtml(e[0])}</div></div><span class="badge badge-red">${e[1]}</span></div>`).join('');
     }
-    if(!ratingHtml) ratingHtml = '<div class="empty"><div class="empty-text">Пока нет данных за период</div></div>';
-    html += `<div class="card"><div style="font-size:13px;font-weight:700;color:var(--gold-dark);margin-bottom:8px">🏆 Рейтинг сотрудников · ${pl}</div>${ratingHtml}</div>`;
+    if(!ratingHtml) ratingHtml = `<div class="empty"><div class="empty-text">${t('dash.noPeriodData')}</div></div>`;
+    html += `<div class="card"><div style="font-size:13px;font-weight:700;color:var(--gold-dark);margin-bottom:8px">${t('dash.rating',{pl})}</div>${ratingHtml}</div>`;
 
     // Брони и отзывы
     html += `<div class="card">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center">
-        <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">${books}</div><div style="font-size:11px;color:var(--text-muted)">броней ${pl}</div></div>
-        <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">👍${revPos} 👎${revNeg}</div><div style="font-size:11px;color:var(--text-muted)">отзывы</div></div>
+        <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">${books}</div><div style="font-size:11px;color:var(--text-muted)">${t('dash.bookings',{pl})}</div></div>
+        <div><div style="font-size:20px;font-weight:700;color:var(--text-primary)">👍${revPos} 👎${revNeg}</div><div style="font-size:11px;color:var(--text-muted)">${t('dash.reviews')}</div></div>
       </div>
     </div>`;
 
     content.innerHTML = html;
   } catch(e) {
     console.error('dashboard', e);
-    content.innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка загрузки: '+(e?.message||e)+'</div></div></div>';
+    content.innerHTML = `<div class="card"><div class="empty"><div class="empty-text">${t('dash.loadErr')+(e?.message||e)}</div></div></div>`;
   }
 }
 
