@@ -35,6 +35,7 @@ function applyStaticI18n(root) {
   root.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.getAttribute('data-i18n')); });
   root.querySelectorAll('[data-i18n-ph]').forEach(el => { el.setAttribute('placeholder', t(el.getAttribute('data-i18n-ph'))); });
   root.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.getAttribute('data-i18n-html')); });
+  root.querySelectorAll('[data-i18n-label]').forEach(el => { el.setAttribute('label', t(el.getAttribute('data-i18n-label'))); }); // <optgroup label>
   try { document.documentElement.setAttribute('lang', _lang); } catch(e) {}
 }
 
@@ -98,6 +99,32 @@ const I18N = {
     'tasks.dueLabel': 'Срок', 'tasks.addBtn': 'Добавить задачу', 'tasks.reportTitle': '📎 Отчёт о выполнении',
     'tasks.uploadHint': 'Нажми чтобы прикрепить фото или видео', 'tasks.sendReport': 'Отправить отчёт', 'tasks.doneNoPhoto': 'Отметить выполненным без фото',
     'tasks.discussion': '💬 Обсуждение', 'tasks.commentPh': 'Написать комментарий...', 'tasks.reportEmp': '📋 Отчёт сотрудника',
+    // HR / сотрудники / зарплата
+    'hr.title': 'Сотрудники', 'hr.searchPh': '🔍 Поиск по имени, должности...',
+    'hr.found': 'Найдено: {n}', 'hr.allStaff': '{n} человек в штате (все филиалы)', 'hr.onFilial': '{n} на филиале «{f}» · всего {total}',
+    'hr.dailyPayrollBtn': '💵 Ведомость на сегодня · {f}', 'hr.monthPayrollBtn': '💰 Зарплата за месяц · {f}',
+    'hr.showThisFilial': '📍 Показать только этот филиал', 'hr.showAll': '👥 Показать всех сотрудников',
+    'hr.geoBtn': '📍 Гео-отметка прихода · {f}', 'hr.nobodyFound': 'Никто не найден', 'hr.noEmpFilial': 'Нет сотрудников для этого филиала', 'hr.loadErr': 'Ошибка',
+    'hr.unavailableObserver': 'Недоступно в режиме наблюдателя', 'hr.unavailable': 'Недоступно',
+    'hr.gpsDetecting': '📍 Определяю координаты...', 'hr.gpsFail': 'Не удалось получить GPS. Включите геолокацию и разрешите доступ сайту.',
+    'hr.newPoint': 'Новая точка: ', 'hr.gpsAccuracy': 'точность GPS ±{n} м · нажмите «Сохранить»', 'hr.coordsCaught': '✅ Координаты пойманы — нажмите «Сохранить»',
+    'hr.setPointFirst': 'Сначала поставьте точку кнопкой «Поставить точку здесь»', 'hr.pointSaved': '✅ Точка «{f}» сохранена (радиус {r} м)', 'hr.geoOff': 'Гео-проверка отключена для этого филиала',
+    'hr.pointSet': '✅ Точка задана: ', 'hr.radius': 'радиус {r} м', 'hr.updatedBy': 'обновил: ', 'hr.pointNotSet': 'Точка ещё не задана — гео-проверка отключена. Встаньте внутри филиала и нажмите «Поставить точку здесь».',
+    'hr.calculating': 'Считаю...', 'hr.monthLedgerTitle': '💰 Ведомость · {month} · {f}',
+    'hr.monthLedgerHint': 'Оплата по сменам (с учётом вида смены и «один в баре») − штрафы за опоздания. Данные по филиалу «{f}».',
+    'hr.shiftsRate': '{n} смен · ставка {r} = {e}', 'hr.penalty': 'штраф −{p}', 'hr.totalFund': 'ИТОГО фонд оплаты', 'hr.noMonthData': 'Нет данных за месяц',
+    'hr.dailyLedgerTitle': '💵 Ведомость на сегодня · {date} · {f}', 'hr.nobodyToday': 'На сегодня в смене никого нет',
+    'hr.dailyHint': 'Оплата по смене − штрафы + премии. По графику на сегодня, филиал «{f}».',
+    'hr.notCheckedIn': 'не отметился', 'hr.arrivedLate': 'пришёл <b>{time}</b> · <span style="color:#A13C3C">опоздал {m}м</span>', 'hr.arrivedOnTime': 'пришёл <b>{time}</b> · <span style="color:#3B6D11">вовремя</span>',
+    'hr.rate': 'Ставка {r}', 'hr.premiumPlus': 'премия +{s}', 'hr.premiumFallback': 'премия', 'hr.addPremiumBtn': '+ Премия', 'hr.toPay': 'К выплате: {t}', 'hr.totalToday': 'ИТОГО к выплате за сегодня',
+    'hr.premiumOnlyMgr': 'Премии может давать менеджер или управляющий', 'hr.enterPremium': 'Введите сумму премии', 'hr.premiumAdded': '✅ Премия добавлена', 'hr.removePremium': 'Убрать эту премию?',
+    'hr.premiumTitle': '➕ Премия', 'hr.premiumSum': 'Сумма премии (сум)', 'hr.premiumFor': 'За что (необязательно)', 'hr.premiumForPh': 'Например: помог на кухне', 'hr.addPremiumSubmit': 'Добавить премию',
+    'hr.enterName': 'Введите имя', 'hr.enterEmailPass': 'Введите email и пароль', 'hr.empAdded': '✅ Сотрудник добавлен',
+    'hr.newEmp': 'Новый сотрудник', 'hr.fullName': 'Имя и фамилия', 'hr.role': 'Должность', 'hr.deptForSchedule': 'Отдел (для графика)', 'hr.noDept': '— Без отдела (не в графике) —',
+    'hr.phone': 'Телефон', 'hr.salaryPerShift': 'Ставка за смену (сум)', 'hr.login': 'Логин (без @slon.uz)', 'hr.password': 'Пароль', 'hr.systemRole': 'Роль в системе',
+    'hr.roleEmployee': 'Сотрудник', 'hr.roleManager': 'Менеджер', 'hr.roleAdmin': 'Управляющий', 'hr.roleBoss': 'Владелец (наблюдатель)',
+    'hr.filialsCanWork': 'На каких филиалах может работать', 'hr.addEmpSubmit': 'Добавить сотрудника',
+    'hr.grpHall': 'Зал', 'hr.grpBar': 'Бар', 'hr.grpHookah': 'Кальянная', 'hr.grpKitchen': 'Кухня', 'hr.grpMgmt': 'Руководство', 'hr.grpOther': 'Прочее',
     // Финансы
     'fin.title': 'Финансы', 'fin.income': 'Доходы', 'fin.expenses': 'Расходы', 'fin.sumPerMonth': 'сум за месяц',
     'fin.profitMonth': 'Прибыль за месяц', 'fin.monthDefault': 'Месяц', 'fin.dayDefault': 'День', 'fin.opsMonth': 'Операции за месяц',
@@ -230,6 +257,32 @@ const I18N = {
     'tasks.dueLabel': 'Муддат', 'tasks.addBtn': 'Вазифа қўшиш', 'tasks.reportTitle': '📎 Бажарилганлик ҳисоботи',
     'tasks.uploadHint': 'Фото ёки видео бириктириш учун босинг', 'tasks.sendReport': 'Ҳисоботни юбориш', 'tasks.doneNoPhoto': 'Фотосиз бажарилган деб белгилаш',
     'tasks.discussion': '💬 Муҳокама', 'tasks.commentPh': 'Шарҳ ёзиш...', 'tasks.reportEmp': '📋 Ходим ҳисоботи',
+    // HR / сотрудники / зарплата
+    'hr.title': 'Ходимлар', 'hr.searchPh': '🔍 Исм, лавозим бўйича қидириш...',
+    'hr.found': 'Топилди: {n}', 'hr.allStaff': 'Штатда {n} киши (барча филиаллар)', 'hr.onFilial': '«{f}» филиалида {n} · жами {total}',
+    'hr.dailyPayrollBtn': '💵 Бугунги ведомость · {f}', 'hr.monthPayrollBtn': '💰 Ойлик маош · {f}',
+    'hr.showThisFilial': '📍 Фақат шу филиални кўрсатиш', 'hr.showAll': '👥 Барча ходимларни кўрсатиш',
+    'hr.geoBtn': '📍 Келишни гео-белгилаш · {f}', 'hr.nobodyFound': 'Ҳеч ким топилмади', 'hr.noEmpFilial': 'Бу филиал учун ходимлар йўқ', 'hr.loadErr': 'Хато',
+    'hr.unavailableObserver': 'Кузатувчи режимида мавжуд эмас', 'hr.unavailable': 'Мавжуд эмас',
+    'hr.gpsDetecting': '📍 Координаталар аниқланмоқда...', 'hr.gpsFail': 'GPS олиб бўлмади. Геолокацияни ёқинг ва сайтга рухсат беринг.',
+    'hr.newPoint': 'Янги нуқта: ', 'hr.gpsAccuracy': 'GPS аниқлиги ±{n} м · «Сақлаш» ни босинг', 'hr.coordsCaught': '✅ Координаталар олинди — «Сақлаш» ни босинг',
+    'hr.setPointFirst': 'Аввал «Шу ерга нуқта қўйиш» тугмаси билан нуқта қўйинг', 'hr.pointSaved': '✅ «{f}» нуқтаси сақланди (радиус {r} м)', 'hr.geoOff': 'Бу филиал учун гео-текширув ўчирилди',
+    'hr.pointSet': '✅ Нуқта белгиланган: ', 'hr.radius': 'радиус {r} м', 'hr.updatedBy': 'янгилади: ', 'hr.pointNotSet': 'Нуқта ҳали белгиланмаган — гео-текширув ўчирилган. Филиал ичида туриб «Шу ерга нуқта қўйиш» ни босинг.',
+    'hr.calculating': 'Ҳисобланмоқда...', 'hr.monthLedgerTitle': '💰 Ведомость · {month} · {f}',
+    'hr.monthLedgerHint': 'Сменалар бўйича тўлов (смена тури ва «барда ёлғиз» ҳисобга олинган) − кечикиш жарималари. «{f}» филиали маълумотлари.',
+    'hr.shiftsRate': '{n} смена · ставка {r} = {e}', 'hr.penalty': 'жарима −{p}', 'hr.totalFund': 'ЖАМИ тўлов фонди', 'hr.noMonthData': 'Ой учун маълумот йўқ',
+    'hr.dailyLedgerTitle': '💵 Бугунги ведомость · {date} · {f}', 'hr.nobodyToday': 'Бугунга сменада ҳеч ким йўқ',
+    'hr.dailyHint': 'Смена бўйича тўлов − жарималар + мукофотлар. Бугунги график, «{f}» филиали.',
+    'hr.notCheckedIn': 'белгиламади', 'hr.arrivedLate': 'келди <b>{time}</b> · <span style="color:#A13C3C">{m}д кечикди</span>', 'hr.arrivedOnTime': 'келди <b>{time}</b> · <span style="color:#3B6D11">ўз вақтида</span>',
+    'hr.rate': 'Ставка {r}', 'hr.premiumPlus': 'мукофот +{s}', 'hr.premiumFallback': 'мукофот', 'hr.addPremiumBtn': '+ Мукофот', 'hr.toPay': 'Тўлашга: {t}', 'hr.totalToday': 'ЖАМИ бугунга тўлашга',
+    'hr.premiumOnlyMgr': 'Мукофотни менежер ёки бошқарувчи бера олади', 'hr.enterPremium': 'Мукофот суммасини киритинг', 'hr.premiumAdded': '✅ Мукофот қўшилди', 'hr.removePremium': 'Бу мукофотни олиб ташлайсизми?',
+    'hr.premiumTitle': '➕ Мукофот', 'hr.premiumSum': 'Мукофот суммаси (сўм)', 'hr.premiumFor': 'Нима учун (ихтиёрий)', 'hr.premiumForPh': 'Масалан: ошхонада ёрдам берди', 'hr.addPremiumSubmit': 'Мукофот қўшиш',
+    'hr.enterName': 'Исмни киритинг', 'hr.enterEmailPass': 'Email ва паролни киритинг', 'hr.empAdded': '✅ Ходим қўшилди',
+    'hr.newEmp': 'Янги ходим', 'hr.fullName': 'Исм ва фамилия', 'hr.role': 'Лавозим', 'hr.deptForSchedule': 'Бўлим (график учун)', 'hr.noDept': '— Бўлимсиз (графикда эмас) —',
+    'hr.phone': 'Телефон', 'hr.salaryPerShift': 'Смена ставкаси (сўм)', 'hr.login': 'Логин (@slon.uz сиз)', 'hr.password': 'Парол', 'hr.systemRole': 'Тизимдаги роль',
+    'hr.roleEmployee': 'Ходим', 'hr.roleManager': 'Менежер', 'hr.roleAdmin': 'Бошқарувчи', 'hr.roleBoss': 'Эга (кузатувчи)',
+    'hr.filialsCanWork': 'Қайси филиалларда ишлай олади', 'hr.addEmpSubmit': 'Ходим қўшиш',
+    'hr.grpHall': 'Зал', 'hr.grpBar': 'Бар', 'hr.grpHookah': 'Кальянхона', 'hr.grpKitchen': 'Ошхона', 'hr.grpMgmt': 'Раҳбарият', 'hr.grpOther': 'Бошқа',
     // Финансы
     'fin.title': 'Молия', 'fin.income': 'Даромадлар', 'fin.expenses': 'Харажатлар', 'fin.sumPerMonth': 'ой учун сўм',
     'fin.profitMonth': 'Ой фойдаси', 'fin.monthDefault': 'Ой', 'fin.dayDefault': 'Кун', 'fin.opsMonth': 'Ой операциялари',

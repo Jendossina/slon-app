@@ -427,8 +427,8 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </div>
 
   <div class="screen" id="screen-hr">
-    <div class="header"><h1>Сотрудники</h1><p id="hr-count">Загрузка...</p></div>
-    <div style="padding:8px 12px 0"><input class="form-input" id="hr-search" placeholder="🔍 Поиск по имени, должности..." oninput="hrSearch(this.value)" style="margin:0"></div>
+    <div class="header"><h1 data-i18n="hr.title">Сотрудники</h1><p id="hr-count" data-i18n="common.loading">Загрузка...</p></div>
+    <div style="padding:8px 12px 0"><input class="form-input" id="hr-search" placeholder="🔍 Поиск по имени, должности..." data-i18n-ph="hr.searchPh" oninput="hrSearch(this.value)" style="margin:0"></div>
     <div class="content"><div id="hr-payroll-btn"></div><div class="card" id="hr-list"><div class="loading">Загрузка...</div></div></div>
     <button class="fab" id="fab-hr" onclick="openModal('modal-add-employee')" style="display:none">+</button>
   </div>
@@ -1012,7 +1012,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-payroll')">✕</button>
     <div class="modal-title" id="payroll-title">💰 Зарплатная ведомость</div>
-    <div id="payroll-body"><div class="loading">Загрузка...</div></div>
+    <div id="payroll-body"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
   </div>
 </div>
 
@@ -1020,18 +1020,18 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-daily-payroll')">✕</button>
     <div class="modal-title" id="daily-payroll-title">💵 Ведомость на сегодня</div>
-    <div id="daily-payroll-body"><div class="loading">Загрузка...</div></div>
+    <div id="daily-payroll-body"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
   </div>
 </div>
 
 <div class="modal-overlay" id="modal-add-premium">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-premium')">✕</button>
-    <div class="modal-title">➕ Премия</div>
+    <div class="modal-title" data-i18n="hr.premiumTitle">➕ Премия</div>
     <div style="font-size:13px;color:var(--gold-dark);margin-bottom:12px" id="premium-emp-name">—</div>
-    <div class="form-group"><label class="form-label" for="premium-amount">Сумма премии (сум)</label><input class="form-input" id="premium-amount" type="number" inputmode="numeric" placeholder="50000"></div>
-    <div class="form-group"><label class="form-label" for="premium-note">За что (необязательно)</label><input class="form-input" id="premium-note" placeholder="Например: помог на кухне"></div>
-    <button class="btn btn-primary" onclick="savePremium()">Добавить премию</button>
+    <div class="form-group"><label class="form-label" for="premium-amount" data-i18n="hr.premiumSum">Сумма премии (сум)</label><input class="form-input" id="premium-amount" type="number" inputmode="numeric" placeholder="50000"></div>
+    <div class="form-group"><label class="form-label" for="premium-note" data-i18n="hr.premiumFor">За что (необязательно)</label><input class="form-input" id="premium-note" placeholder="Например: помог на кухне" data-i18n-ph="hr.premiumForPh"></div>
+    <button class="btn btn-primary" onclick="savePremium()" data-i18n="hr.addPremiumSubmit">Добавить премию</button>
   </div>
 </div>
 
@@ -1123,28 +1123,28 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-add-employee">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-employee')">✕</button>
-    <div class="modal-title">Новый сотрудник</div>
-    <div class="form-group"><label class="form-label" for="emp-name">Имя и фамилия</label><input class="form-input" id="emp-name" placeholder="Алиша Каримова"></div>
-    <div class="form-group"><label class="form-label" for="emp-role">Должность</label>
-      <select class="form-select" id="emp-role"><optgroup label="Зал"><option>Официант</option><option>Администратор</option></optgroup><optgroup label="Бар"><option>Бармен</option><option>Старший бармен</option><option>Шеф бармен</option><option>Бар менеджер</option></optgroup><optgroup label="Кальянная"><option>Кальянный мастер</option><option>Старший кальянный мастер</option><option>Шеф кальянной станции</option></optgroup><optgroup label="Кухня"><option>Повар</option><option>Су-шеф</option><option>Шеф повар</option></optgroup><optgroup label="Руководство"><option>Управляющий</option><option>BOSS</option></optgroup><optgroup label="Прочее"><option>Менеджер</option><option>Охранник</option><option>Уборщик</option></optgroup></select>
+    <div class="modal-title" data-i18n="hr.newEmp">Новый сотрудник</div>
+    <div class="form-group"><label class="form-label" for="emp-name" data-i18n="hr.fullName">Имя и фамилия</label><input class="form-input" id="emp-name" placeholder="Алиша Каримова"></div>
+    <div class="form-group"><label class="form-label" for="emp-role" data-i18n="hr.role">Должность</label>
+      <select class="form-select" id="emp-role"><optgroup label="Зал" data-i18n-label="hr.grpHall"><option>Официант</option><option>Администратор</option></optgroup><optgroup label="Бар" data-i18n-label="hr.grpBar"><option>Бармен</option><option>Старший бармен</option><option>Шеф бармен</option><option>Бар менеджер</option></optgroup><optgroup label="Кальянная" data-i18n-label="hr.grpHookah"><option>Кальянный мастер</option><option>Старший кальянный мастер</option><option>Шеф кальянной станции</option></optgroup><optgroup label="Кухня" data-i18n-label="hr.grpKitchen"><option>Повар</option><option>Су-шеф</option><option>Шеф повар</option></optgroup><optgroup label="Руководство" data-i18n-label="hr.grpMgmt"><option>Управляющий</option><option>BOSS</option></optgroup><optgroup label="Прочее" data-i18n-label="hr.grpOther"><option>Менеджер</option><option>Охранник</option><option>Уборщик</option></optgroup></select>
     </div>
-    <div class="form-group"><label class="form-label" for="emp-department">Отдел (для графика)</label>
-      <select class="form-select" id="emp-department"><option value="">— Без отдела (не в графике) —</option><option>Официанты</option><option>Бармены</option><option>Кальянные мастера</option><option>Повара</option><option>Техперсонал</option><option>Менеджеры</option></select>
+    <div class="form-group"><label class="form-label" for="emp-department" data-i18n="hr.deptForSchedule">Отдел (для графика)</label>
+      <select class="form-select" id="emp-department"><option value="" data-i18n="hr.noDept">— Без отдела (не в графике) —</option><option>Официанты</option><option>Бармены</option><option>Кальянные мастера</option><option>Повара</option><option>Техперсонал</option><option>Менеджеры</option></select>
     </div>
-    <div class="form-group"><label class="form-label" for="emp-phone">Телефон</label><input class="form-input" id="emp-phone" placeholder="+998 90 123 45 67" type="tel"></div>
-    <div class="form-group"><label class="form-label" for="emp-salary">Ставка за смену (сум)</label><input class="form-input" id="emp-salary" placeholder="200000" type="number"></div>
-    <div class="form-group"><label class="form-label" for="emp-email">Логин (без @slon.uz)</label><input class="form-input" id="emp-email" placeholder="alisha" type="text"></div>
-    <div class="form-group"><label class="form-label" for="emp-password">Пароль</label><input class="form-input" id="emp-password" placeholder="минимум 6 символов"></div>
-    <div class="form-group"><label class="form-label" for="emp-system-role">Роль в системе</label>
-      <select class="form-select" id="emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option><option value="admin">Управляющий</option><option value="boss">Владелец (наблюдатель)</option></select>
+    <div class="form-group"><label class="form-label" for="emp-phone" data-i18n="hr.phone">Телефон</label><input class="form-input" id="emp-phone" placeholder="+998 90 123 45 67" type="tel"></div>
+    <div class="form-group"><label class="form-label" for="emp-salary" data-i18n="hr.salaryPerShift">Ставка за смену (сум)</label><input class="form-input" id="emp-salary" placeholder="200000" type="number"></div>
+    <div class="form-group"><label class="form-label" for="emp-email" data-i18n="hr.login">Логин (без @slon.uz)</label><input class="form-input" id="emp-email" placeholder="alisha" type="text"></div>
+    <div class="form-group"><label class="form-label" for="emp-password" data-i18n="hr.password">Пароль</label><input class="form-input" id="emp-password" placeholder="минимум 6 символов"></div>
+    <div class="form-group"><label class="form-label" for="emp-system-role" data-i18n="hr.systemRole">Роль в системе</label>
+      <select class="form-select" id="emp-system-role"><option value="employee" data-i18n="hr.roleEmployee">Сотрудник</option><option value="manager" data-i18n="hr.roleManager">Менеджер</option><option value="admin" data-i18n="hr.roleAdmin">Управляющий</option><option value="boss" data-i18n="hr.roleBoss">Владелец (наблюдатель)</option></select>
     </div>
-    <div class="form-group"><label class="form-label">На каких филиалах может работать</label>
+    <div class="form-group"><label class="form-label" data-i18n="hr.filialsCanWork">На каких филиалах может работать</label>
       <div class="filial-checkbox-group" id="emp-filials-group">
         <label><input type="checkbox" class="emp-filial-checkbox" value="istikbol" checked> Истикбол</label>
         <label><input type="checkbox" class="emp-filial-checkbox" value="chekhov" checked> Чехов</label>
       </div>
     </div>
-    <button class="btn btn-primary" onclick="addEmployee()">Добавить сотрудника</button>
+    <button class="btn btn-primary" onclick="addEmployee()" data-i18n="hr.addEmpSubmit">Добавить сотрудника</button>
   </div>
 </div>
 
