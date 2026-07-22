@@ -271,7 +271,7 @@ async function loadHomeAnnouncements() {
     if(!anns || anns.length===0) return;
     el.innerHTML = anns.map(a=>`
       <div class="card" style="background:linear-gradient(135deg,#3a1f1f,#5a2d2d);border:none;color:#f5e9e9;margin-bottom:12px;cursor:pointer" onclick="feedTab='ann';showScreen('feed',null)">
-        <div style="font-size:11px;opacity:0.7;margin-bottom:4px">📢 ВАЖНОЕ ОБЪЯВЛЕНИЕ</div>
+        <div style="font-size:11px;opacity:0.7;margin-bottom:4px">${t('home.important')}</div>
         <div style="font-size:16px;font-weight:700">${escapeHtml(a.title)}</div>
         ${a.text?`<div style="font-size:13px;opacity:0.9;margin-top:4px;line-height:1.5">${escapeHtml(a.text.slice(0,120))}${a.text.length>120?'…':''}</div>`:''}
       </div>`).join('');

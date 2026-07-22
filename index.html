@@ -404,7 +404,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     </div>
     <div class="content">
       <div class="welcome">
-        <h2 id="home-welcome-text">Добро пожаловать!</h2>
+        <h2 id="home-welcome-text" data-i18n="home.welcomeDefault">Добро пожаловать!</h2>
         <p id="home-role-text"></p>
       </div>
       <div id="home-announcements"></div>
@@ -413,16 +413,16 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <div id="home-salary-card"></div>
       <div id="telegram-link-card"></div>
       <div class="grid2" id="home-stats-grid" style="display:none">
-        <div class="card"><div class="card-title">Выручка сегодня</div><div class="stat-val" id="home-revenue">—</div><div class="stat-sub">сум</div></div>
-        <div class="card"><div class="card-title">Брони</div><div class="stat-val" id="home-bookings">—</div><div class="stat-sub">на сегодня</div></div>
+        <div class="card"><div class="card-title" data-i18n="home.stats.revenue">Выручка сегодня</div><div class="stat-val" id="home-revenue">—</div><div class="stat-sub" data-i18n="common.sum">сум</div></div>
+        <div class="card"><div class="card-title" data-i18n="home.stats.bookings">Брони</div><div class="stat-val" id="home-bookings">—</div><div class="stat-sub" data-i18n="home.stats.forToday">на сегодня</div></div>
       </div>
       <div class="card">
-        <div class="card-title">Мои задачи</div>
+        <div class="card-title" data-i18n="home.myTasks">Мои задачи</div>
         <div class="progress-track"><div class="progress-fill" id="home-progress-bar" style="width:0%"></div></div>
-        <div class="stat-sub" style="margin-top:8px" id="home-tasks-text">Загрузка...</div>
+        <div class="stat-sub" style="margin-top:8px" id="home-tasks-text" data-i18n="common.loading">Загрузка...</div>
       </div>
-      <div class="section-label">Задачи на сегодня</div>
-      <div class="card" id="home-my-tasks"><div class="loading">Загрузка...</div></div>
+      <div class="section-label" data-i18n="home.tasksToday">Задачи на сегодня</div>
+      <div class="card" id="home-my-tasks"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
     </div>
   </div>
 

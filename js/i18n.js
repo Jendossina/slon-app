@@ -63,8 +63,26 @@ const I18N = {
     'role.admin': '👑 Управляющий', 'role.manager': '📋 Менеджер', 'role.employee': '👤 Сотрудник', 'role.boss': '🦉 Владелец (наблюдатель)',
     // Личный кабинет
     'profile.language': 'Язык приложения',
+    // Главная
+    'home.welcomeDefault': 'Добро пожаловать!', 'home.welcome': 'Привет, {name}!',
+    'home.stats.revenue': 'Выручка сегодня', 'home.stats.bookings': 'Брони', 'home.stats.forToday': 'на сегодня',
+    'home.myTasks': 'Мои задачи', 'home.tasksToday': 'Задачи на сегодня',
+    'home.noTasksToday': 'Задач на сегодня нет', 'home.tasksDone': '{done} из {total} выполнено',
+    'home.dayOff': 'Сегодня выходной', 'home.shiftToday': 'ТВОЯ СМЕНА СЕГОДНЯ',
+    'home.important': '📢 ВАЖНОЕ ОБЪЯВЛЕНИЕ',
+    'home.tg.title': '🔔 Подключи Telegram-уведомления', 'home.tg.desc': 'Получай уведомления о новых задачах прямо в Telegram', 'home.tg.save': 'Сохранить',
+    // Отметка на смену (явка)
+    'att.title': 'Отметка на смену', 'att.startsAt': 'Смена начинается в {time}. Для отметки нужно снять короткое видео на месте.',
+    'att.recordBtn': '🎥 Снять видео и отметить приход', 'att.arrivedAt': 'Пришёл в', 'att.late': 'Опоздание', 'att.onTime': 'Вовремя',
+    'att.checkoutBtn': '🚪 Отметить уход', 'att.shiftDone': 'Смена завершена', 'att.came': 'Пришёл', 'att.left': 'Ушёл',
+    'att.loadErr': 'Не удалось загрузить. Проверьте соединение и обновите страницу.',
+    'att.needVideo': 'Нужно именно видео с камеры', 'att.checkGeo': '📍 Проверяю геопозицию...', 'att.uploadingVideo': '⏳ Загружаю видео...',
+    'att.videoErr': 'Ошибка загрузки видео: ', 'att.lateToast': '⏰ Опоздание {min} мин · штраф {pen} сум', 'att.onTimeToast': '✅ Отмечено вовремя!',
+    'att.checkoutToast': '✅ Уход отмечен',
+    // Зарплата (карточка на главной)
+    'salary.todayTitle': 'Моя зарплата · сегодня', 'salary.rate': 'Ставка', 'salary.notMarked': 'Смена сегодня ещё не отмечена', 'salary.penalty': 'Штраф',
     // Общее
-    'common.loading': 'Загрузка...', 'common.logout': 'Выйти',
+    'common.loading': 'Загрузка...', 'common.logout': 'Выйти', 'common.sum': 'сум', 'common.error': 'Ошибка: ',
   },
   uz: {
     // Нижняя навигация
@@ -85,7 +103,25 @@ const I18N = {
     'role.admin': '👑 Бошқарувчи', 'role.manager': '📋 Менежер', 'role.employee': '👤 Ходим', 'role.boss': '🦉 Эга (кузатувчи)',
     // Личный кабинет
     'profile.language': 'Илова тили',
+    // Главная
+    'home.welcomeDefault': 'Хуш келибсиз!', 'home.welcome': 'Салом, {name}!',
+    'home.stats.revenue': 'Бугунги тушум', 'home.stats.bookings': 'Бронлар', 'home.stats.forToday': 'бугунга',
+    'home.myTasks': 'Менинг вазифаларим', 'home.tasksToday': 'Бугунги вазифалар',
+    'home.noTasksToday': 'Бугунга вазифа йўқ', 'home.tasksDone': '{total} тадан {done} таси бажарилди',
+    'home.dayOff': 'Бугун дам олиш куни', 'home.shiftToday': 'БУГУНГИ СМЕНАНГ',
+    'home.important': '📢 МУҲИМ ЭЪЛОН',
+    'home.tg.title': '🔔 Telegram хабарномаларини улаш', 'home.tg.desc': 'Янги вазифалар ҳақида хабарларни тўғридан-тўғри Telegram да ол', 'home.tg.save': 'Сақлаш',
+    // Отметка на смену (явка)
+    'att.title': 'Сменага белги', 'att.startsAt': 'Смена {time} да бошланади. Белгилаш учун жойда қисқа видео олиш керак.',
+    'att.recordBtn': '🎥 Видео олиб, келишни белгилаш', 'att.arrivedAt': 'Келди:', 'att.late': 'Кечикди', 'att.onTime': 'Ўз вақтида',
+    'att.checkoutBtn': '🚪 Кетишни белгилаш', 'att.shiftDone': 'Смена тугади', 'att.came': 'Келди', 'att.left': 'Кетди',
+    'att.loadErr': 'Юклаб бўлмади. Уланишни текширинг ва саҳифани янгиланг.',
+    'att.needVideo': 'Айнан камерадан видео олиш керак', 'att.checkGeo': '📍 Геопозицияни текшираяпман...', 'att.uploadingVideo': '⏳ Видео юкланмоқда...',
+    'att.videoErr': 'Видео юклашда хато: ', 'att.lateToast': '⏰ Кечикиш {min} дақиқа · жарима {pen} сўм', 'att.onTimeToast': '✅ Ўз вақтида белгиланди!',
+    'att.checkoutToast': '✅ Кетиш белгиланди',
+    // Зарплата (карточка на главной)
+    'salary.todayTitle': 'Менинг маошим · бугун', 'salary.rate': 'Ставка', 'salary.notMarked': 'Бугунги смена ҳали белгиланмаган', 'salary.penalty': 'Жарима',
     // Общее
-    'common.loading': 'Юкланмоқда...', 'common.logout': 'Чиқиш',
+    'common.loading': 'Юкланмоқда...', 'common.logout': 'Чиқиш', 'common.sum': 'сўм', 'common.error': 'Хато: ',
   },
 };

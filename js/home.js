@@ -4,7 +4,7 @@ async function loadHome() {
   document.getElementById('finance-period').textContent = d.toLocaleDateString('ru-RU', {month:'long', year:'numeric'});
   const role = currentProfile?.role;
   const name = currentProfile?.name || currentUser?.email;
-  document.getElementById('home-welcome-text').textContent = `Привет, ${name}!`;
+  document.getElementById('home-welcome-text').textContent = t('home.welcome', {name});
   const roleLabels = { admin: t('role.admin'), manager: t('role.manager'), employee: t('role.employee'), boss: t('role.boss') };
   document.getElementById('home-role-text').textContent = roleLabels[role] || '';
   loadHomeAnnouncements();
@@ -19,9 +19,9 @@ async function loadHome() {
     const total = (tasks||[]).length;
     const pct = total ? Math.round(done/total*100) : 0;
     document.getElementById('home-progress-bar').style.width = pct+'%';
-    document.getElementById('home-tasks-text').textContent = total ? `${done} из ${total} выполнено` : 'Задач на сегодня нет';
+    document.getElementById('home-tasks-text').textContent = total ? t('home.tasksDone',{done,total}) : t('home.noTasksToday');
     const myEl = document.getElementById('home-my-tasks');
-    if(!tasks||tasks.length===0) { myEl.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Задач на сегодня нет</div></div>'; }
+    if(!tasks||tasks.length===0) { myEl.innerHTML=`<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">${t('home.noTasksToday')}</div></div>`; }
     else {
       if(typeof computeTaskUnread === 'function') await computeTaskUnread(tasks.map(t=>t.id));
       myEl.innerHTML = tasks.map(t=>taskHTML(t)).join('');
@@ -35,9 +35,9 @@ async function loadHome() {
       if(shiftEl) {
         if(myShift) {
           if(myShift.is_day_off) {
-            shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#EAF3DE,#d4edda);border:none;margin-bottom:12px"><div style="text-align:center;padding:8px"><div style="font-size:28px">🌴</div><div style="font-size:15px;font-weight:600;color:#3B6D11;margin-top:4px">Сегодня выходной</div></div></div>`;
+            shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#EAF3DE,#d4edda);border:none;margin-bottom:12px"><div style="text-align:center;padding:8px"><div style="font-size:28px">🌴</div><div style="font-size:15px;font-weight:600;color:#3B6D11;margin-top:4px">${t('home.dayOff')}</div></div></div>`;
           } else {
-            shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2b6b);border:none;color:#fff;margin-bottom:12px"><div style="font-size:11px;opacity:0.7;margin-bottom:4px">ТВОЯ СМЕНА СЕГОДНЯ · ${getFilialName(myShift.filial||'istikbol')}</div><div style="font-size:24px;font-weight:700">🕐 ${myShift.shift_start||''} — ${myShift.shift_end||''}</div>${myShift.note?`<div style="font-size:12px;opacity:0.7;margin-top:4px">${escapeHtml(myShift.note)}</div>`:''}</div>`;
+            shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2b6b);border:none;color:#fff;margin-bottom:12px"><div style="font-size:11px;opacity:0.7;margin-bottom:4px">${t('home.shiftToday')} · ${getFilialName(myShift.filial||'istikbol')}</div><div style="font-size:24px;font-weight:700">🕐 ${myShift.shift_start||''} — ${myShift.shift_end||''}</div>${myShift.note?`<div style="font-size:12px;opacity:0.7;margin-top:4px">${escapeHtml(myShift.note)}</div>`:''}</div>`;
           }
         } else { shiftEl.innerHTML = ''; }
       }
@@ -59,8 +59,8 @@ async function loadHome() {
     if(tgCard) {
       if(!currentProfile?.telegram_id) {
         tgCard.innerHTML = `<div class="card" style="background:#E8F4FD;border:1px solid #b3d9f2;margin-bottom:12px">
-          <div style="font-size:13px;font-weight:600;color:#1A6FA8;margin-bottom:6px">🔔 Подключи Telegram-уведомления</div>
-          <div style="font-size:12px;color:#666;margin-bottom:10px">Получай уведомления о новых задачах прямо в Telegram</div>
+          <div style="font-size:13px;font-weight:600;color:#1A6FA8;margin-bottom:6px">${t('home.tg.title')}</div>
+          <div style="font-size:12px;color:#666;margin-bottom:10px">${t('home.tg.desc')}</div>
           <ol style="font-size:12px;color:#666;margin:0 0 10px 16px;padding:0;line-height:1.6">
             <li>Открой бота <b>@SlonShishaBot</b> в Telegram</li>
             <li>Напиши ему <b>/start</b></li>
@@ -69,7 +69,7 @@ async function loadHome() {
           </ol>
           <div style="display:flex;gap:8px">
             <input class="form-input" id="tg-id-input" placeholder="Например: 123456789" style="flex:1;padding:10px">
-            <button onclick="saveTelegramId()" style="background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:600;cursor:pointer">Сохранить</button>
+            <button onclick="saveTelegramId()" style="background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:600;cursor:pointer">${t('home.tg.save')}</button>
           </div>
         </div>`;
       } else {
@@ -115,25 +115,25 @@ async function loadAttendanceCard(dateStr, myShift) {
 
     if(!record) {
       attEl.innerHTML = `<div class="card" style="margin-bottom:12px">
-        <div class="card-title">Отметка на смену</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Смена начинается в ${myShift.shift_start}. Для отметки нужно снять короткое видео на месте.</div>
+        <div class="card-title">${t('att.title')}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${t('att.startsAt',{time:myShift.shift_start})}</div>
         <input type="file" accept="video/*" capture="user" id="checkin-video-file" style="display:none" onchange="onCheckInVideo(this)">
-        <button class="btn btn-primary" onclick="startCheckIn()">🎥 Снять видео и отметить приход</button>
+        <button class="btn btn-primary" onclick="startCheckIn()">${t('att.recordBtn')}</button>
       </div>`;
     } else if(!record.check_out_time) {
-      const lateBadge = record.is_late ? '<span class="badge badge-red" style="margin-left:6px">Опоздание</span>' : '<span class="badge badge-green" style="margin-left:6px">Вовремя</span>';
+      const lateBadge = record.is_late ? `<span class="badge badge-red" style="margin-left:6px">${t('att.late')}</span>` : `<span class="badge badge-green" style="margin-left:6px">${t('att.onTime')}</span>`;
       attEl.innerHTML = `<div class="card" style="margin-bottom:12px">
-        <div class="card-title">Отметка на смену</div>
-        <div style="font-size:14px;color:var(--text-primary);margin-bottom:10px">Пришёл в <b>${record.check_in_time}</b>${lateBadge}</div>
-        <button class="btn btn-primary" onclick="checkOut(${record.id})" style="background:#A13C3C">🚪 Отметить уход</button>
+        <div class="card-title">${t('att.title')}</div>
+        <div style="font-size:14px;color:var(--text-primary);margin-bottom:10px">${t('att.arrivedAt')} <b>${record.check_in_time}</b>${lateBadge}</div>
+        <button class="btn btn-primary" onclick="checkOut(${record.id})" style="background:#A13C3C">${t('att.checkoutBtn')}</button>
       </div>`;
     } else {
       attEl.innerHTML = `<div class="card" style="margin-bottom:12px;background:var(--surface-2)">
-        <div class="card-title">Смена завершена</div>
-        <div style="font-size:13px;color:var(--text-secondary)">Пришёл: <b>${record.check_in_time}</b> · Ушёл: <b>${record.check_out_time}</b></div>
+        <div class="card-title">${t('att.shiftDone')}</div>
+        <div style="font-size:13px;color:var(--text-secondary)">${t('att.came')}: <b>${record.check_in_time}</b> · ${t('att.left')}: <b>${record.check_out_time}</b></div>
       </div>`;
     }
-  } catch(e) { console.error(e); attEl.innerHTML = `<div class="card" style="margin-bottom:12px"><div class="card-title">Отметка на смену</div><div style="font-size:12px;color:#A32D2D">Не удалось загрузить. Проверьте соединение и обновите страницу.</div></div>`; }
+  } catch(e) { console.error(e); attEl.innerHTML = `<div class="card" style="margin-bottom:12px"><div class="card-title">${t('att.title')}</div><div style="font-size:12px;color:#A32D2D">${t('att.loadErr')}</div></div>`; }
 }
 
 // Карточка "Моя зарплата" на главном экране — за СЕГОДНЯ (за период — в личном кабинете)
@@ -157,12 +157,12 @@ async function loadSalaryCard() {
     const total = earned - penalty;
 
     el.innerHTML = `<div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#2d2416,#4a3a1f);border:none;color:#f0e9db">
-      <div style="font-size:11px;opacity:0.7;margin-bottom:8px;text-transform:uppercase">Моя зарплата · сегодня</div>
-      <div style="font-size:28px;font-weight:700;margin-bottom:10px">${formatNum(total)} <span style="font-size:14px;opacity:0.7">сум</span></div>
+      <div style="font-size:11px;opacity:0.7;margin-bottom:8px;text-transform:uppercase">${t('salary.todayTitle')}</div>
+      <div style="font-size:28px;font-weight:700;margin-bottom:10px">${formatNum(total)} <span style="font-size:14px;opacity:0.7">${t('common.sum')}</span></div>
       <div style="display:flex;gap:16px;font-size:12px;opacity:0.85;flex-wrap:wrap">
-        <div>Ставка: <b>${formatNum(rate)}</b></div>
-        ${!worked?'<div>Смена сегодня ещё не отмечена</div>':''}
-        ${penalty>0?`<div style="color:#ff9b9b">Штраф: <b>−${formatNum(penalty)}</b></div>`:''}
+        <div>${t('salary.rate')}: <b>${formatNum(rate)}</b></div>
+        ${!worked?`<div>${t('salary.notMarked')}</div>`:''}
+        ${penalty>0?`<div style="color:#ff9b9b">${t('salary.penalty')}: <b>−${formatNum(penalty)}</b></div>`:''}
       </div>
     </div>`;
   } catch(e) { console.error('salary card', e); }
@@ -184,7 +184,7 @@ function startCheckIn() {
 async function onCheckInVideo(input) {
   const file = input.files && input.files[0];
   if(!file) return;
-  if(!file.type || !file.type.startsWith('video')) { showToast('Нужно именно видео с камеры'); return; }
+  if(!file.type || !file.type.startsWith('video')) { showToast(t('att.needVideo')); return; }
   await checkIn(file);
 }
 
@@ -200,16 +200,16 @@ async function checkIn(videoFile) {
     const geoFilial = myShift?.filial || currentFilial;
 
     // Гео-проверка ДО загрузки видео: если точка филиала задана — должны быть рядом
-    showToast('📍 Проверяю геопозицию...');
+    showToast(t('att.checkGeo'));
     const geoCheck = await verifyCheckinLocation(geoFilial);
     if(!geoCheck.ok) { showToast(geoCheck.message); return; }
 
-    showToast('⏳ Загружаю видео...');
+    showToast(t('att.uploadingVideo'));
     let videoUrl = null;
     const ext = (file => { const p=(file.name||'').split('.'); return p.length>1?p.pop():'mp4'; })(videoFile);
     const path = `checkin-${currentProfile.employee_id}-${Date.now()}.${ext}`;
     const { error: upErr } = await sb.storage.from('task-reports').upload(path, videoFile);
-    if(upErr) { showToast('Ошибка загрузки видео: '+upErr.message); return; }
+    if(upErr) { showToast(t('att.videoErr')+upErr.message); return; }
     const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
     videoUrl = urlData.publicUrl;
     const lateMin = myShift ? Math.max(0, minutesFromStr(timeStr) - minutesFromStr(myShift.shift_start)) : 0;
@@ -226,7 +226,7 @@ async function checkIn(videoFile) {
       checkin_geo: geoCheck.geo
     });
 
-    showToast(isLate ? `⏰ Опоздание ${lateMin} мин · штраф ${formatNum(penalty)} сум` : '✅ Отмечено вовремя!');
+    showToast(isLate ? t('att.lateToast',{min:lateMin,pen:formatNum(penalty)}) : t('att.onTimeToast'));
     // Уведомляем вверх по иерархии: старшие по цеху + все управляющие (и владелец)
     try {
       const { data: me } = await sb.from('employees').select('department,role,name').eq('id', currentProfile.employee_id).single();
@@ -237,15 +237,15 @@ async function checkIn(videoFile) {
       if(isLate) await notifyAdminsAll(msg, 'late');                                       // управляющим — только опоздания
     } catch(e) { console.error('notify checkin', e); }
     loadHome();
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
 async function checkOut(recordId) {
   try {
     const timeStr = getCurrentTimeStr();
     await sb.from('attendance').update({check_out_time: timeStr}).eq('id', recordId);
-    showToast('✅ Уход отмечен');
+    showToast(t('att.checkoutToast'));
     loadHome();
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
