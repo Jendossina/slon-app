@@ -51,7 +51,7 @@ async function buildChecklistTabs() {
     const { data: templates } = await sb.from('checklist_templates').select('id,name,type,department').eq('department', currentChecklistDept).eq('is_active', true).order('id');
     if(!templates || templates.length===0) {
       tabsEl.innerHTML = '';
-      content.innerHTML = '<div class="empty"><div class="empty-icon">☑️</div><div class="empty-text">Для отдела «'+currentChecklistDept+'» чек-листов пока нет</div></div>';
+      content.innerHTML = `<div class="empty"><div class="empty-icon">☑️</div><div class="empty-text">${t('cl.noneForDept',{dept:currentChecklistDept})}</div></div>`;
       return;
     }
     // Если текущий тип не входит в список — берём первый
@@ -61,7 +61,7 @@ async function buildChecklistTabs() {
     tabsEl.innerHTML = templates.map(t=>`<button onclick="switchChecklistTab('${escJsAttr(t.type)}')" class="chip${t.type===currentChecklistType?' on':''}">${escapeHtml(t.name)}</button>`).join('');
     await loadChecklist(currentChecklistType);
   } catch(e) {
-    content.innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки чек-листов</div></div>';
+    content.innerHTML = `<div class="empty"><div class="empty-text">${t('cl.loadErr')}</div></div>`;
   }
 }
 
@@ -73,13 +73,13 @@ async function switchChecklistTab(type, btn) {
 async function loadChecklist(type) {
   await flushChecklistSave(); // досохраняем отметки предыдущего чек-листа перед перерисовкой
   const content = document.getElementById('checklist-content');
-  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  content.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
   document.getElementById('checklist-date').textContent = new Date().toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
 
   try {
     // Get template
     const { data: templates } = await sb.from('checklist_templates').select('*').eq('type', type).eq('department', currentChecklistDept).eq('is_active', true);
-    if(!templates || templates.length===0) { content.innerHTML='<div class="empty"><div class="empty-icon">☑️</div><div class="empty-text">Чек-лист не найден</div></div>'; return; }
+    if(!templates || templates.length===0) { content.innerHTML=`<div class="empty"><div class="empty-icon">☑️</div><div class="empty-text">${t('cl.notFound')}</div></div>`; return; }
     const template = templates[0];
     const items = template.items;
     currentChecklistTemplate = template; // запоминаем, чтобы toggle не лез в базу за total
@@ -120,11 +120,11 @@ async function loadChecklist(type) {
     html += `<div class="card">
       <div class="card-title">${escapeHtml(template.name)}</div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:13px;color:var(--text-muted)" id="cl-progress-count">${doneCount} из ${totalCount} выполнено</span>
+        <span style="font-size:13px;color:var(--text-muted)" id="cl-progress-count">${t('cl.doneOf',{done:doneCount,total:totalCount})}</span>
         <span style="font-size:18px;font-weight:700;color:${pct===100?'#3B6D11':'var(--gold-dark)'}" id="cl-progress-pct">${pct}%</span>
       </div>
       <div class="progress-track"><div class="progress-fill" id="cl-progress-fill" style="width:${pct}%"></div></div>
-      <div id="cl-progress-banner" style="text-align:center;margin-top:10px;font-size:13px;color:#3B6D11;font-weight:500;display:${pct===100?'block':'none'}">✅ Чек-лист выполнен!</div>
+      <div id="cl-progress-banner" style="text-align:center;margin-top:10px;font-size:13px;color:#3B6D11;font-weight:500;display:${pct===100?'block':'none'}">${t('cl.completed')}</div>
     </div>`;
 
     // Sections
@@ -135,10 +135,10 @@ async function loadChecklist(type) {
         const mediaArr = clMediaList(itemsMedia[item.id]);
         let mediaSection = '';
         if(mediaArr.length) {
-          mediaSection = `<button class="report-btn done-report" onclick="event.stopPropagation();viewChecklistItemMedia(${item.id})">📸 Смотреть (${mediaArr.length})</button>`
-            + `<button class="report-btn" onclick="event.stopPropagation();openChecklistMediaModal(${item.id},${template.id})">➕ Ещё фото</button>`;
+          mediaSection = `<button class="report-btn done-report" onclick="event.stopPropagation();viewChecklistItemMedia(${item.id})">📸 ${t('cl.watch',{n:mediaArr.length})}</button>`
+            + `<button class="report-btn" onclick="event.stopPropagation();openChecklistMediaModal(${item.id},${template.id})">➕ ${t('cl.morePhoto')}</button>`;
         } else {
-          mediaSection = `<button class="report-btn" onclick="event.stopPropagation();openChecklistMediaModal(${item.id},${template.id})">📎 Прикрепить фото</button>`;
+          mediaSection = `<button class="report-btn" onclick="event.stopPropagation();openChecklistMediaModal(${item.id},${template.id})">📎 ${t('cl.attachPhoto')}</button>`;
         }
         const byName = itemsBy[item.id];
         html += `<div class="task-row" id="cl-row-${item.id}" onclick="toggleChecklistItem(${item.id}, ${template.id}, '${todayStr}')">
@@ -156,7 +156,7 @@ async function loadChecklist(type) {
     content.innerHTML = html;
     subscribeChecklistRealtime(template.id, todayStr); // мгновенная синхронизация (realtime)
     startChecklistPolling();                            // запасной опрос, если realtime отвалится
-  } catch(e) { console.error(e); content.innerHTML='<div class="loading">Ошибка загрузки</div>'; }
+  } catch(e) { console.error(e); content.innerHTML=`<div class="loading">${t('cl.loadErrShort')}</div>`; }
 }
 
 // Живое обновление общего чек-листа. Основной путь — Supabase Realtime (мгновенно),
@@ -291,7 +291,7 @@ function viewChecklistItemMedia(itemId) {
 async function uploadChecklistMedia() {
   const itemId = document.getElementById('cl-media-item-id').value;
   const templateId = document.getElementById('cl-media-template-id').value;
-  if(!clMediaFiles.length) return showToast('Выберите файл');
+  if(!clMediaFiles.length) return showToast(t('cl.selectFile'));
 
   const bar = document.getElementById('cl-media-uploading-bar');
   bar.style.display = 'block';
@@ -305,7 +305,7 @@ async function uploadChecklistMedia() {
       const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : file.name.split('.').pop());
       const path = `checklist-${templateId}-${itemId}-${Date.now()}-${i}.${ext}`;
       const { error: upErr } = await sb.storage.from('task-reports').upload(path, fileToUpload);
-      if(upErr) { showToast('Ошибка загрузки: '+upErr.message); bar.style.display='none'; return; }
+      if(upErr) { showToast(t('common.uploadErr')+upErr.message); bar.style.display='none'; return; }
       const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
       uploaded.push({ url: urlData.publicUrl, type: isVideo?'video':'image' });
     }
@@ -329,15 +329,15 @@ async function uploadChecklistMedia() {
 
     bar.style.display = 'none';
     closeModal('modal-checklist-media');
-    showToast(uploaded.length>1 ? `✅ Прикреплено фото: ${uploaded.length}` : '✅ Фото прикреплено');
+    showToast(uploaded.length>1 ? t('cl.photosAttached',{n:uploaded.length}) : t('cl.photoAttached'));
     loadChecklist(currentChecklistType);
-  } catch(e) { bar.style.display='none'; showToast('Ошибка: '+e.message); }
+  } catch(e) { bar.style.display='none'; showToast(t('common.error')+e.message); }
 }
 
 // Клик по пункту: мгновенно обновляем интерфейс, а запись в базу — в фоне (с задержкой),
 // чтобы можно было отметить сразу несколько пунктов без перезагрузки экрана.
 function toggleChecklistItem(itemId, templateId, date) {
-  if(isBoss()) return showToast('Режим наблюдателя — отметки недоступны');
+  if(isBoss()) return showToast(t('cl.observerMarks'));
   const donItems = currentChecklistLog?.items_done ? currentChecklistLog.items_done.slice() : [];
   const idx = donItems.indexOf(itemId);
   const nowDone = idx === -1;
@@ -372,7 +372,7 @@ function updateChecklistProgress(doneCount) {
   const p = document.getElementById('cl-progress-pct');
   const f = document.getElementById('cl-progress-fill');
   const banner = document.getElementById('cl-progress-banner');
-  if(c) c.textContent = `${doneCount} из ${total} выполнено`;
+  if(c) c.textContent = t('cl.doneOf',{done:doneCount,total});
   if(p) { p.textContent = pct + '%'; p.style.color = pct === 100 ? '#3B6D11' : 'var(--gold-dark)'; }
   if(f) f.style.width = pct + '%';
   if(banner) banner.style.display = pct === 100 ? 'block' : 'none';
@@ -440,7 +440,7 @@ async function saveChecklistNow(templateId, date) {
     clBaseline = merged.slice();
   } catch(e) {
     console.error(e);
-    showToast('Ошибка сохранения: ' + e.message);
+    showToast(t('cl.saveErr') + e.message);
   } finally {
     clSaving = false;
   }

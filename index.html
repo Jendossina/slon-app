@@ -590,13 +590,13 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <!-- CHECKLIST SCREEN -->
   <div class="screen" id="screen-checklist">
     <div class="header">
-      <h1>☑️ Чек-листы</h1>
+      <h1 data-i18n="cl.title">☑️ Чек-листы</h1>
       <p id="checklist-date"></p>
     </div>
     <div class="hscroll tabbar" id="checklist-dept-switcher" style="display:none;padding-bottom:2px"></div>
     <div class="hscroll tabbar" style="padding-top:2px" id="checklist-tabs"></div>
     <div class="content" id="checklist-content">
-      <div class="loading">Загрузка...</div>
+      <div class="loading" data-i18n="common.loading">Загрузка...</div>
     </div>
   </div>
 
@@ -1190,17 +1190,17 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-checklist-media">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-checklist-media')">✕</button>
-    <div class="modal-title">📎 Фото/видео к пункту</div>
+    <div class="modal-title" data-i18n="cl.mediaTitle">📎 Фото/видео к пункту</div>
     <input type="hidden" id="cl-media-item-id">
     <input type="hidden" id="cl-media-template-id">
     <div class="upload-area" onclick="document.getElementById('cl-media-file').click()">
       <input type="file" id="cl-media-file" accept="image/*,video/*" multiple onchange="previewChecklistMedia(this)">
       <div class="upload-icon">📷</div>
-      <p>Нажми чтобы прикрепить фото или видео<br><span style="font-size:12px;color:var(--text-muted)">можно выбрать несколько</span></p>
+      <p><span data-i18n="cl.mediaHint">Нажми чтобы прикрепить фото или видео</span><br><span style="font-size:12px;color:var(--text-muted)" data-i18n="cl.mediaHintSub">можно выбрать несколько</span></p>
     </div>
     <div class="upload-preview" id="cl-media-preview"></div>
-    <div class="uploading-bar" id="cl-media-uploading-bar">⏳ Загружаю файл...</div>
-    <button class="btn btn-primary" style="margin-top:14px" onclick="uploadChecklistMedia()">Прикрепить</button>
+    <div class="uploading-bar" id="cl-media-uploading-bar" data-i18n="common.uploadingFile">⏳ Загружаю файл...</div>
+    <button class="btn btn-primary" style="margin-top:14px" onclick="uploadChecklistMedia()" data-i18n="cl.attachBtn">Прикрепить</button>
   </div>
 </div>
 

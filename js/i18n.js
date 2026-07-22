@@ -98,6 +98,13 @@ const I18N = {
     'tasks.dueLabel': 'Срок', 'tasks.addBtn': 'Добавить задачу', 'tasks.reportTitle': '📎 Отчёт о выполнении',
     'tasks.uploadHint': 'Нажми чтобы прикрепить фото или видео', 'tasks.sendReport': 'Отправить отчёт', 'tasks.doneNoPhoto': 'Отметить выполненным без фото',
     'tasks.discussion': '💬 Обсуждение', 'tasks.commentPh': 'Написать комментарий...', 'tasks.reportEmp': '📋 Отчёт сотрудника',
+    // Чек-листы
+    'cl.title': '☑️ Чек-листы', 'cl.noneForDept': 'Для отдела «{dept}» чек-листов пока нет', 'cl.loadErr': 'Ошибка загрузки чек-листов',
+    'cl.notFound': 'Чек-лист не найден', 'cl.loadErrShort': 'Ошибка загрузки', 'cl.doneOf': '{done} из {total} выполнено',
+    'cl.completed': '✅ Чек-лист выполнен!', 'cl.watch': 'Смотреть ({n})', 'cl.morePhoto': 'Ещё фото', 'cl.attachPhoto': 'Прикрепить фото',
+    'cl.observerMarks': 'Режим наблюдателя — отметки недоступны', 'cl.selectFile': 'Выберите файл',
+    'cl.photoAttached': '✅ Фото прикреплено', 'cl.photosAttached': '✅ Прикреплено фото: {n}', 'cl.saveErr': 'Ошибка сохранения: ',
+    'cl.mediaTitle': '📎 Фото/видео к пункту', 'cl.mediaHint': 'Нажми чтобы прикрепить фото или видео', 'cl.mediaHintSub': 'можно выбрать несколько', 'cl.attachBtn': 'Прикрепить',
     // Общее
     'common.loading': 'Загрузка...', 'common.logout': 'Выйти', 'common.sum': 'сум', 'common.error': 'Ошибка: ',
     'common.observerMode': 'Режим наблюдателя — редактирование недоступно', 'common.allEmployees': '👥 Все сотрудники', 'common.byDept': 'по цехам ▾',
@@ -155,6 +162,13 @@ const I18N = {
     'tasks.dueLabel': 'Муддат', 'tasks.addBtn': 'Вазифа қўшиш', 'tasks.reportTitle': '📎 Бажарилганлик ҳисоботи',
     'tasks.uploadHint': 'Фото ёки видео бириктириш учун босинг', 'tasks.sendReport': 'Ҳисоботни юбориш', 'tasks.doneNoPhoto': 'Фотосиз бажарилган деб белгилаш',
     'tasks.discussion': '💬 Муҳокама', 'tasks.commentPh': 'Шарҳ ёзиш...', 'tasks.reportEmp': '📋 Ходим ҳисоботи',
+    // Чек-листы
+    'cl.title': '☑️ Назорат рўйхатлари', 'cl.noneForDept': '«{dept}» бўлими учун ҳали назорат рўйхати йўқ', 'cl.loadErr': 'Назорат рўйхатларини юклашда хато',
+    'cl.notFound': 'Назорат рўйхати топилмади', 'cl.loadErrShort': 'Юклашда хато', 'cl.doneOf': '{total} тадан {done} таси бажарилди',
+    'cl.completed': '✅ Назорат рўйхати бажарилди!', 'cl.watch': 'Кўриш ({n})', 'cl.morePhoto': 'Яна фото', 'cl.attachPhoto': 'Фото бириктириш',
+    'cl.observerMarks': 'Кузатувчи режими — белгилаш мумкин эмас', 'cl.selectFile': 'Файл танланг',
+    'cl.photoAttached': '✅ Фото бириктирилди', 'cl.photosAttached': '✅ Бириктирилган фото: {n}', 'cl.saveErr': 'Сақлашда хато: ',
+    'cl.mediaTitle': '📎 Бандга фото/видео', 'cl.mediaHint': 'Фото ёки видео бириктириш учун босинг', 'cl.mediaHintSub': 'бир нечтасини танлаш мумкин', 'cl.attachBtn': 'Бириктириш',
     // Общее
     'common.loading': 'Юкланмоқда...', 'common.logout': 'Чиқиш', 'common.sum': 'сўм', 'common.error': 'Хато: ',
     'common.observerMode': 'Кузатувчи режими — таҳрирлаш мумкин эмас', 'common.allEmployees': '👥 Барча ходимлар', 'common.byDept': 'цехлар бўйича ▾',
