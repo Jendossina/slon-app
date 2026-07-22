@@ -16,7 +16,7 @@ function openEventModal(dateStr) {
   if(!canEditData()) return;
   document.getElementById('event-type').value = 'delivery';
   document.getElementById('event-title').value = '';
-  document.getElementById('event-date').value = dateStr || new Date().toISOString().slice(0,10);
+  document.getElementById('event-date').value = dateStr || ymdLocal();
   document.getElementById('event-time').value = '';
   document.getElementById('event-note').value = '';
   document.getElementById('event-filial').value = '';
@@ -84,8 +84,8 @@ async function loadCalendar() {
   const content = document.getElementById('calendar-content');
   content.innerHTML = '<div class="loading">Загрузка...</div>';
   try {
-    const first = new Date(calYear, calMonth, 1).toISOString().slice(0,10);
-    const last = new Date(calYear, calMonth+1, 0).toISOString().slice(0,10);
+    const first = ymdLocal(new Date(calYear, calMonth, 1));
+    const last = ymdLocal(new Date(calYear, calMonth+1, 0));
     const { data: events } = await sb.from('events').select('*')
       .or(`filial.eq.${currentFilial},filial.is.null`)
       .gte('event_date', first).lte('event_date', last)
@@ -98,7 +98,7 @@ async function loadCalendar() {
     // Группируем по дате
     const byDate = {};
     events.forEach(e=>{ (byDate[e.event_date]=byDate[e.event_date]||[]).push(e); });
-    const todayStr = new Date().toISOString().slice(0,10);
+    const todayStr = ymdLocal();
 
     content.innerHTML = Object.keys(byDate).sort().map(date=>{
       const d = new Date(date);

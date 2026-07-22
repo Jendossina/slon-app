@@ -20,7 +20,7 @@ function dashDateRange() {
   if(dashPeriod==='today') from = new Date(now.getFullYear(),now.getMonth(),now.getDate());
   else if(dashPeriod==='week') { from = new Date(now); from.setDate(now.getDate()-6); }
   else from = new Date(now.getFullYear(), now.getMonth(), 1);
-  return { from: from.toISOString().slice(0,10), to: now.toISOString().slice(0,10) };
+  return { from: ymdLocal(from), to: ymdLocal(now) };
 }
 
 // Сопоставимый предыдущий период (равной длины) для сравнения ↑↓
@@ -28,19 +28,19 @@ function dashPrevRange() {
   const now = new Date();
   if(dashPeriod==='today') {
     const y = new Date(now); y.setDate(now.getDate()-1);
-    const s = y.toISOString().slice(0,10);
+    const s = ymdLocal(y);
     return { from: s, to: s };
   } else if(dashPeriod==='week') {
     const to = new Date(now); to.setDate(now.getDate()-7);
     const from = new Date(now); from.setDate(now.getDate()-13);
-    return { from: from.toISOString().slice(0,10), to: to.toISOString().slice(0,10) };
+    return { from: ymdLocal(from), to: ymdLocal(to) };
   } else {
     // Прошлый месяц до того же числа (честное сравнение с неполным текущим)
     const day = now.getDate();
     const pFrom = new Date(now.getFullYear(), now.getMonth()-1, 1);
     const lastDayPrev = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
     const pTo = new Date(now.getFullYear(), now.getMonth()-1, Math.min(day, lastDayPrev));
-    return { from: pFrom.toISOString().slice(0,10), to: pTo.toISOString().slice(0,10) };
+    return { from: ymdLocal(pFrom), to: ymdLocal(pTo) };
   }
 }
 
@@ -69,7 +69,7 @@ async function loadDashboard() {
   const prev = dashPrevRange();
   // Для прогноза ФОТ по месяцу берём график до конца месяца (будущие смены тоже)
   const forecastTo = dashPeriod==='month'
-    ? new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).toISOString().slice(0,10)
+    ? ymdLocal(new Date(new Date().getFullYear(), new Date().getMonth()+1, 0))
     : to;
   const canFin = canSeeFinance();
   const money = n => formatNum(Math.round(n));

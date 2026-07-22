@@ -114,8 +114,8 @@ async function openPayroll() {
   body.innerHTML = '<div class="loading">Считаю...</div>';
   try {
     const now = new Date();
-    const firstStr = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
-    const lastStr = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
+    const firstStr = ymdLocal(new Date(now.getFullYear(), now.getMonth(), 1));
+    const lastStr = ymdLocal(new Date(now.getFullYear(), now.getMonth()+1, 0));
     document.getElementById('payroll-title').textContent = `💰 Ведомость · ${now.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})} · ${getFilialName(currentFilial)}`;
 
     // Сотрудники этого филиала + график за месяц (для точного расчёта по каждой смене)

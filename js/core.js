@@ -358,7 +358,14 @@ function fmtDateShort(d, opts) {
     return dt.toLocaleDateString('ru-RU', opts || {day:'numeric', month:'short'});
   } catch(e) { return d; }
 }
-function today() { return new Date().toISOString().split('T')[0]; }
+// Локальная дата в формате YYYY-MM-DD. Берём компоненты по местному времени телефона,
+// а НЕ через toISOString() — иначе на UTC+5 (наша зона) дата после полуночи и до 5 утра,
+// а также границы месяца (new Date(y,m,1/0)) уезжают на день назад.
+function ymdLocal(d) {
+  d = d ? new Date(d) : new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function today() { return ymdLocal(); }
 
 // «Кассовый день»: смена идёт с 12:00 до ~03:00 следующего дня, поэтому касса,
 // закрытая ночью, относится к дню НАЧАЛА смены. Всё, что до 8:00 утра (по местному
@@ -367,7 +374,7 @@ const BUSINESS_DAY_CUTOFF_HOUR = 8;
 function businessToday() {
   const d = new Date();
   if(d.getHours() < BUSINESS_DAY_CUTOFF_HOUR) d.setDate(d.getDate() - 1);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return ymdLocal(d);
 }
 
 // THEME

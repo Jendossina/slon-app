@@ -4,7 +4,7 @@ function onFinanceDateChange(v) { financeSelectedDate = v || today(); loadFinanc
 function shiftFinanceDay(delta) {
   const d = new Date(financeSelectedDate || today());
   d.setDate(d.getDate() + delta);
-  financeSelectedDate = d.toISOString().slice(0,10);
+  financeSelectedDate = ymdLocal(d);
   loadFinance();
 }
 
@@ -14,7 +14,10 @@ async function loadFinance() {
     const sel = financeSelectedDate;
     const y = +sel.slice(0,4), m = +sel.slice(5,7);
     const monthStart = `${sel.slice(0,7)}-01`;
-    const monthEnd = new Date(y, m, 0).toISOString().slice(0,10); // последний день месяца
+    // Последний день месяца. Собираем из локальных компонентов, а НЕ через toISOString(),
+    // иначе на UTC+5 дата уезжает на день назад и последний день месяца выпадает из статистики.
+    const lastDay = new Date(y, m, 0).getDate();
+    const monthEnd = `${sel.slice(0,7)}-${String(lastDay).padStart(2,'0')}`;
     const canEdit = canEditData();
 
     const dateInput = document.getElementById('finance-date'); if(dateInput) dateInput.value = sel;
@@ -96,10 +99,11 @@ function renderFinanceDay(sel, all, canEdit) {
   if(dayIncome) {
     if(lines.length) html += `<div style="margin:6px 0 4px;font-size:12px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.4px">Типы оплат</div>`
       + lines.map(l=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:14px"><span style="color:var(--text-secondary)">${escapeHtml(l.label||'')}</span><b>${formatNum(l.amount||0)}</b></div>`).join('');
+    // Показываем только ненулевые значения — пустые поля кассы дают 0, их незачем выводить
     const mv = [];
-    if(b.deposits!=null) mv.push(`внесения <b class="finance-positive">${formatNum(b.deposits)}</b>`);
-    if(b.withdrawals!=null) mv.push(`изъятия <b class="finance-negative">${formatNum(b.withdrawals)}</b>`);
-    if(b.cash_expected!=null) mv.push(`в кассе <b>${formatNum(b.cash_expected)}</b>`);
+    if(b.deposits) mv.push(`внесения <b class="finance-positive">${formatNum(b.deposits)}</b>`);
+    if(b.withdrawals) mv.push(`изъятия <b class="finance-negative">${formatNum(b.withdrawals)}</b>`);
+    if(b.cash_expected) mv.push(`в кассе <b>${formatNum(b.cash_expected)}</b>`);
     if(mv.length) html += `<div style="margin-top:8px;font-size:13px;color:var(--text-secondary)">${mv.join(' · ')}</div>`;
     // Гости и средний чек
     const guests = Number(b.guests) || 0;

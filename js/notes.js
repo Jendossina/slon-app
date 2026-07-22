@@ -93,7 +93,7 @@ async function loadMyNotes() {
     let query = sb.from('my_notes').select('*').eq('user_id', currentUser.id);
     const { data: all } = await query;
     let notes = all || [];
-    const todayStr = new Date().toISOString().slice(0,10);
+    const todayStr = ymdLocal();
 
     // Фильтрация
     if(myNotesFilter==='active') notes = notes.filter(n=>!n.is_done);

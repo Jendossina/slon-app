@@ -98,7 +98,7 @@ function taskHTML(t) {
   </div>`;
 }
 
-let tasksSelectedDay = new Date().toISOString().slice(0,10); // по умолчанию сегодня; null = "Все дни"
+let tasksSelectedDay = ymdLocal(); // по умолчанию сегодня; null = "Все дни"
 
 function renderTasksDaySwitcher() {
   const el = document.getElementById('tasks-day-switcher');
@@ -108,7 +108,7 @@ function renderTasksDaySwitcher() {
   // Вчера, сегодня, +5 дней вперёд
   for(let i=-1; i<=5; i++) {
     const d = new Date(now); d.setDate(now.getDate()+i);
-    const ds = d.toISOString().slice(0,10);
+    const ds = ymdLocal(d);
     let label;
     if(i===0) label = 'Сегодня';
     else if(i===1) label = 'Завтра';

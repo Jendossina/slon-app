@@ -70,7 +70,18 @@ async function loadAdminChecklists() {
       <span style="color:var(--text-muted);font-size:12px">по цехам ▾</span>
     </button>`;
 
-    const dateFilter = document.getElementById('admin-checklist-date-filter').value;
+    const dateSel = document.getElementById('admin-checklist-date-filter');
+    const dateFilter = dateSel.value;
+
+    // Список дат для выпадашки строим ОТДЕЛЬНЫМ запросом — без фильтра по дате,
+    // иначе после выбора даты в списке остаётся только она одна.
+    let datesQuery = sb.from('checklist_logs').select('date').eq('filial', currentFilial);
+    if(adminChecklistEmp) datesQuery = datesQuery.eq('user_name', adminChecklistEmp);
+    const { data: dateRows } = await datesQuery;
+    const uniqueDates = [...new Set((dateRows||[]).map(l=>l.date))].sort().reverse();
+    dateSel.innerHTML = '<option value="">Все даты</option>' + uniqueDates.map(d=>`<option value="${d}" ${d===dateFilter?'selected':''}>${new Date(d).toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</option>`).join('');
+
+    // Сами логи для отображения — уже с учётом выбранной даты
     let query = sb.from('checklist_logs').select('*').eq('filial', currentFilial).order('date',{ascending:false}).order('created_at',{ascending:false});
     if(dateFilter) query = query.eq('date', dateFilter);
     if(adminChecklistEmp) query = query.eq('user_name', adminChecklistEmp);
@@ -78,12 +89,6 @@ async function loadAdminChecklists() {
 
     const list = document.getElementById('admin-checklists-list');
     if(!logs || logs.length===0) { list.innerHTML='<div class="card"><div class="empty"><div class="empty-icon">☑️</div><div class="empty-text">Чек-листов пока нет</div></div></div>'; return; }
-
-    // Populate date filter options
-    const dateSel = document.getElementById('admin-checklist-date-filter');
-    const uniqueDates = [...new Set(logs.map(l=>l.date))].sort().reverse();
-    const currentVal = dateSel.value;
-    dateSel.innerHTML = '<option value="">Все даты</option>' + uniqueDates.map(d=>`<option value="${d}" ${d===currentVal?'selected':''}>${new Date(d).toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</option>`).join('');
 
     // Get template names
     const templateIds = [...new Set(logs.map(l=>l.template_id))];

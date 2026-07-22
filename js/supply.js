@@ -190,8 +190,8 @@ async function openSupplyHistory(itemId) {
 async function loadSupplyReport() {
   const content = document.getElementById('supply-content');
   const now = new Date();
-  const defFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
-  const defTo = now.toISOString().slice(0,10);
+  const defFrom = ymdLocal(new Date(now.getFullYear(), now.getMonth(), 1));
+  const defTo = ymdLocal(now);
   content.innerHTML = `
     <div class="card">
       <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">

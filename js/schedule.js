@@ -57,7 +57,7 @@ function getMonday(d) {
   return new Date(d.setDate(diff));
 }
 
-function fmtDate(d) { return d.toISOString().split('T')[0]; }
+function fmtDate(d) { return ymdLocal(d); }
 
 async function loadSchedule() {
   const role = currentProfile?.role;

@@ -9,7 +9,7 @@ function renderReviewsDaySwitcher() {
   const days = [];
   for(let i=0; i>=-6; i--) { // сегодня и 6 дней назад
     const d = new Date(now); d.setDate(now.getDate()+i);
-    const ds = d.toISOString().slice(0,10);
+    const ds = ymdLocal(d);
     let label;
     if(i===0) label = 'Сегодня';
     else if(i===-1) label = 'Вчера';

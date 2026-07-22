@@ -24,10 +24,10 @@ async function loadProfile2() {
     if(currentProfile?.employee_id) {
       const empId = currentProfile.employee_id;
       const now = new Date();
-      const firstStr = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
-      const lastStr = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
-      const todayStr = now.toISOString().slice(0,10);
-      const twoWeeksAgoStr = (() => { const d = new Date(); d.setDate(d.getDate()-14); return d.toISOString().split('T')[0]; })();
+      const firstStr = ymdLocal(new Date(now.getFullYear(), now.getMonth(), 1));
+      const lastStr = ymdLocal(new Date(now.getFullYear(), now.getMonth()+1, 0));
+      const todayStr = ymdLocal(now);
+      const twoWeeksAgoStr = (() => { const d = new Date(); d.setDate(d.getDate()-14); return ymdLocal(d); })();
 
       // Все независимые запросы — параллельно (раньше шли по цепочке и тормозили экран)
       const [empR, schedFutR, upcomingR, activeTasksR, myTasksR, monthAttR, shiftsR] = await Promise.all([
@@ -191,7 +191,7 @@ function switchProfileTab(tab) {
 // Блок "Что требует внимания" для руководителей
 async function leaderAttentionBlock() {
   try {
-    const todayStr = new Date().toISOString().slice(0,10);
+    const todayStr = ymdLocal();
     // просроченные задачи (срок < сегодня и не выполнены)
     const { data: overdue } = await sb.from('tasks').select('id').eq('filial',currentFilial).eq('status','pending').lt('due_date',todayStr);
     // опоздания сегодня
@@ -241,8 +241,8 @@ async function loadBadgesBlock(employeeId) {
   try {
     const now = new Date();
     const monthAgo = new Date(now); monthAgo.setDate(now.getDate()-30);
-    const monthAgoStr = monthAgo.toISOString().slice(0,10);
-    const todayStr = now.toISOString().slice(0,10);
+    const monthAgoStr = ymdLocal(monthAgo);
+    const todayStr = ymdLocal(now);
 
     // Явка (30 дней), задачи и бой посуды — параллельно
     const empName = currentProfile?.name;
