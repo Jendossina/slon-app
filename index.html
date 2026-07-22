@@ -442,7 +442,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </div>
 
   <div class="screen" id="screen-finance">
-    <div class="header"><h1>Финансы</h1><p id="finance-period"></p></div>
+    <div class="header"><h1 data-i18n="fin.title">Финансы</h1><p id="finance-period"></p></div>
     <div class="content">
       <!-- Выбор дня -->
       <div class="card" style="display:flex;align-items:center;gap:8px;padding:10px 12px">
@@ -452,22 +452,22 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       </div>
 
       <!-- Сводка за месяц -->
-      <div class="section-label" id="finance-month-label">Месяц</div>
+      <div class="section-label" id="finance-month-label" data-i18n="fin.monthDefault">Месяц</div>
       <div class="grid2">
-        <div class="card"><div class="card-title">Доходы</div><div class="stat-val finance-positive" id="finance-income">—</div><div class="stat-sub">сум за месяц</div></div>
-        <div class="card"><div class="card-title">Расходы</div><div class="stat-val finance-negative" id="finance-expense">—</div><div class="stat-sub">сум за месяц</div></div>
+        <div class="card"><div class="card-title" data-i18n="fin.income">Доходы</div><div class="stat-val finance-positive" id="finance-income">—</div><div class="stat-sub" data-i18n="fin.sumPerMonth">сум за месяц</div></div>
+        <div class="card"><div class="card-title" data-i18n="fin.expenses">Расходы</div><div class="stat-val finance-negative" id="finance-expense">—</div><div class="stat-sub" data-i18n="fin.sumPerMonth">сум за месяц</div></div>
       </div>
-      <div class="card"><div class="card-title">Прибыль за месяц</div><div class="stat-val" id="finance-profit" style="font-size:28px">—</div><div class="stat-sub">сум</div></div>
+      <div class="card"><div class="card-title" data-i18n="fin.profitMonth">Прибыль за месяц</div><div class="stat-val" id="finance-profit" style="font-size:28px">—</div><div class="stat-sub" data-i18n="common.sum">сум</div></div>
       <div id="finance-month-visits"></div>
       <div id="finance-month-breakdown"></div>
 
       <!-- Детализация выбранного дня -->
-      <div class="section-label" id="finance-day-label">День</div>
-      <div class="card" id="finance-day-card"><div class="loading">Загрузка...</div></div>
+      <div class="section-label" id="finance-day-label" data-i18n="fin.dayDefault">День</div>
+      <div class="card" id="finance-day-card"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
 
       <!-- Операции за месяц -->
-      <div class="section-label">Операции за месяц</div>
-      <div class="card" id="finance-list"><div class="loading">Загрузка...</div></div>
+      <div class="section-label" data-i18n="fin.opsMonth">Операции за месяц</div>
+      <div class="card" id="finance-list"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
     </div>
     <button class="fab" id="fab-finance" onclick="openModal('modal-add-finance')" style="display:none">+</button>
   </div>
@@ -1227,67 +1227,67 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-add-finance">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-finance')">✕</button>
-    <div class="modal-title">Новая операция</div>
+    <div class="modal-title" data-i18n="fin.newOp">Новая операция</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="fin-filial-display">—</div>
-    <div class="form-group"><label class="form-label" for="fin-type">Тип</label><select class="form-select" id="fin-type"><option value="income">Доход</option><option value="expense">Расход</option></select></div>
-    <div class="form-group"><label class="form-label" for="fin-amount">Сумма (сум)</label><input class="form-input" id="fin-amount" placeholder="500000" type="number"></div>
-    <div class="form-group"><label class="form-label" for="fin-category">Категория</label><select class="form-select" id="fin-category"><option>Выручка</option><option>Зарплаты</option><option>Аренда</option><option>Товары</option><option>Коммунальные</option><option>Прочее</option></select></div>
-    <div class="form-group"><label class="form-label" for="fin-desc">Описание</label><input class="form-input" id="fin-desc" placeholder="Вечерняя выручка"></div>
-    <button class="btn btn-primary" onclick="addFinance()">Добавить</button>
+    <div class="form-group"><label class="form-label" for="fin-type" data-i18n="fin.type">Тип</label><select class="form-select" id="fin-type"><option value="income" data-i18n="fin.incomeOpt">Доход</option><option value="expense" data-i18n="fin.expenseOpt">Расход</option></select></div>
+    <div class="form-group"><label class="form-label" for="fin-amount" data-i18n="fin.amountSum">Сумма (сум)</label><input class="form-input" id="fin-amount" placeholder="500000" type="number"></div>
+    <div class="form-group"><label class="form-label" for="fin-category" data-i18n="fin.category">Категория</label><select class="form-select" id="fin-category"><option>Выручка</option><option>Зарплаты</option><option>Аренда</option><option>Товары</option><option>Коммунальные</option><option>Прочее</option></select></div>
+    <div class="form-group"><label class="form-label" for="fin-desc" data-i18n="fin.desc">Описание</label><input class="form-input" id="fin-desc" placeholder="Вечерняя выручка"></div>
+    <button class="btn btn-primary" onclick="addFinance()" data-i18n="fin.add">Добавить</button>
   </div>
 </div>
 
 <div class="modal-overlay" id="modal-kassa">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-kassa')">✕</button>
-    <div class="modal-title">💵 Касса дня</div>
+    <div class="modal-title" data-i18n="fin.kassaTitle">💵 Касса дня</div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <label class="form-label" for="kassa-date" style="margin:0;white-space:nowrap">За число:</label>
+      <label class="form-label" for="kassa-date" style="margin:0;white-space:nowrap" data-i18n="fin.forDate">За число:</label>
       <input type="date" id="kassa-date" onchange="onKassaDateChange(this.value)" style="flex:1;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px">
       <span style="font-size:12px;color:var(--gold-dark)" id="kassa-filial-label">—</span>
     </div>
-    <div style="font-size:11px;color:var(--text-muted);margin:-6px 0 12px">Кассовый день = день начала смены. Ночью (до 8:00) по умолчанию ставится вчерашнее число — как и должно быть для смены 12:00–03:00.</div>
+    <div style="font-size:11px;color:var(--text-muted);margin:-6px 0 12px" data-i18n="fin.bizDayHint">Кассовый день = день начала смены. Ночью (до 8:00) по умолчанию ставится вчерашнее число — как и должно быть для смены 12:00–03:00.</div>
     <input type="hidden" id="kassa-existing-id">
     <input type="hidden" id="kassa-photo-url">
 
-    <button type="button" onclick="scanReceipt()" style="width:100%;background:linear-gradient(135deg,#22331d,#3b5a2d);color:#eaf3de;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:6px">📷 Считать с чека</button>
-    <div id="kassa-scan-status" style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:12px">Сфотографируйте Z-отчёт или выберите фото из галереи — суммы подставятся сами, останется сверить.</div>
+    <button type="button" onclick="scanReceipt()" style="width:100%;background:linear-gradient(135deg,#22331d,#3b5a2d);color:#eaf3de;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:6px" data-i18n="fin.scanReceipt">📷 Считать с чека</button>
+    <div id="kassa-scan-status" style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:12px" data-i18n="fin.scanHint">Сфотографируйте Z-отчёт или выберите фото из галереи — суммы подставятся сами, останется сверить.</div>
 
-    <div class="form-label" style="margin-bottom:6px">Разбивка по типам оплат</div>
+    <div class="form-label" style="margin-bottom:6px" data-i18n="fin.breakdownLabel">Разбивка по типам оплат</div>
     <div id="kassa-lines"></div>
-    <button type="button" onclick="kassaAddLine()" style="width:100%;background:var(--surface-2);color:var(--text-primary);border:1px dashed var(--border);border-radius:10px;padding:9px;font-size:13px;cursor:pointer;margin-bottom:12px">+ Добавить строку</button>
+    <button type="button" onclick="kassaAddLine()" style="width:100%;background:var(--surface-2);color:var(--text-primary);border:1px dashed var(--border);border-radius:10px;padding:9px;font-size:13px;cursor:pointer;margin-bottom:12px" data-i18n="fin.addLine">+ Добавить строку</button>
 
-    <div class="form-group"><label class="form-label" for="kassa-amount">Итого выручка (идёт в дашборд и ФОТ)</label><input class="form-input" id="kassa-amount" type="number" inputmode="numeric" placeholder="0" style="font-weight:700"></div>
-    <div style="display:flex;justify-content:flex-end;margin:-6px 0 10px"><button type="button" onclick="recalcKassa()" style="background:none;border:none;color:var(--gold-dark);font-size:12px;cursor:pointer">↻ Итог = сумма строк</button></div>
+    <div class="form-group"><label class="form-label" for="kassa-amount" data-i18n="fin.totalRevenue">Итого выручка (идёт в дашборд и ФОТ)</label><input class="form-input" id="kassa-amount" type="number" inputmode="numeric" placeholder="0" style="font-weight:700"></div>
+    <div style="display:flex;justify-content:flex-end;margin:-6px 0 10px"><button type="button" onclick="recalcKassa()" style="background:none;border:none;color:var(--gold-dark);font-size:12px;cursor:pointer" data-i18n="fin.sumFromLines">↻ Итог = сумма строк</button></div>
 
-    <div style="font-size:12px;color:var(--text-muted);margin:6px 0">Движение наличных (по желанию):</div>
+    <div style="font-size:12px;color:var(--text-muted);margin:6px 0" data-i18n="fin.cashMovement">Движение наличных (по желанию):</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-      <div class="form-group"><label class="form-label" for="kassa-deposits">Внесения</label><input class="form-input" id="kassa-deposits" type="number" inputmode="numeric" placeholder="0"></div>
-      <div class="form-group"><label class="form-label" for="kassa-withdrawals">Изъятия</label><input class="form-input" id="kassa-withdrawals" type="number" inputmode="numeric" placeholder="0"></div>
-      <div class="form-group"><label class="form-label" for="kassa-expected">В кассе</label><input class="form-input" id="kassa-expected" type="number" inputmode="numeric" placeholder="0"></div>
+      <div class="form-group"><label class="form-label" for="kassa-deposits" data-i18n="fin.depositsL">Внесения</label><input class="form-input" id="kassa-deposits" type="number" inputmode="numeric" placeholder="0"></div>
+      <div class="form-group"><label class="form-label" for="kassa-withdrawals" data-i18n="fin.withdrawalsL">Изъятия</label><input class="form-input" id="kassa-withdrawals" type="number" inputmode="numeric" placeholder="0"></div>
+      <div class="form-group"><label class="form-label" for="kassa-expected" data-i18n="fin.inCashL">В кассе</label><input class="form-input" id="kassa-expected" type="number" inputmode="numeric" placeholder="0"></div>
     </div>
 
-    <div style="font-size:12px;color:var(--text-muted);margin:10px 0 6px">Посещаемость:</div>
+    <div style="font-size:12px;color:var(--text-muted);margin:10px 0 6px" data-i18n="fin.attendance">Посещаемость:</div>
     <div style="display:flex;gap:10px;align-items:flex-end">
-      <div class="form-group" style="flex:1;margin:0"><label class="form-label" for="kassa-guests">Гостей за день</label><input class="form-input" id="kassa-guests" type="number" inputmode="numeric" placeholder="0" oninput="updateAvgCheck()"></div>
-      <div class="form-group" style="flex:1;margin:0"><label class="form-label">Средний чек</label><div id="kassa-avg-check" class="finance-positive" style="padding:11px 0;font-weight:700;font-size:17px">—</div></div>
+      <div class="form-group" style="flex:1;margin:0"><label class="form-label" for="kassa-guests" data-i18n="fin.guestsPerDay">Гостей за день</label><input class="form-input" id="kassa-guests" type="number" inputmode="numeric" placeholder="0" oninput="updateAvgCheck()"></div>
+      <div class="form-group" style="flex:1;margin:0"><label class="form-label" data-i18n="fin.avgCheck">Средний чек</label><div id="kassa-avg-check" class="finance-positive" style="padding:11px 0;font-weight:700;font-size:17px">—</div></div>
     </div>
 
     <div id="kassa-photo-preview" style="margin:10px 0"></div>
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px" id="kassa-hint"></div>
-    <button class="btn btn-primary" onclick="saveKassa()">Сохранить кассу</button>
+    <button class="btn btn-primary" onclick="saveKassa()" data-i18n="fin.saveKassa">Сохранить кассу</button>
   </div>
 </div>
 
 <div class="modal-overlay" id="modal-expense">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-expense')">✕</button>
-    <div class="modal-title">➖ Расход</div>
+    <div class="modal-title" data-i18n="fin.expenseTitle">➖ Расход</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="exp-date-display">—</div>
-    <div class="form-group"><label class="form-label" for="exp-amount">Сумма (сум)</label><input class="form-input" id="exp-amount" placeholder="150000" type="number" inputmode="numeric"></div>
-    <div class="form-group"><label class="form-label" for="exp-category">Категория</label><select class="form-select" id="exp-category"><option>Товары</option><option>Зарплаты</option><option>Аренда</option><option>Коммунальные</option><option>Прочее</option></select></div>
-    <div class="form-group"><label class="form-label" for="exp-desc">Комментарий</label><input class="form-input" id="exp-desc" placeholder="Закупка табака"></div>
-    <button class="btn btn-primary" onclick="saveExpense()">Добавить расход</button>
+    <div class="form-group"><label class="form-label" for="exp-amount" data-i18n="fin.amountSum">Сумма (сум)</label><input class="form-input" id="exp-amount" placeholder="150000" type="number" inputmode="numeric"></div>
+    <div class="form-group"><label class="form-label" for="exp-category" data-i18n="fin.category">Категория</label><select class="form-select" id="exp-category"><option>Товары</option><option>Зарплаты</option><option>Аренда</option><option>Коммунальные</option><option>Прочее</option></select></div>
+    <div class="form-group"><label class="form-label" for="exp-desc" data-i18n="fin.comment">Комментарий</label><input class="form-input" id="exp-desc" placeholder="Закупка табака"></div>
+    <button class="btn btn-primary" onclick="saveExpense()" data-i18n="fin.addExpense">Добавить расход</button>
   </div>
 </div>
 
