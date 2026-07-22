@@ -166,7 +166,7 @@ async function openKassaModal(date) {
   const t = date || financeSelectedDate || businessToday();
   const di = document.getElementById('kassa-date'); if(di) di.value = t;
   document.getElementById('kassa-filial-label').textContent = getFilialName(currentFilial);
-  document.getElementById('kassa-scan-status').textContent = 'Сфоткайте Z-отчёт — строки заполнятся сами, останется сверить.';
+  document.getElementById('kassa-scan-status').textContent = 'Сфотографируйте Z-отчёт или выберите фото из галереи — строки заполнятся сами, останется сверить.';
   openModal('modal-kassa');
   await loadKassaForDate(t);
 }
@@ -207,7 +207,8 @@ async function loadKassaForDate(t) {
 // «Считать с чека»: фото → хранилище → распознавание (Claude Vision) → заполнение строк
 function scanReceipt() {
   const input = document.createElement('input');
-  input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
+  // Без capture: телефон предложит выбор — снять камерой ИЛИ взять из галереи.
+  input.type = 'file'; input.accept = 'image/*';
   input.onchange = async (e) => {
     const file = e.target.files && e.target.files[0];
     if(!file) return;
