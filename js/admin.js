@@ -96,7 +96,7 @@ async function loadAdminChecklists() {
       const totalItems = template?.items?.length || 0;
       const doneCount = (log.items_done||[]).length;
       const pct = totalItems ? Math.round(doneCount/totalItems*100) : 0;
-      const mediaCount = Object.keys(log.items_media||{}).length;
+      const mediaCount = Object.values(log.items_media||{}).reduce((n,m)=> n + (Array.isArray(m) ? m.length : (m?1:0)), 0);
 
       return `<div class="card" style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
@@ -136,10 +136,12 @@ function viewChecklistMedia(itemsMedia, items) {
   items.forEach(i => itemMap[i.id] = i.text);
   let html = '<div style="display:flex;flex-direction:column;gap:16px">';
   Object.entries(itemsMedia).forEach(([itemId, media]) => {
-    const isVideo = media.type === 'video';
+    const arr = Array.isArray(media) ? media : [media];
     html += `<div>
-      <div style="font-size:13px;color:#666;margin-bottom:6px">${escapeHtml(itemMap[itemId]||'')}</div>
-      ${isVideo ? `<video src="${escapeHtml(media.url)}" controls style="width:100%;border-radius:12px"></video>` : `<img src="${escapeHtml(media.url)}" style="width:100%;border-radius:12px">`}
+      <div style="font-size:13px;color:#666;margin-bottom:6px">${escapeHtml(itemMap[itemId]||'')}${arr.length>1?` · ${arr.length} фото`:''}</div>
+      ${arr.map(m => m.type==='video'
+        ? `<video src="${escapeHtml(m.url)}" controls style="width:100%;border-radius:12px;margin-bottom:8px"></video>`
+        : `<img src="${escapeHtml(m.url)}" style="width:100%;border-radius:12px;margin-bottom:8px">`).join('')}
     </div>`;
   });
   html += '</div>';

@@ -132,11 +132,11 @@ async function loadChecklist(type) {
       html += `<div class="section-label">${section}</div><div class="card" style="padding:10px 14px">`;
       sItems.forEach(item => {
         const isDone = donItems.includes(item.id);
-        const media = itemsMedia[item.id];
+        const mediaArr = clMediaList(itemsMedia[item.id]);
         let mediaSection = '';
-        if(media) {
-          const isVideo = media.type === 'video';
-          mediaSection = `<button class="report-btn done-report" onclick="event.stopPropagation();viewReport('${escJsAttr(media.url)}','${escJsAttr(media.type)}')">${isVideo?'🎥':'📸'} Смотреть</button>`;
+        if(mediaArr.length) {
+          mediaSection = `<button class="report-btn done-report" onclick="event.stopPropagation();viewChecklistItemMedia(${item.id})">📸 Смотреть (${mediaArr.length})</button>`
+            + `<button class="report-btn" onclick="event.stopPropagation();openChecklistMediaModal(${item.id},${template.id})">➕ Ещё фото</button>`;
         } else {
           mediaSection = `<button class="report-btn" onclick="event.stopPropagation();openChecklistMediaModal(${item.id},${template.id})">📎 Прикрепить фото</button>`;
         }
@@ -245,49 +245,74 @@ function applyChecklistState(doneItems, itemsBy) {
 }
 
 // CHECKLIST MEDIA ATTACHMENTS
-let clMediaFile = null;
+let clMediaFiles = [];
+
+// Один пункт может хранить как один старый объект {url,type}, так и массив —
+// приводим к массиву, чтобы остальной код работал единообразно.
+function clMediaList(m) {
+  if(!m) return [];
+  return Array.isArray(m) ? m : [m];
+}
 
 function openChecklistMediaModal(itemId, templateId) {
   document.getElementById('cl-media-item-id').value = itemId;
   document.getElementById('cl-media-template-id').value = templateId;
   document.getElementById('cl-media-preview').innerHTML = '';
   document.getElementById('cl-media-file').value = '';
-  clMediaFile = null;
+  clMediaFiles = [];
   openModal('modal-checklist-media');
 }
 
 function previewChecklistMedia(input) {
-  clMediaFile = input.files[0];
-  if(!clMediaFile) return;
+  clMediaFiles = Array.from(input.files || []);
   const preview = document.getElementById('cl-media-preview');
-  const url = URL.createObjectURL(clMediaFile);
-  if(clMediaFile.type.startsWith('video')) {
-    preview.innerHTML = `<video src="${url}" controls style="max-width:100%;border-radius:10px;max-height:200px"></video>`;
-  } else {
-    preview.innerHTML = `<img src="${url}" style="max-width:100%;border-radius:10px;max-height:200px;object-fit:cover">`;
-  }
+  if(!clMediaFiles.length) { preview.innerHTML = ''; return; }
+  preview.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px">` + clMediaFiles.map(f => {
+    const url = URL.createObjectURL(f);
+    return f.type.startsWith('video')
+      ? `<video src="${url}" style="width:90px;height:90px;border-radius:10px;object-fit:cover"></video>`
+      : `<img src="${url}" style="width:90px;height:90px;border-radius:10px;object-fit:cover">`;
+  }).join('') + `</div>`
+    + (clMediaFiles.length>1 ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px">Выбрано файлов: ${clMediaFiles.length}</div>` : '');
+}
+
+// Просмотр всех фото/видео, прикреплённых к пункту
+function viewChecklistItemMedia(itemId) {
+  const arr = clMediaList((currentChecklistLog?.items_media || {})[itemId]);
+  const content = document.getElementById('view-report-content');
+  content.innerHTML = `<div style="display:flex;flex-direction:column;gap:12px">` + arr.map(m =>
+    m.type==='video'
+      ? `<video src="${escapeHtml(m.url)}" controls style="width:100%;border-radius:12px"></video>`
+      : `<img src="${escapeHtml(m.url)}" style="width:100%;border-radius:12px" onclick="viewReport('${escJsAttr(m.url)}','image')">`
+  ).join('') + `</div>`;
+  openModal('modal-view-report');
 }
 
 async function uploadChecklistMedia() {
   const itemId = document.getElementById('cl-media-item-id').value;
   const templateId = document.getElementById('cl-media-template-id').value;
-  if(!clMediaFile) return showToast('Выберите файл');
+  if(!clMediaFiles.length) return showToast('Выберите файл');
 
   const bar = document.getElementById('cl-media-uploading-bar');
   bar.style.display = 'block';
 
   try {
-    const fileToUpload = await compressImage(clMediaFile);
-    const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : clMediaFile.name.split('.').pop());
-    const path = `checklist-${templateId}-${itemId}-${Date.now()}.${ext}`;
-    const { error: upErr } = await sb.storage.from('task-reports').upload(path, fileToUpload);
-    if(upErr) { showToast('Ошибка загрузки: '+upErr.message); bar.style.display='none'; return; }
-    const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
-    const isVideo = clMediaFile.type.startsWith('video');
+    const uploaded = [];
+    for(let i=0; i<clMediaFiles.length; i++) {
+      const file = clMediaFiles[i];
+      const isVideo = file.type.startsWith('video');
+      const fileToUpload = await compressImage(file);
+      const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : file.name.split('.').pop());
+      const path = `checklist-${templateId}-${itemId}-${Date.now()}-${i}.${ext}`;
+      const { error: upErr } = await sb.storage.from('task-reports').upload(path, fileToUpload);
+      if(upErr) { showToast('Ошибка загрузки: '+upErr.message); bar.style.display='none'; return; }
+      const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
+      uploaded.push({ url: urlData.publicUrl, type: isVideo?'video':'image' });
+    }
 
-    // Save to items_media in checklist_logs
+    // Дописываем к уже прикреплённым (не затираем старые фото)
     let itemsMedia = currentChecklistLog?.items_media || {};
-    itemsMedia[itemId] = { url: urlData.publicUrl, type: isVideo?'video':'image' };
+    itemsMedia[itemId] = clMediaList(itemsMedia[itemId]).concat(uploaded);
 
     if(currentChecklistLog) {
       await sb.from('checklist_logs').update({items_media: itemsMedia}).eq('id', currentChecklistLog.id);
@@ -304,7 +329,7 @@ async function uploadChecklistMedia() {
 
     bar.style.display = 'none';
     closeModal('modal-checklist-media');
-    showToast('✅ Фото прикреплено');
+    showToast(uploaded.length>1 ? `✅ Прикреплено фото: ${uploaded.length}` : '✅ Фото прикреплено');
     loadChecklist(currentChecklistType);
   } catch(e) { bar.style.display='none'; showToast('Ошибка: '+e.message); }
 }

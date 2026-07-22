@@ -1194,9 +1194,9 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <input type="hidden" id="cl-media-item-id">
     <input type="hidden" id="cl-media-template-id">
     <div class="upload-area" onclick="document.getElementById('cl-media-file').click()">
-      <input type="file" id="cl-media-file" accept="image/*,video/*" onchange="previewChecklistMedia(this)">
+      <input type="file" id="cl-media-file" accept="image/*,video/*" multiple onchange="previewChecklistMedia(this)">
       <div class="upload-icon">📷</div>
-      <p>Нажми чтобы прикрепить фото или видео</p>
+      <p>Нажми чтобы прикрепить фото или видео<br><span style="font-size:12px;color:var(--text-muted)">можно выбрать несколько</span></p>
     </div>
     <div class="upload-preview" id="cl-media-preview"></div>
     <div class="uploading-bar" id="cl-media-uploading-bar">⏳ Загружаю файл...</div>
