@@ -434,7 +434,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </div>
 
   <div class="screen" id="screen-tasks">
-    <div class="header"><h1>Задачи</h1><p id="tasks-count">Загрузка...</p></div>
+    <div class="header"><h1 data-i18n="tasks.title">Задачи</h1><p id="tasks-count" data-i18n="common.loading">Загрузка...</p></div>
     <div class="hscroll" style="display:flex;gap:6px;padding:8px 12px 0;overflow-x:auto" id="tasks-day-switcher"></div>
     <div style="padding:8px 12px 0" id="tasks-emp-filter-wrap"></div>
     <div class="content"><div class="card" id="tasks-list"><div class="loading">Загрузка...</div></div></div>
@@ -1151,20 +1151,20 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-add-task">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-task')">✕</button>
-    <div class="modal-title">Новая задача</div>
+    <div class="modal-title" data-i18n="tasks.newTask">Новая задача</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="task-filial-display">—</div>
-    <div class="form-group"><label class="form-label" for="task-title">Задача</label><input class="form-input" id="task-title" placeholder="Заказать табак Adalya"></div>
-    <div class="form-group"><label class="form-label" for="task-description">Описание (необязательно)</label>
-      <textarea class="form-input" id="task-description" placeholder="Подробности задачи..." style="min-height:70px;resize:vertical;font-family:inherit"></textarea>
+    <div class="form-group"><label class="form-label" for="task-title" data-i18n="tasks.taskLabel">Задача</label><input class="form-input" id="task-title" placeholder="Заказать табак Adalya" data-i18n-ph="tasks.titlePh"></div>
+    <div class="form-group"><label class="form-label" for="task-description" data-i18n="tasks.descLabel">Описание (необязательно)</label>
+      <textarea class="form-input" id="task-description" placeholder="Подробности задачи..." data-i18n-ph="tasks.descPh" style="min-height:70px;resize:vertical;font-family:inherit"></textarea>
     </div>
     <div class="form-group">
-      <label class="form-label">Назначить сотрудникам</label>
+      <label class="form-label" data-i18n="tasks.assignLabel">Назначить сотрудникам</label>
       <div id="task-assigned-list" style="border:1.5px solid #e5e5e5;border-radius:10px;padding:8px;max-height:200px;overflow-y:auto">
-        <div class="loading" style="padding:10px">Загрузка...</div>
+        <div class="loading" style="padding:10px" data-i18n="common.loading">Загрузка...</div>
       </div>
     </div>
-    <div class="form-group"><label class="form-label" for="task-due">Срок</label><input class="form-input" id="task-due" type="date"></div>
-    <button class="btn btn-primary" onclick="addTask()">Добавить задачу</button>
+    <div class="form-group"><label class="form-label" for="task-due" data-i18n="tasks.dueLabel">Срок</label><input class="form-input" id="task-due" type="date"></div>
+    <button class="btn btn-primary" onclick="addTask()" data-i18n="tasks.addBtn">Добавить задачу</button>
   </div>
 
 </div>
@@ -1173,17 +1173,17 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-report">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-report')">✕</button>
-    <div class="modal-title">📎 Отчёт о выполнении</div>
+    <div class="modal-title" data-i18n="tasks.reportTitle">📎 Отчёт о выполнении</div>
     <input type="hidden" id="report-task-id">
     <div class="upload-area" onclick="document.getElementById('report-file').click()">
       <input type="file" id="report-file" accept="image/*,video/*" onchange="previewReport(this)">
       <div class="upload-icon">📷</div>
-      <p>Нажми чтобы прикрепить фото или видео</p>
+      <p data-i18n="tasks.uploadHint">Нажми чтобы прикрепить фото или видео</p>
     </div>
     <div class="upload-preview" id="report-preview"></div>
-    <div class="uploading-bar" id="uploading-bar">⏳ Загружаю файл...</div>
-    <button class="btn btn-primary" style="margin-top:14px" onclick="uploadReport()">Отправить отчёт</button>
-    <button class="btn btn-secondary" onclick="markDoneNoReport()">Отметить выполненным без фото</button>
+    <div class="uploading-bar" id="uploading-bar" data-i18n="common.uploadingFile">⏳ Загружаю файл...</div>
+    <button class="btn btn-primary" style="margin-top:14px" onclick="uploadReport()" data-i18n="tasks.sendReport">Отправить отчёт</button>
+    <button class="btn btn-secondary" onclick="markDoneNoReport()" data-i18n="tasks.doneNoPhoto">Отметить выполненным без фото</button>
   </div>
 </div>
 
@@ -1207,10 +1207,10 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-task-comments">
   <div class="modal" style="display:flex;flex-direction:column;height:80vh">
     <button class="modal-close" onclick="closeModal('modal-task-comments')">✕</button>
-    <div class="modal-title" id="task-comments-title">💬 Обсуждение</div>
+    <div class="modal-title" id="task-comments-title" data-i18n="tasks.discussion">💬 Обсуждение</div>
     <div id="task-comments-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 0"></div>
     <div style="display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-      <input class="form-input" id="task-comment-input" placeholder="Написать комментарий..." style="flex:1" onkeypress="if(event.key==='Enter')sendTaskComment()">
+      <input class="form-input" id="task-comment-input" placeholder="Написать комментарий..." data-i18n-ph="tasks.commentPh" style="flex:1" onkeypress="if(event.key==='Enter')sendTaskComment()">
       <button onclick="sendTaskComment()" style="background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:18px;cursor:pointer">➤</button>
     </div>
   </div>
@@ -1219,7 +1219,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-view-report">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-view-report')">✕</button>
-    <div class="modal-title">📋 Отчёт сотрудника</div>
+    <div class="modal-title" data-i18n="tasks.reportEmp">📋 Отчёт сотрудника</div>
     <div id="view-report-content"></div>
   </div>
 </div>

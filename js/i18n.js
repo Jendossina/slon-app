@@ -25,6 +25,8 @@ function t(key, vars) {
   if(vars) for(const k in vars) s = s.replace(new RegExp('\\{'+k+'\\}','g'), vars[k]);
   return s;
 }
+// Алиас t() для файлов, где переменная `t` уже занята (напр. tasks.js: taskHTML(t) — объект задачи).
+function tr(key, vars) { return t(key, vars); }
 
 // Применить перевод к статическому HTML (вызывается на старте и не требует повторного вызова
 // при переключении — там перезагрузка). data-i18n → textContent, -ph → placeholder, -html → innerHTML.
@@ -81,8 +83,25 @@ const I18N = {
     'att.checkoutToast': '✅ Уход отмечен',
     // Зарплата (карточка на главной)
     'salary.todayTitle': 'Моя зарплата · сегодня', 'salary.rate': 'Ставка', 'salary.notMarked': 'Смена сегодня ещё не отмечена', 'salary.penalty': 'Штраф',
+    // Задачи
+    'tasks.title': 'Задачи', 'tasks.viewReport': 'Смотреть отчёт', 'tasks.attachReport': 'Прикрепить отчёт', 'tasks.noPhotoReport': 'Без фотоотчёта',
+    'tasks.due': 'до', 'tasks.mine': 'Моя', 'tasks.discuss': 'Обсудить',
+    'tasks.today': 'Сегодня', 'tasks.tomorrow': 'Завтра', 'tasks.yesterday': 'Вчера', 'tasks.all': 'Все', 'tasks.allDays': 'все дни',
+    'tasks.count': '{label}: {done} из {total} выполнено', 'tasks.none': 'На этот день задач нет',
+    'tasks.onlyOwn': 'Можно отмечать только свои задачи — это чужая задача видна для контроля',
+    'tasks.enterTask': 'Введите задачу', 'tasks.selectEmp': 'Выберите хотя бы одного сотрудника', 'tasks.assigned': '✅ Задача назначена: {n}',
+    'tasks.forFilial': '📍 Задача для филиала: ', 'tasks.noEmpFilial': 'Нет сотрудников для филиала «{f}»',
+    'tasks.reportSent': '✅ Отчёт отправлен!', 'tasks.done': '✅ Задача выполнена',
+    'tasks.noMessages': 'Пока нет сообщений.<br>Начни обсуждение первым!', 'tasks.pinned': '📌 Закреплено',
+    'tasks.newTask': 'Новая задача', 'tasks.taskLabel': 'Задача', 'tasks.titlePh': 'Заказать табак Adalya',
+    'tasks.descLabel': 'Описание (необязательно)', 'tasks.descPh': 'Подробности задачи...', 'tasks.assignLabel': 'Назначить сотрудникам',
+    'tasks.dueLabel': 'Срок', 'tasks.addBtn': 'Добавить задачу', 'tasks.reportTitle': '📎 Отчёт о выполнении',
+    'tasks.uploadHint': 'Нажми чтобы прикрепить фото или видео', 'tasks.sendReport': 'Отправить отчёт', 'tasks.doneNoPhoto': 'Отметить выполненным без фото',
+    'tasks.discussion': '💬 Обсуждение', 'tasks.commentPh': 'Написать комментарий...', 'tasks.reportEmp': '📋 Отчёт сотрудника',
     // Общее
     'common.loading': 'Загрузка...', 'common.logout': 'Выйти', 'common.sum': 'сум', 'common.error': 'Ошибка: ',
+    'common.observerMode': 'Режим наблюдателя — редактирование недоступно', 'common.allEmployees': '👥 Все сотрудники', 'common.byDept': 'по цехам ▾',
+    'common.uploadErr': 'Ошибка загрузки: ', 'common.loadErrConn': 'Ошибка загрузки. Проверьте соединение.', 'common.uploadingFile': '⏳ Загружаю файл...',
   },
   uz: {
     // Нижняя навигация
@@ -121,7 +140,24 @@ const I18N = {
     'att.checkoutToast': '✅ Кетиш белгиланди',
     // Зарплата (карточка на главной)
     'salary.todayTitle': 'Менинг маошим · бугун', 'salary.rate': 'Ставка', 'salary.notMarked': 'Бугунги смена ҳали белгиланмаган', 'salary.penalty': 'Жарима',
+    // Задачи
+    'tasks.title': 'Вазифалар', 'tasks.viewReport': 'Ҳисоботни кўриш', 'tasks.attachReport': 'Ҳисобот бириктириш', 'tasks.noPhotoReport': 'Фотоҳисоботсиз',
+    'tasks.due': 'гача', 'tasks.mine': 'Меники', 'tasks.discuss': 'Муҳокама',
+    'tasks.today': 'Бугун', 'tasks.tomorrow': 'Эртага', 'tasks.yesterday': 'Кеча', 'tasks.all': 'Ҳаммаси', 'tasks.allDays': 'барча кунлар',
+    'tasks.count': '{label}: {total} тадан {done} таси бажарилди', 'tasks.none': 'Бу кунга вазифа йўқ',
+    'tasks.onlyOwn': 'Фақат ўз вазифаларингизни белгилаш мумкин — бу бошқа ходимнинг вазифаси, назорат учун кўрсатилган',
+    'tasks.enterTask': 'Вазифани киритинг', 'tasks.selectEmp': 'Камида битта ходимни танланг', 'tasks.assigned': '✅ Вазифа берилди: {n}',
+    'tasks.forFilial': '📍 Филиал учун вазифа: ', 'tasks.noEmpFilial': '«{f}» филиали учун ходимлар йўқ',
+    'tasks.reportSent': '✅ Ҳисобот юборилди!', 'tasks.done': '✅ Вазифа бажарилди',
+    'tasks.noMessages': 'Ҳали хабарлар йўқ.<br>Муҳокамани биринчи бўлиб бошланг!', 'tasks.pinned': '📌 Қадаланган',
+    'tasks.newTask': 'Янги вазифа', 'tasks.taskLabel': 'Вазифа', 'tasks.titlePh': 'Adalya тамаки буюртма қилиш',
+    'tasks.descLabel': 'Тавсиф (ихтиёрий)', 'tasks.descPh': 'Вазифа тафсилотлари...', 'tasks.assignLabel': 'Ходимларга бириктириш',
+    'tasks.dueLabel': 'Муддат', 'tasks.addBtn': 'Вазифа қўшиш', 'tasks.reportTitle': '📎 Бажарилганлик ҳисоботи',
+    'tasks.uploadHint': 'Фото ёки видео бириктириш учун босинг', 'tasks.sendReport': 'Ҳисоботни юбориш', 'tasks.doneNoPhoto': 'Фотосиз бажарилган деб белгилаш',
+    'tasks.discussion': '💬 Муҳокама', 'tasks.commentPh': 'Шарҳ ёзиш...', 'tasks.reportEmp': '📋 Ходим ҳисоботи',
     // Общее
     'common.loading': 'Юкланмоқда...', 'common.logout': 'Чиқиш', 'common.sum': 'сўм', 'common.error': 'Хато: ',
+    'common.observerMode': 'Кузатувчи режими — таҳрирлаш мумкин эмас', 'common.allEmployees': '👥 Барча ходимлар', 'common.byDept': 'цехлар бўйича ▾',
+    'common.uploadErr': 'Юклашда хато: ', 'common.loadErrConn': 'Юклашда хато. Уланишни текширинг.', 'common.uploadingFile': '⏳ Файл юкланмоқда...',
   },
 };

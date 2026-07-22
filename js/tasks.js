@@ -76,12 +76,12 @@ function taskHTML(t) {
     const isVideo = t.report_type === 'video';
     reportSection = `
       <button class="report-btn done-report" onclick="viewReport('${escJsAttr(t.report_url)}','${escJsAttr(t.report_type||'image')}')">
-        ${isVideo ? '🎥' : '📸'} Смотреть отчёт
+        ${isVideo ? '🎥' : '📸'} ${tr('tasks.viewReport')}
       </button>`;
   } else if(isMyTask && !isDone) {
-    reportSection = `<button class="report-btn" onclick="openReportModal(${t.id})">📎 Прикрепить отчёт</button>`;
+    reportSection = `<button class="report-btn" onclick="openReportModal(${t.id})">📎 ${tr('tasks.attachReport')}</button>`;
   } else if(isDone && !t.report_url && !isMyTask) {
-    reportSection = `<span style="font-size:11px;color:var(--text-muted)">Без фотоотчёта</span>`;
+    reportSection = `<span style="font-size:11px;color:var(--text-muted)">${tr('tasks.noPhotoReport')}</span>`;
   }
 
   return `<div class="task-row">
@@ -89,10 +89,10 @@ function taskHTML(t) {
     <div class="task-body">
       <div class="task-text" style="${isDone?'text-decoration:line-through;color:var(--text-muted)':''}">${escapeHtml(t.title)}</div>
       ${t.description?`<div style="font-size:12px;color:#666;margin-top:2px">${escapeHtml(t.description)}</div>`:''}
-      <div class="task-meta">👤 ${escapeHtml(t.assigned_to_name||'—')} ${t.due_date?'· до '+fmtDateShort(t.due_date):''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">Моя</span>':''}</div>
+      <div class="task-meta">👤 ${escapeHtml(t.assigned_to_name||'—')} ${t.due_date?'· '+tr('tasks.due')+' '+fmtDateShort(t.due_date):''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">'+tr('tasks.mine')+'</span>':''}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
         ${reportSection}
-        <button class="report-btn" onclick="event.stopPropagation();openTaskComments(${t.id},'${escJsAttr(t.title||'')}')">💬 Обсудить<span id="taskunread-${t.id}" style="display:${taskUnreadMap[t.id]?'inline-block':'none'};width:8px;height:8px;border-radius:50%;background:#A32D2D;margin-left:5px;vertical-align:middle"></span></button>
+        <button class="report-btn" onclick="event.stopPropagation();openTaskComments(${t.id},'${escJsAttr(t.title||'')}')">💬 ${tr('tasks.discuss')}<span id="taskunread-${t.id}" style="display:${taskUnreadMap[t.id]?'inline-block':'none'};width:8px;height:8px;border-radius:50%;background:#A32D2D;margin-left:5px;vertical-align:middle"></span></button>
       </div>
     </div>
   </div>`;
@@ -110,15 +110,15 @@ function renderTasksDaySwitcher() {
     const d = new Date(now); d.setDate(now.getDate()+i);
     const ds = ymdLocal(d);
     let label;
-    if(i===0) label = 'Сегодня';
-    else if(i===1) label = 'Завтра';
-    else if(i===-1) label = 'Вчера';
+    if(i===0) label = t('tasks.today');
+    else if(i===1) label = t('tasks.tomorrow');
+    else if(i===-1) label = t('tasks.yesterday');
     else label = d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
     days.push({ ds, label });
   }
   const chip = (active, onclick, label) =>
     `<button onclick="${onclick}" style="flex:0 0 auto;padding:7px 13px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${active?'var(--gold-dark)':'var(--surface-2)'};color:${active?'#fff':'var(--text-primary)'}">${label}</button>`;
-  let html = chip(tasksSelectedDay===null, "selectTaskDay(null)", 'Все');
+  let html = chip(tasksSelectedDay===null, "selectTaskDay(null)", t('tasks.all'));
   html += days.map(d=>chip(tasksSelectedDay===d.ds, `selectTaskDay('${d.ds}')`, d.label)).join('');
   el.innerHTML = html;
 }
@@ -145,8 +145,8 @@ async function renderTasksEmpFilter(role) {
   }
   // Кнопка-фильтр: открывает список сотрудников по цехам (карточками с границами)
   wrap.innerHTML = `<button onclick="openTaskEmpFilter()" aria-label="Фильтр по сотруднику" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px;cursor:pointer">
-    <span>${tasksSelectedEmp ? '👤 '+escapeHtml(tasksSelectedEmp) : '👥 Все сотрудники'}</span>
-    <span style="color:var(--text-muted);font-size:12px">по цехам ▾</span>
+    <span>${tasksSelectedEmp ? '👤 '+escapeHtml(tasksSelectedEmp) : t('common.allEmployees')}</span>
+    <span style="color:var(--text-muted);font-size:12px">${t('common.byDept')}</span>
   </button>`;
 }
 
@@ -154,7 +154,7 @@ async function renderTasksEmpFilter(role) {
 async function openTaskEmpFilter() {
   const emps = _tasksEmpCache?.emps || [];
   const body = document.getElementById('task-emp-filter-list');
-  body.innerHTML = '<div class="loading">Загрузка...</div>';
+  body.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
   openModal('modal-task-emp-filter');
   const counts = await taskCountByName();
   body.innerHTML = empDeptPickerHTML(emps, tasksSelectedEmp, 'selectTaskEmpFromModal', counts);
@@ -182,21 +182,21 @@ async function loadTasks() {
     if(tasksSelectedEmp) query = query.eq('assigned_to_name', tasksSelectedEmp);
     const { data: tasks } = await query;
     const done = (tasks||[]).filter(t=>t.status==='done').length;
-    const dayLabel = tasksSelectedDay ? new Date(tasksSelectedDay).toLocaleDateString('ru-RU',{day:'numeric',month:'long'}) : 'все дни';
-    document.getElementById('tasks-count').textContent = `${dayLabel}: ${done} из ${(tasks||[]).length} выполнено`;
+    const dayLabel = tasksSelectedDay ? new Date(tasksSelectedDay).toLocaleDateString('ru-RU',{day:'numeric',month:'long'}) : t('tasks.allDays');
+    document.getElementById('tasks-count').textContent = t('tasks.count',{label:dayLabel,done,total:(tasks||[]).length});
     const list = document.getElementById('tasks-list');
-    if(!tasks||tasks.length===0) { list.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">На этот день задач нет</div></div>'; return; }
+    if(!tasks||tasks.length===0) { list.innerHTML=`<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">${t('tasks.none')}</div></div>`; return; }
     await computeTaskUnread(tasks.map(t=>t.id));
     list.innerHTML = tasks.map(t=>{
       try { return taskHTML(t); }
       catch(err) { console.error('Ошибка отрисовки задачи', t?.id, t?.title, err); return ''; }
     }).join('');
-  } catch(e) { console.error('loadTasks error:', e); document.getElementById('tasks-list').innerHTML='<div class="loading">Ошибка: '+(e?.message||e)+'</div>'; }
+  } catch(e) { console.error('loadTasks error:', e); document.getElementById('tasks-list').innerHTML='<div class="loading">'+t('common.error')+(e?.message||e)+'</div>'; }
 }
 
 async function toggleTask(id, status, isMyTask) {
-  if(isBoss()) return showToast('Режим наблюдателя — редактирование недоступно');
-  if(currentProfile?.role === 'employee' && !isMyTask) return showToast('Можно отмечать только свои задачи — это чужая задача видна для контроля');
+  if(isBoss()) return showToast(t('common.observerMode'));
+  if(currentProfile?.role === 'employee' && !isMyTask) return showToast(t('tasks.onlyOwn'));
   const newStatus = status==='done'?'pending':'done';
   await sb.from('tasks').update({status:newStatus}).eq('id',id);
   loadTasks(); loadHome();
@@ -204,11 +204,11 @@ async function toggleTask(id, status, isMyTask) {
 
 async function loadTaskEmployees() {
   const el = document.getElementById('task-filial-display');
-  if(el) el.textContent = '📍 Задача для филиала: ' + getFilialName(currentFilial);
+  if(el) el.textContent = t('tasks.forFilial') + getFilialName(currentFilial);
   const { data: allEmps } = await sb.from('employees').select('id,name,department,filials').order('name');
   const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
   const list = document.getElementById('task-assigned-list');
-  if(!emps || emps.length===0) { list.innerHTML='<div style="padding:10px;color:var(--text-muted);font-size:13px">Нет сотрудников для филиала «' + getFilialName(currentFilial) + '»</div>'; return; }
+  if(!emps || emps.length===0) { list.innerHTML=`<div style="padding:10px;color:var(--text-muted);font-size:13px">${t('tasks.noEmpFilial',{f:getFilialName(currentFilial)})}</div>`; return; }
 
   // Группируем по подразделениям (имена внутри — по алфавиту, emps уже отсортированы)
   const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара','Техперсонал'];
@@ -227,13 +227,13 @@ async function loadTaskEmployees() {
 }
 
 async function addTask() {
-  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
+  if(!canEditData()) return showToast(t('common.observerMode'));
   const title = document.getElementById('task-title').value.trim();
   const description = document.getElementById('task-description').value.trim();
-  if(!title) return showToast('Введите задачу');
+  if(!title) return showToast(t('tasks.enterTask'));
 
   const checked = Array.from(document.querySelectorAll('.task-emp-checkbox:checked'));
-  if(checked.length===0) return showToast('Выберите хотя бы одного сотрудника');
+  if(checked.length===0) return showToast(t('tasks.selectEmp'));
 
   const dueDate = document.getElementById('task-due').value || today();
   let successCount = 0;
@@ -262,10 +262,10 @@ async function addTask() {
     closeModal('modal-add-task');
     ['task-title','task-description','task-due'].forEach(id=>document.getElementById(id).value='');
     document.querySelectorAll('.task-emp-checkbox').forEach(cb=>cb.checked=false);
-    showToast(`✅ Задача назначена ${successCount} сотрудник${successCount>1?'ам':'у'}`);
+    showToast(t('tasks.assigned',{n:successCount}));
     tasksSelectedDay = dueDate; // показать день, на который создали задачу
     loadTasks();
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
 // REPORT
@@ -299,7 +299,7 @@ async function uploadReport() {
     const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : reportFile.name.split('.').pop());
     const path = `task-${taskId}-${Date.now()}.${ext}`;
     const { error: upErr } = await sb.storage.from('task-reports').upload(path, fileToUpload);
-    if(upErr) { showToast('Ошибка загрузки: '+upErr.message); bar.style.display='none'; return; }
+    if(upErr) { showToast(t('common.uploadErr')+upErr.message); bar.style.display='none'; return; }
     const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
     const isVideo = reportFile.type.startsWith('video');
     await sb.from('tasks').update({ status:'done', report_url: urlData.publicUrl, report_type: isVideo?'video':'image' }).eq('id', taskId);
@@ -309,9 +309,9 @@ async function uploadReport() {
     await notifyAdmin(`✅ <b>Задача выполнена!</b>\n\n📋 ${task?.title||''}\n👤 Сотрудник: ${task?.assigned_to_name||''}\n${isVideo?'🎥 Прикреплено видео':'📸 Прикреплено фото'}\n\nОткрой приложение: https://slon-app.vercel.app`);
     bar.style.display = 'none';
     closeModal('modal-report');
-    showToast('✅ Отчёт отправлен!');
+    showToast(t('tasks.reportSent'));
     loadTasks(); loadHome();
-  } catch(e) { bar.style.display='none'; showToast('Ошибка: '+e.message); }
+  } catch(e) { bar.style.display='none'; showToast(t('common.error')+e.message); }
 }
 
 async function markDoneNoReport() {
@@ -320,7 +320,7 @@ async function markDoneNoReport() {
   const { data: task } = await sb.from('tasks').select('title,assigned_to_name').eq('id', taskId).single();
   await notifyAdmin(`✅ <b>Задача выполнена!</b>\n\n📋 ${task?.title||''}\n👤 Сотрудник: ${task?.assigned_to_name||''}\n📝 Без фотоотчёта\n\nОткрой приложение: https://slon-app.vercel.app`);
   closeModal('modal-report');
-  showToast('✅ Задача выполнена');
+  showToast(t('tasks.done'));
   loadTasks(); loadHome();
 }
 
@@ -348,7 +348,7 @@ function chatBubbleHTML(c, isMine, showPinBtn) {
   }
   const pinBtn = showPinBtn ? `<button onclick="event.stopPropagation();toggleChatPin(${c.id},${c.is_pinned})" style="background:none;border:none;cursor:pointer;font-size:11px;opacity:0.6;margin-left:6px">${c.is_pinned?'📌':'📍'}</button>` : '';
   return `<div style="align-self:${isMine?'flex-end':'flex-start'};max-width:80%">
-    ${c.is_pinned?'<div style="font-size:10px;color:var(--gold-dark);font-weight:600;margin-bottom:2px">📌 Закреплено</div>':''}
+    ${c.is_pinned?`<div style="font-size:10px;color:var(--gold-dark);font-weight:600;margin-bottom:2px">${t('tasks.pinned')}</div>`:''}
     <div style="background:${isMine?'var(--gold-dark)':'var(--surface-2)'};color:${isMine?'#fff':'var(--text-primary)'};border-radius:14px;padding:${c.media_url?'8px':'10px 14px'};font-size:14px;${isMine?'border-bottom-right-radius:4px':'border-bottom-left-radius:4px'}">
       ${!isMine?`<div style="font-size:11px;font-weight:600;opacity:0.7;margin-bottom:3px">${escapeHtml(c.user_name||'')}</div>`:''}
       ${mediaHTML}
@@ -384,11 +384,11 @@ function stopCommentsPolling() {
 let lastCommentsCount = 0;
 async function loadTaskComments(isPoll) {
   const list = document.getElementById('task-comments-list');
-  if(!isPoll) list.innerHTML = '<div class="loading">Загрузка...</div>';
+  if(!isPoll) list.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
   try {
     const { data: comments } = await sb.from('task_comments').select('*').eq('task_id', currentCommentsTaskId).order('created_at');
     if(!comments || comments.length===0) {
-      if(!isPoll || lastCommentsCount!==0) list.innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div class="empty-text">Пока нет сообщений.<br>Начни обсуждение первым!</div></div>';
+      if(!isPoll || lastCommentsCount!==0) list.innerHTML = `<div class="empty"><div class="empty-icon">💬</div><div class="empty-text">${t('tasks.noMessages')}</div></div>`;
       lastCommentsCount = 0;
       return;
     }
@@ -399,7 +399,7 @@ async function loadTaskComments(isPoll) {
     const wasAtBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 30;
     list.innerHTML = comments.map(c => chatBubbleHTML(c, c.user_id === currentUser?.id)).join('');
     if(!isPoll || wasAtBottom) list.scrollTop = list.scrollHeight;
-  } catch(e) { console.error(e); if(!isPoll) list.innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div>'; }
+  } catch(e) { console.error(e); if(!isPoll) list.innerHTML = `<div class="empty"><div class="empty-text">${t('common.loadErrConn')}</div></div>`; }
 }
 
 async function sendTaskComment() {
@@ -433,6 +433,6 @@ async function sendTaskComment() {
         await notifyAdmin(`💬 <b>Новый комментарий к задаче</b>\n\n📋 ${task.title}\n👤 ${currentProfile?.name||''}: ${text}`);
       }
     }
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
