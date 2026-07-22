@@ -99,6 +99,22 @@ const I18N = {
     'tasks.dueLabel': 'Срок', 'tasks.addBtn': 'Добавить задачу', 'tasks.reportTitle': '📎 Отчёт о выполнении',
     'tasks.uploadHint': 'Нажми чтобы прикрепить фото или видео', 'tasks.sendReport': 'Отправить отчёт', 'tasks.doneNoPhoto': 'Отметить выполненным без фото',
     'tasks.discussion': '💬 Обсуждение', 'tasks.commentPh': 'Написать комментарий...', 'tasks.reportEmp': '📋 Отчёт сотрудника',
+    // Брони
+    'crm.title': 'Брони', 'crm.count': '{n} броней · {f}', 'crm.none': 'Броней пока нет', 'crm.people': 'чел.', 'crm.enterGuest': 'Введите имя гостя', 'crm.added': '✅ Бронь добавлена', 'crm.opForFilial': '📍 Операция для филиала: ', 'crm.bookForFilial': '📍 Бронь на филиал: ',
+    'crm.newBooking': 'Новая бронь', 'crm.guestName': 'Имя гостя', 'crm.phone': 'Телефон', 'crm.date': 'Дата', 'crm.time': 'Время', 'crm.guestsCount': 'Количество гостей', 'crm.zone': 'Зона', 'crm.addBooking': 'Добавить бронь',
+    // Задачник
+    'note.title': '📝 Мой задачник', 'note.subtitle': 'Личные задачи и заметки', 'note.addBtn': '+ Добавить',
+    'note.textNote': 'Текст заметки', 'note.textTask': 'Что нужно сделать', 'note.edit': 'Редактировать', 'note.new': 'Новая запись', 'note.enterText': 'Введите текст', 'note.delConfirm': 'Удалить запись?',
+    'note.filterActive': 'Активные', 'note.filterToday': 'Сегодня', 'note.filterNotes': '📝 Заметки', 'note.filterDone': 'Выполненные', 'note.filterAll': 'Все',
+    'note.empty': 'Пусто. Нажми «+ Добавить».', 'note.overdue': '⚠️ просрочено · ', 'note.errNotSetup': 'Ошибка. Возможно, задачник ещё не настроен в Supabase.',
+    'note.typeLabel': 'Тип', 'note.typeTask': '✅ Задача (со сроком)', 'note.typeNote': '📝 Заметка (просто мысль)', 'note.textPh': 'Текст...', 'note.dueOpt': 'Срок (необязательно)', 'note.priority': 'Приоритет', 'note.prioNormal': 'Обычный', 'note.prioImportant': '🔴 Важное',
+    // Помощник
+    'help.title': '💡 Помощник', 'help.subtitle': 'Спроси, где что находится', 'help.greeting': 'Привет! Я помогу разобраться в приложении. Спроси, где что находится или как что-то сделать.', 'help.thinking': '💭 Думаю...', 'help.fallbackIntro': 'Умный ответ сейчас недоступен. Вот карта разделов:', 'help.inputPh': 'Например: где отметить приход?',
+    // Календарь
+    'cal.title': '📅 Календарь', 'cal.subtitle': 'События', 'cal.addBtn': '+ Событие', 'cal.noEvents': 'В этом месяце событий нет', 'cal.addHint': '.<br>Нажми «+ Событие».', 'cal.today': '📍 Сегодня · ', 'cal.allFilials': 'все филиалы', 'cal.errNotSetup': 'Ошибка. Возможно, календарь ещё не настроен в Supabase.',
+    'cal.enterTitle': 'Введите название', 'cal.selectDate': 'Выберите дату', 'cal.delEventConfirm': 'Удалить событие?',
+    'cal.evDelivery': 'Доставка', 'cal.evInspection': 'Проверка', 'cal.evBanquet': 'Банкет', 'cal.evBirthday': 'День рождения', 'cal.evOther': 'Другое',
+    'cal.newEvent': 'Новое событие', 'cal.type': 'Тип', 'cal.evTitle': 'Название', 'cal.date': 'Дата', 'cal.timeOpt': 'Время (необязательно)', 'cal.comment': 'Комментарий', 'cal.filial': 'Филиал', 'cal.allFilialsOpt': 'Все филиалы',
     // Админ-панель
     'adm.title': '⚙️ Админ-панель', 'adm.onlyAdmin': 'Только для управляющего',
     'adm.tabEmployees': '👥 Сотрудники', 'adm.tabTasks': '📋 Задачи', 'adm.tabAnalytics': '📊 Аналитика', 'adm.tabActivity': '📜 История', 'adm.tabChecklists': '☑️ Чек-листы', 'adm.tabStorage': '🗄 Хранилище',
@@ -235,7 +251,7 @@ const I18N = {
     'common.loading': 'Загрузка...', 'common.logout': 'Выйти', 'common.sum': 'сум', 'common.error': 'Ошибка: ',
     'common.observerMode': 'Режим наблюдателя — редактирование недоступно', 'common.allEmployees': '👥 Все сотрудники', 'common.byDept': 'по цехам ▾',
     'common.uploadErr': 'Ошибка загрузки: ', 'common.loadErrConn': 'Ошибка загрузки. Проверьте соединение.', 'common.uploadingFile': '⏳ Загружаю файл...',
-    'common.loadErr': 'Ошибка загрузки', 'common.save': 'Сохранить',
+    'common.loadErr': 'Ошибка загрузки', 'common.save': 'Сохранить', 'common.delete': 'Удалить',
   },
   uz: {
     // Нижняя навигация
@@ -289,6 +305,22 @@ const I18N = {
     'tasks.dueLabel': 'Муддат', 'tasks.addBtn': 'Вазифа қўшиш', 'tasks.reportTitle': '📎 Бажарилганлик ҳисоботи',
     'tasks.uploadHint': 'Фото ёки видео бириктириш учун босинг', 'tasks.sendReport': 'Ҳисоботни юбориш', 'tasks.doneNoPhoto': 'Фотосиз бажарилган деб белгилаш',
     'tasks.discussion': '💬 Муҳокама', 'tasks.commentPh': 'Шарҳ ёзиш...', 'tasks.reportEmp': '📋 Ходим ҳисоботи',
+    // Брони
+    'crm.title': 'Бронлар', 'crm.count': '{n} брон · {f}', 'crm.none': 'Ҳали бронлар йўқ', 'crm.people': 'киши', 'crm.enterGuest': 'Меҳмон исмини киритинг', 'crm.added': '✅ Брон қўшилди', 'crm.opForFilial': '📍 Филиал учун операция: ', 'crm.bookForFilial': '📍 Филиалга брон: ',
+    'crm.newBooking': 'Янги брон', 'crm.guestName': 'Меҳмон исми', 'crm.phone': 'Телефон', 'crm.date': 'Сана', 'crm.time': 'Вақт', 'crm.guestsCount': 'Меҳмонлар сони', 'crm.zone': 'Зона', 'crm.addBooking': 'Брон қўшиш',
+    // Задачник
+    'note.title': '📝 Менинг вазифаларим', 'note.subtitle': 'Шахсий вазифалар ва эслатмалар', 'note.addBtn': '+ Қўшиш',
+    'note.textNote': 'Эслатма матни', 'note.textTask': 'Нима қилиш керак', 'note.edit': 'Таҳрирлаш', 'note.new': 'Янги ёзув', 'note.enterText': 'Матн киритинг', 'note.delConfirm': 'Ёзувни ўчирасизми?',
+    'note.filterActive': 'Фаол', 'note.filterToday': 'Бугун', 'note.filterNotes': '📝 Эслатмалар', 'note.filterDone': 'Бажарилган', 'note.filterAll': 'Ҳаммаси',
+    'note.empty': 'Бўш. «+ Қўшиш» ни босинг.', 'note.overdue': '⚠️ муддати ўтган · ', 'note.errNotSetup': 'Хато. Эҳтимол, вазифалар дафтари ҳали Supabase да созланмаган.',
+    'note.typeLabel': 'Тури', 'note.typeTask': '✅ Вазифа (муддатли)', 'note.typeNote': '📝 Эслатма (шунчаки фикр)', 'note.textPh': 'Матн...', 'note.dueOpt': 'Муддат (ихтиёрий)', 'note.priority': 'Муҳимлик', 'note.prioNormal': 'Оддий', 'note.prioImportant': '🔴 Муҳим',
+    // Помощник
+    'help.title': '💡 Ёрдамчи', 'help.subtitle': 'Нима қаердалигини сўранг', 'help.greeting': 'Салом! Мен иловани тушунишга ёрдам бераман. Нима қаерда ёки қандай қилишни сўранг.', 'help.thinking': '💭 Ўйлаяпман...', 'help.fallbackIntro': 'Ҳозир ақлли жавоб мавжуд эмас. Мана бўлимлар харитаси:', 'help.inputPh': 'Масалан: келишни қаерда белгилайман?',
+    // Календарь
+    'cal.title': '📅 Тақвим', 'cal.subtitle': 'Тадбирлар', 'cal.addBtn': '+ Тадбир', 'cal.noEvents': 'Бу ойда тадбирлар йўқ', 'cal.addHint': '.<br>«+ Тадбир» ни босинг.', 'cal.today': '📍 Бугун · ', 'cal.allFilials': 'барча филиаллар', 'cal.errNotSetup': 'Хато. Эҳтимол, тақвим ҳали Supabase да созланмаган.',
+    'cal.enterTitle': 'Номини киритинг', 'cal.selectDate': 'Санани танланг', 'cal.delEventConfirm': 'Тадбирни ўчирасизми?',
+    'cal.evDelivery': 'Етказиб бериш', 'cal.evInspection': 'Текширув', 'cal.evBanquet': 'Банкет', 'cal.evBirthday': 'Туғилган кун', 'cal.evOther': 'Бошқа',
+    'cal.newEvent': 'Янги тадбир', 'cal.type': 'Тури', 'cal.evTitle': 'Номи', 'cal.date': 'Сана', 'cal.timeOpt': 'Вақт (ихтиёрий)', 'cal.comment': 'Изоҳ', 'cal.filial': 'Филиал', 'cal.allFilialsOpt': 'Барча филиаллар',
     // Админ-панель
     'adm.title': '⚙️ Админ-панел', 'adm.onlyAdmin': 'Фақат бошқарувчи учун',
     'adm.tabEmployees': '👥 Ходимлар', 'adm.tabTasks': '📋 Вазифалар', 'adm.tabAnalytics': '📊 Аналитика', 'adm.tabActivity': '📜 Тарих', 'adm.tabChecklists': '☑️ Чек-листлар', 'adm.tabStorage': '🗄 Хранилище',
@@ -425,6 +457,6 @@ const I18N = {
     'common.loading': 'Юкланмоқда...', 'common.logout': 'Чиқиш', 'common.sum': 'сўм', 'common.error': 'Хато: ',
     'common.observerMode': 'Кузатувчи режими — таҳрирлаш мумкин эмас', 'common.allEmployees': '👥 Барча ходимлар', 'common.byDept': 'цехлар бўйича ▾',
     'common.uploadErr': 'Юклашда хато: ', 'common.loadErrConn': 'Юклашда хато. Уланишни текширинг.', 'common.uploadingFile': '⏳ Файл юкланмоқда...',
-    'common.loadErr': 'Юклашда хато', 'common.save': 'Сақлаш',
+    'common.loadErr': 'Юклашда хато', 'common.save': 'Сақлаш', 'common.delete': 'Ўчириш',
   },
 };

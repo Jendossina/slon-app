@@ -1,6 +1,13 @@
 // ============ ПОМОЩНИК (HELP) ============
-// Быстрые вопросы-подсказки
-const HELP_SUGGESTIONS = [
+// Быстрые вопросы-подсказки (двуязычные — язык фиксирован на загрузку страницы)
+const HELP_SUGGESTIONS = (typeof getLang==='function' && getLang()==='uz') ? [
+  'Келишни қаерда белгилайман?',
+  'Идиш синишини қандай ёзаман?',
+  'Маошимни қаердан кўраман?',
+  'Меҳмон фикрини қандай киритаман?',
+  'Чек-листлар қаерда?',
+  'Паролни қандай ўзгартираман?'
+] : [
   'Где отметить приход?',
   'Как записать бой посуды?',
   'Где посмотреть мою зарплату?',
@@ -10,7 +17,20 @@ const HELP_SUGGESTIONS = [
 ];
 
 // Статичная карта разделов — показывается, если ИИ недоступен
-const HELP_FALLBACK = [
+const HELP_FALLBACK = (typeof getLang==='function' && getLang()==='uz') ? [
+  { t:'🏠 Асосий', d:'Келиш-кетишни белгилаш, маош, бугунги вазифалар' },
+  { t:'✅ Вазифалар', d:'Кунлар бўйича вазифаларинг, фотоҳисоботлар' },
+  { t:'☑️ Смена', d:'Смена очиш ва ёпиш чек-листлари' },
+  { t:'📅 Жадвал', d:'Ҳафталар бўйича смена жадвали' },
+  { t:'📄 Шахсий кабинет', d:'Яна → маош, сменалар, ютуқлар, парол алмаштириш' },
+  { t:'🍽️ Идиш-товоқ', d:'Яна → идиш ҳисоби ва синишни ёзиш' },
+  { t:'🧴 Хўжалик қисми', d:'Яна → сарф материаллар: складдан олиш, кирим, ҳисобот' },
+  { t:'⭐ Фикрлар', d:'Яна → меҳмон фикрлари, ИИ ўзи саралайди' },
+  { t:'📚 Билимлар базаси', d:'Яна → регламент ва стандартлар, қидирув бор' },
+  { t:'💬 Умумий чат', d:'Яна → бўлимлар бўйича чат' },
+  { t:'📢 Лента', d:'Яна → эълонлар ва сўровлар' },
+  { t:'📅 Тақвим', d:'Яна → етказиб беришлар, текширувлар, банкетлар' },
+] : [
   { t:'🏠 Главная', d:'Отметка прихода и ухода, зарплата, задачи на сегодня' },
   { t:'✅ Задачи', d:'Твои задачи по дням, фото-отчёты' },
   { t:'☑️ Смена', d:'Чек-листы открытия и закрытия смены' },
@@ -37,7 +57,7 @@ function loadHelp() {
   // Приветствие + быстрые вопросы (только при первом входе)
   if(chat.dataset.inited === '1') return;
   chat.dataset.inited = '1';
-  chat.innerHTML = helpBubble('Привет! Я помогу разобраться в приложении. Спроси, где что находится или как что-то сделать.', false) +
+  chat.innerHTML = helpBubble(t('help.greeting'), false) +
     `<div id="help-suggestions" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
       ${HELP_SUGGESTIONS.map(q=>`<button onclick="askHelp('${q.replace(/'/g,"\\'")}')" style="background:var(--surface-2);border:1px solid var(--border);border-radius:16px;padding:7px 12px;font-size:12px;color:var(--text-primary);cursor:pointer">${q}</button>`).join('')}
     </div>`;
@@ -54,7 +74,7 @@ async function askHelp(preset) {
   if(sug) sug.remove();
 
   chat.insertAdjacentHTML('beforeend', helpBubble(question, true));
-  chat.insertAdjacentHTML('beforeend', `<div id="help-typing" style="align-self:flex-start;color:var(--text-muted);font-size:13px;padding:6px 4px">💭 Думаю...</div>`);
+  chat.insertAdjacentHTML('beforeend', `<div id="help-typing" style="align-self:flex-start;color:var(--text-muted);font-size:13px;padding:6px 4px">${t('help.thinking')}</div>`);
   chat.scrollTop = chat.scrollHeight;
 
   try {
@@ -85,7 +105,7 @@ async function askHelp(preset) {
 function showHelpFallback(chat) {
   chat.insertAdjacentHTML('beforeend', `<div style="align-self:flex-start;max-width:95%">
     <div style="background:var(--surface-2);border-radius:14px;padding:12px 14px;font-size:13px;color:var(--text-primary);border-bottom-left-radius:4px">
-      <div style="margin-bottom:10px;color:var(--text-muted)">Умный ответ сейчас недоступен. Вот карта разделов:</div>
+      <div style="margin-bottom:10px;color:var(--text-muted)">${t('help.fallbackIntro')}</div>
       ${HELP_FALLBACK.map(s=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)">
         <div style="font-weight:600">${s.t}</div>
         <div style="font-size:12px;color:var(--text-muted)">${s.d}</div>
