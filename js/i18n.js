@@ -98,6 +98,16 @@ const I18N = {
     'tasks.dueLabel': 'Срок', 'tasks.addBtn': 'Добавить задачу', 'tasks.reportTitle': '📎 Отчёт о выполнении',
     'tasks.uploadHint': 'Нажми чтобы прикрепить фото или видео', 'tasks.sendReport': 'Отправить отчёт', 'tasks.doneNoPhoto': 'Отметить выполненным без фото',
     'tasks.discussion': '💬 Обсуждение', 'tasks.commentPh': 'Написать комментарий...', 'tasks.reportEmp': '📋 Отчёт сотрудника',
+    // График
+    'sch.title': '📅 Расписание', 'sch.week': '📆 На неделю', 'sch.addShift': '+ Смена', 'sch.dayHeader': 'День',
+    'sch.prevWeek': '← Пред. неделя', 'sch.nextWeek': 'След. неделя →', 'sch.dayOffShort': 'Вых',
+    'sch.dayOffToday': 'Сегодня твой выходной', 'sch.noEmpInDept': 'В этом отделе нет сотрудников для филиала «{f}»',
+    'sch.presetsLabel': 'Смены цеха «{dept}» — нажми, чтобы выбрать', 'sch.fullDay': 'весь день', 'sch.otherTime': '✏️ Другое время…', 'sch.dayOffOpt': '🌴 Выходной',
+    'sch.selectEmp': 'Выберите сотрудника', 'sch.selectCell': 'Выберите ячейку в таблице', 'sch.weekFilled': '✅ Неделя заполнена', 'sch.saved': '✅ Сохранено', 'sch.deleted': '✅ Удалено',
+    'sch.pickTitle': 'Кому назначить смену?', 'sch.weekFillTitle': '📆 Заполнить неделю', 'sch.employee': 'Сотрудник',
+    'sch.start': 'Начало', 'sch.end': 'Конец', 'sch.allDaysBtn': 'Всем дням', 'sch.saveWeek': 'Сохранить неделю',
+    'sch.assignTitle': '📅 Назначить смену', 'sch.dayOffCheck': 'Выходной день', 'sch.shiftStart': 'Начало смены', 'sch.shiftEnd': 'Конец смены',
+    'sch.noteLabel': 'Заметка (необязательно)', 'sch.notePh': 'Например: двойная смена',
     // Чек-листы
     'cl.title': '☑️ Чек-листы', 'cl.noneForDept': 'Для отдела «{dept}» чек-листов пока нет', 'cl.loadErr': 'Ошибка загрузки чек-листов',
     'cl.notFound': 'Чек-лист не найден', 'cl.loadErrShort': 'Ошибка загрузки', 'cl.doneOf': '{done} из {total} выполнено',
@@ -109,6 +119,7 @@ const I18N = {
     'common.loading': 'Загрузка...', 'common.logout': 'Выйти', 'common.sum': 'сум', 'common.error': 'Ошибка: ',
     'common.observerMode': 'Режим наблюдателя — редактирование недоступно', 'common.allEmployees': '👥 Все сотрудники', 'common.byDept': 'по цехам ▾',
     'common.uploadErr': 'Ошибка загрузки: ', 'common.loadErrConn': 'Ошибка загрузки. Проверьте соединение.', 'common.uploadingFile': '⏳ Загружаю файл...',
+    'common.loadErr': 'Ошибка загрузки', 'common.save': 'Сохранить',
   },
   uz: {
     // Нижняя навигация
@@ -162,6 +173,16 @@ const I18N = {
     'tasks.dueLabel': 'Муддат', 'tasks.addBtn': 'Вазифа қўшиш', 'tasks.reportTitle': '📎 Бажарилганлик ҳисоботи',
     'tasks.uploadHint': 'Фото ёки видео бириктириш учун босинг', 'tasks.sendReport': 'Ҳисоботни юбориш', 'tasks.doneNoPhoto': 'Фотосиз бажарилган деб белгилаш',
     'tasks.discussion': '💬 Муҳокама', 'tasks.commentPh': 'Шарҳ ёзиш...', 'tasks.reportEmp': '📋 Ходим ҳисоботи',
+    // График
+    'sch.title': '📅 Жадвал', 'sch.week': '📆 Ҳафтага', 'sch.addShift': '+ Смена', 'sch.dayHeader': 'Кун',
+    'sch.prevWeek': '← Олдинги ҳафта', 'sch.nextWeek': 'Кейинги ҳафта →', 'sch.dayOffShort': 'Дам',
+    'sch.dayOffToday': 'Бугун сенинг дам олиш кунинг', 'sch.noEmpInDept': '«{f}» филиали учун бу бўлимда ходимлар йўқ',
+    'sch.presetsLabel': '«{dept}» цехи сменалари — танлаш учун босинг', 'sch.fullDay': 'бутун кун', 'sch.otherTime': '✏️ Бошқа вақт…', 'sch.dayOffOpt': '🌴 Дам олиш',
+    'sch.selectEmp': 'Ходимни танланг', 'sch.selectCell': 'Жадвалдан катакчани танланг', 'sch.weekFilled': '✅ Ҳафта тўлдирилди', 'sch.saved': '✅ Сақланди', 'sch.deleted': '✅ Ўчирилди',
+    'sch.pickTitle': 'Сменани кимга бириктириш?', 'sch.weekFillTitle': '📆 Ҳафтани тўлдириш', 'sch.employee': 'Ходим',
+    'sch.start': 'Бошланиш', 'sch.end': 'Тугаш', 'sch.allDaysBtn': 'Барча кунларга', 'sch.saveWeek': 'Ҳафтани сақлаш',
+    'sch.assignTitle': '📅 Смена белгилаш', 'sch.dayOffCheck': 'Дам олиш куни', 'sch.shiftStart': 'Смена бошланиши', 'sch.shiftEnd': 'Смена тугаши',
+    'sch.noteLabel': 'Изоҳ (ихтиёрий)', 'sch.notePh': 'Масалан: икки карра смена',
     // Чек-листы
     'cl.title': '☑️ Назорат рўйхатлари', 'cl.noneForDept': '«{dept}» бўлими учун ҳали назорат рўйхати йўқ', 'cl.loadErr': 'Назорат рўйхатларини юклашда хато',
     'cl.notFound': 'Назорат рўйхати топилмади', 'cl.loadErrShort': 'Юклашда хато', 'cl.doneOf': '{total} тадан {done} таси бажарилди',
@@ -173,5 +194,6 @@ const I18N = {
     'common.loading': 'Юкланмоқда...', 'common.logout': 'Чиқиш', 'common.sum': 'сўм', 'common.error': 'Хато: ',
     'common.observerMode': 'Кузатувчи режими — таҳрирлаш мумкин эмас', 'common.allEmployees': '👥 Барча ходимлар', 'common.byDept': 'цехлар бўйича ▾',
     'common.uploadErr': 'Юклашда хато: ', 'common.loadErrConn': 'Юклашда хато. Уланишни текширинг.', 'common.uploadingFile': '⏳ Файл юкланмоқда...',
+    'common.loadErr': 'Юклашда хато', 'common.save': 'Сақлаш',
   },
 };

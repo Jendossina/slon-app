@@ -101,7 +101,7 @@ function shiftWeek(dir) {
 
 async function loadScheduleGrid() {
   const content = document.getElementById('schedule-content');
-  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  content.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
 
   try {
     // Даты недели (нужны до запроса расписаний)
@@ -129,7 +129,7 @@ async function loadScheduleGrid() {
     const emps = (empsR.data||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
 
     if(!emps || emps.length===0) {
-      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📅</div><div class="empty-text">В этом отделе нет сотрудников для филиала «' + getFilialName(currentFilial) + '»</div></div></div>';
+      content.innerHTML = `<div class="card"><div class="empty"><div class="empty-icon">📅</div><div class="empty-text">${t('sch.noEmpInDept',{f:getFilialName(currentFilial)})}</div></div></div>`;
       return;
     }
 
@@ -137,18 +137,18 @@ async function loadScheduleGrid() {
     const schedMap = {};
     (schedR.data||[]).forEach(s => { schedMap[s.date+'_'+s.employee_id] = s; });
 
-    const dayNames = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+    const dayNames = getLang()==='uz' ? ['Ду','Се','Чо','Па','Жу','Ша','Як'] : ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
     const isAdmin = canEditData();
 
     let html = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <div style="display:flex;gap:6px;margin-bottom:8px">
-        <button onclick="shiftWeek(-1)" style="background:var(--surface);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer">← Пред. неделя</button>
-        <button onclick="shiftWeek(1)" style="background:var(--surface);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer">След. неделя →</button>
+        <button onclick="shiftWeek(-1)" style="background:var(--surface);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer">${t('sch.prevWeek')}</button>
+        <button onclick="shiftWeek(1)" style="background:var(--surface);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer">${t('sch.nextWeek')}</button>
       </div>
       <table style="border-collapse:collapse;width:100%;min-width:${100 + emps.length*90}px;background:var(--surface);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06)">
         <thead>
           <tr>
-            <th style="background:#1a1a2e;color:#fff;padding:10px 8px;font-size:12px;text-align:left;min-width:70px;position:sticky;left:0;z-index:2">День</th>
+            <th style="background:#1a1a2e;color:#fff;padding:10px 8px;font-size:12px;text-align:left;min-width:70px;position:sticky;left:0;z-index:2">${t('sch.dayHeader')}</th>
             ${emps.map(e=>`<th style="background:${getColorHex(e.name)};color:#fff;padding:10px 8px;font-size:12px;min-width:85px;text-align:center">${escapeHtml(firstName(e.name))}</th>`).join('')}
           </tr>
         </thead>
@@ -166,7 +166,7 @@ async function loadScheduleGrid() {
         let cellBg = 'var(--surface)';
         if(sched) {
           if(sched.is_day_off) {
-            cellContent = '<span style="color:#A32D2D;font-weight:600;font-size:12px">Вых</span>';
+            cellContent = `<span style="color:#A32D2D;font-weight:600;font-size:12px">${t('sch.dayOffShort')}</span>`;
             cellBg = 'var(--surface-2)';
           } else {
             cellContent = `<span style="font-weight:700;font-size:12px;color:#1a1611">${escapeHtml(sched.shift_start||'')}</span>`;
@@ -187,16 +187,16 @@ async function loadScheduleGrid() {
       if(myTodaySched) {
         let card = '';
         if(myTodaySched.is_day_off) {
-          card = `<div class="card" style="background:linear-gradient(135deg,#EAF3DE,#d4edda);border:none;margin-top:12px"><div style="text-align:center;padding:8px"><div style="font-size:28px">🌴</div><div style="font-size:15px;font-weight:600;color:#3B6D11;margin-top:4px">Сегодня твой выходной</div></div></div>`;
+          card = `<div class="card" style="background:linear-gradient(135deg,#EAF3DE,#d4edda);border:none;margin-top:12px"><div style="text-align:center;padding:8px"><div style="font-size:28px">🌴</div><div style="font-size:15px;font-weight:600;color:#3B6D11;margin-top:4px">${t('sch.dayOffToday')}</div></div></div>`;
         } else {
-          card = `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2b6b);border:none;color:#fff;margin-top:12px"><div style="font-size:11px;opacity:0.7;margin-bottom:4px">ТВОЯ СМЕНА СЕГОДНЯ</div><div style="font-size:22px;font-weight:700">🕐 ${myTodaySched.shift_start||''} — ${myTodaySched.shift_end||''}</div></div>`;
+          card = `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2b6b);border:none;color:#fff;margin-top:12px"><div style="font-size:11px;opacity:0.7;margin-bottom:4px">${t('home.shiftToday')}</div><div style="font-size:22px;font-weight:700">🕐 ${myTodaySched.shift_start||''} — ${myTodaySched.shift_end||''}</div></div>`;
         }
         html = card + html;
       }
     }
 
     content.innerHTML = html;
-  } catch(e) { console.error(e); content.innerHTML = '<div class="loading">Ошибка загрузки</div>'; }
+  } catch(e) { console.error(e); content.innerHTML = `<div class="loading">${t('common.loadErr')}</div>`; }
 }
 
 function getColorHex(name) {
@@ -236,13 +236,13 @@ function renderShiftPresets(containerId, applyFn) {
   if(!presets || !presets.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
   el.style.display = 'block';
   el.innerHTML =
-    `<div class="form-label" style="margin-bottom:6px">Смены цеха «${escapeHtml(currentDept)}» — нажми, чтобы выбрать</div>
+    `<div class="form-label" style="margin-bottom:6px">${t('sch.presetsLabel',{dept:escapeHtml(currentDept)})}</div>
      <div style="display:flex;flex-wrap:wrap;gap:6px">
        ${presets.map(p=>`
          <button type="button" onclick="${applyFn}('${p.start}','${p.end}')"
            style="display:flex;flex-direction:column;align-items:center;gap:1px;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer">
            <span>${p.start}–${p.end}</span>
-           <span style="font-size:10px;font-weight:400;color:var(--text-muted)">${shiftDurLabel(p.start,p.end)}${p.full?' · весь день':''}</span>
+           <span style="font-size:10px;font-weight:400;color:var(--text-muted)">${shiftDurLabel(p.start,p.end)}${p.full?' · '+t('sch.fullDay'):''}</span>
          </button>`).join('')}
      </div>`;
 }
@@ -276,7 +276,7 @@ async function loadScheduleEmployees() {
 async function pickEmployeeForSchedule() {
   const { data: allEmps } = await sb.from('employees').select('id,name,filials,status').eq('department', currentDept).order('name');
   const emps = (allEmps||[]).filter(e => (e.status!=='Уволен') && (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
-  if(!emps || emps.length===0) return showToast('В этом отделе нет сотрудников для филиала «' + getFilialName(currentFilial) + '»');
+  if(!emps || emps.length===0) return showToast(t('sch.noEmpInDept',{f:getFilialName(currentFilial)}));
 
   document.getElementById('pick-emp-subtitle').textContent = '📍 ' + getFilialName(currentFilial) + ' · ' + currentDept;
   document.getElementById('pick-emp-list').innerHTML = emps.map(e=>`
@@ -297,7 +297,7 @@ let weekFillDates = [];
 async function openWeekFillPicker() {
   const { data: allEmps } = await sb.from('employees').select('id,name,filials').eq('department', currentDept).order('name');
   const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
-  if(!emps || emps.length===0) return showToast('В этом отделе нет сотрудников для филиала «' + getFilialName(currentFilial) + '»');
+  if(!emps || emps.length===0) return showToast(t('sch.noEmpInDept',{f:getFilialName(currentFilial)}));
   const sel = document.getElementById('week-employee');
   sel.innerHTML = emps.map(e=>`<option value="${e.id}" data-name="${escapeHtml(e.name)}">${escapeHtml(e.name)}</option>`).join('');
   document.getElementById('wf-filial-display').textContent = '📍 ' + getFilialName(currentFilial);
@@ -319,7 +319,9 @@ async function renderWeekFillDays() {
     d.setDate(d.getDate()+i);
     weekFillDates.push(d);
   }
-  const dayNames = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
+  const dayNames = getLang()==='uz'
+    ? ['Душанба','Сешанба','Чоршанба','Пайшанба','Жума','Шанба','Якшанба']
+    : ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
 
   // Load existing schedule for this employee this week
   const dateStrs = weekFillDates.map(fmtDate);
@@ -345,10 +347,10 @@ async function renderWeekFillDays() {
       const mEnd = ex?.shift_end || presets[0].end;
       let opts = presets.map(p=>{
         const v = p.start+'|'+p.end;
-        return `<option value="${v}" ${v===curVal?'selected':''}>${p.start}–${p.end} · ${shiftDurLabel(p.start,p.end)}${p.full?' · весь день':''}</option>`;
+        return `<option value="${v}" ${v===curVal?'selected':''}>${p.start}–${p.end} · ${shiftDurLabel(p.start,p.end)}${p.full?' · '+t('sch.fullDay'):''}</option>`;
       }).join('');
-      opts += `<option value="custom" ${isCustom?'selected':''}>✏️ Другое время…</option>`;
-      opts += `<option value="off" ${isOff?'selected':''}>🌴 Выходной</option>`;
+      opts += `<option value="custom" ${isCustom?'selected':''}>${t('sch.otherTime')}</option>`;
+      opts += `<option value="off" ${isOff?'selected':''}>${t('sch.dayOffOpt')}</option>`;
       return `<div style="display:flex;flex-direction:column;gap:6px;padding:8px 0;border-bottom:1px solid var(--border)">
         <div style="display:flex;align-items:center;gap:10px">
           ${dayLabel(d,i)}
@@ -368,7 +370,7 @@ async function renderWeekFillDays() {
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
       ${dayLabel(d,i)}
       <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted)">
-        <input type="checkbox" class="wf-dayoff" data-idx="${i}" ${isOff?'checked':''} onchange="toggleWfDayOff(${i})"> Вых
+        <input type="checkbox" class="wf-dayoff" data-idx="${i}" ${isOff?'checked':''} onchange="toggleWfDayOff(${i})"> ${t('sch.dayOffShort')}
       </label>
       <input type="time" class="wf-start form-input" data-idx="${i}" value="${startVal}" style="padding:6px 8px;font-size:12px;${isOff?'display:none':''}">
       <span style="font-size:12px;color:var(--text-muted);${isOff?'display:none':''}" class="wf-dash-${i}">—</span>
@@ -406,11 +408,11 @@ function applyToAllDays() {
 }
 
 async function saveWeekFill() {
-  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
+  if(!canEditData()) return showToast(t('common.observerMode'));
   const sel = document.getElementById('week-employee');
   const empId = sel.value;
   const empName = sel.options[sel.selectedIndex]?.getAttribute('data-name') || '';
-  if(!empId) return showToast('Выберите сотрудника');
+  if(!empId) return showToast(t('sch.selectEmp'));
 
   try {
     for(let i=0; i<7; i++) {
@@ -445,13 +447,13 @@ async function saveWeekFill() {
     }
 
     closeModal('modal-week-fill');
-    showToast('✅ Неделя заполнена');
+    showToast(t('sch.weekFilled'));
     loadScheduleGrid();
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
 async function addSchedule() {
-  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
+  if(!canEditData()) return showToast(t('common.observerMode'));
   const empId = quickEditEmpId;
   const empName = quickEditEmpName;
   const date = quickEditDate || businessToday();
@@ -460,7 +462,7 @@ async function addSchedule() {
   const end = document.getElementById('sch-end').value;
   const note = document.getElementById('sch-note').value;
 
-  if(!empId) return showToast('Выберите ячейку в таблице');
+  if(!empId) return showToast(t('sch.selectCell'));
 
   try {
     await sb.from('schedules').delete().eq('employee_id', empId).eq('date', date).eq('filial', currentFilial);
@@ -479,15 +481,15 @@ async function addSchedule() {
     }
 
     closeModal('modal-add-schedule');
-    showToast('✅ Сохранено');
+    showToast(t('sch.saved'));
     loadScheduleGrid();
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
 async function deleteSchedule(id) {
-  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
+  if(!canEditData()) return showToast(t('common.observerMode'));
   await sb.from('schedules').delete().eq('id', id);
-  showToast('✅ Удалено');
+  showToast(t('sch.deleted'));
   loadScheduleGrid();
 }
 

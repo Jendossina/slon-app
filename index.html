@@ -574,16 +574,16 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="screen" id="screen-schedule">
     <div class="header">
       <div class="header-row">
-        <div><h1>📅 Расписание</h1><p id="schedule-week"></p></div>
+        <div><h1 data-i18n="sch.title">📅 Расписание</h1><p id="schedule-week"></p></div>
         <div style="display:flex;gap:6px">
-          <button id="fab-week-btn" onclick="openWeekFillPicker()" style="display:none;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer">📆 На неделю</button>
-          <button id="fab-schedule-btn" onclick="pickEmployeeForSchedule()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Смена</button>
+          <button id="fab-week-btn" onclick="openWeekFillPicker()" style="display:none;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="sch.week">📆 На неделю</button>
+          <button id="fab-schedule-btn" onclick="pickEmployeeForSchedule()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="sch.addShift">+ Смена</button>
         </div>
       </div>
     </div>
     <div class="hscroll tabbar" style="gap:6px" id="schedule-dept-nav"></div>
     <div class="content" id="schedule-content" style="padding:8px">
-      <div class="loading">Загрузка...</div>
+      <div class="loading" data-i18n="common.loading">Загрузка...</div>
     </div>
   </div>
 
@@ -1330,7 +1330,12 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <script src="js/teamchat.js"></script>
 <script>
 
-if(typeof applyStaticI18n === 'function') applyStaticI18n();
+// Переводим статический HTML после полного парсинга DOM — иначе модалки,
+// объявленные ниже этого скрипта, ещё не существуют и остаются непереведёнными.
+if(typeof applyStaticI18n === 'function') {
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => applyStaticI18n());
+  else applyStaticI18n();
+}
 
 sb.auth.getSession().then(({ data }) => {
   if(data.session) {
@@ -1454,7 +1459,7 @@ if('serviceWorker' in navigator) {
 <div class="modal-overlay" id="modal-pick-employee">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-pick-employee')">✕</button>
-    <div class="modal-title">Кому назначить смену?</div>
+    <div class="modal-title" data-i18n="sch.pickTitle">Кому назначить смену?</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:12px" id="pick-emp-subtitle">—</div>
     <div id="pick-emp-list"></div>
   </div>
@@ -1464,32 +1469,32 @@ if('serviceWorker' in navigator) {
 <div class="modal-overlay" id="modal-week-fill">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-week-fill')">✕</button>
-    <div class="modal-title">📆 Заполнить неделю</div>
+    <div class="modal-title" data-i18n="sch.weekFillTitle">📆 Заполнить неделю</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="wf-filial-display">—</div>
-    <div class="form-group"><label class="form-label" for="week-employee">Сотрудник</label>
+    <div class="form-group"><label class="form-label" for="week-employee" data-i18n="sch.employee">Сотрудник</label>
       <select class="form-select" id="week-employee" onchange="renderWeekFillDays()"></select>
     </div>
     <div id="wf-presets" style="margin-bottom:12px"></div>
     <div class="form-group" id="wf-manual-default" style="display:flex;gap:8px;align-items:flex-end">
       <div style="flex:1">
-        <label class="form-label" for="week-default-start">Начало</label>
+        <label class="form-label" for="week-default-start" data-i18n="sch.start">Начало</label>
         <input class="form-input" id="week-default-start" type="time" value="11:00">
       </div>
       <div style="flex:1">
-        <label class="form-label" for="week-default-end">Конец</label>
+        <label class="form-label" for="week-default-end" data-i18n="sch.end">Конец</label>
         <input class="form-input" id="week-default-end" type="time" value="23:00">
       </div>
-      <button onclick="applyToAllDays()" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:10px;padding:12px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Всем дням</button>
+      <button onclick="applyToAllDays()" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:10px;padding:12px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap" data-i18n="sch.allDaysBtn">Всем дням</button>
     </div>
     <div id="week-fill-days" style="margin-top:12px"></div>
-    <button class="btn btn-primary" style="margin-top:14px" onclick="saveWeekFill()">Сохранить неделю</button>
+    <button class="btn btn-primary" style="margin-top:14px" onclick="saveWeekFill()" data-i18n="sch.saveWeek">Сохранить неделю</button>
   </div>
 </div>
 
 <div class="modal-overlay" id="modal-add-schedule">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-schedule')">✕</button>
-    <div class="modal-title">📅 Назначить смену</div>
+    <div class="modal-title" data-i18n="sch.assignTitle">📅 Назначить смену</div>
     <div class="card" style="background:var(--surface-2);margin-bottom:16px">
       <div style="font-size:15px;font-weight:600;color:var(--text-primary)" id="sch-employee-display">—</div>
       <div style="font-size:13px;color:var(--text-muted);margin-top:2px" id="sch-date-display">—</div>
@@ -1498,22 +1503,22 @@ if('serviceWorker' in navigator) {
     <div class="form-group">
       <label class="form-label">
         <input type="checkbox" id="sch-dayoff" onchange="toggleDayOff(this)" style="margin-right:6px">
-        Выходной день
+        <span data-i18n="sch.dayOffCheck">Выходной день</span>
       </label>
     </div>
     <div id="sch-presets" style="margin-bottom:12px"></div>
     <div id="sch-time-fields">
-      <div class="form-group"><label class="form-label" for="sch-start">Начало смены</label>
+      <div class="form-group"><label class="form-label" for="sch-start" data-i18n="sch.shiftStart">Начало смены</label>
         <input class="form-input" id="sch-start" type="time" value="11:00">
       </div>
-      <div class="form-group"><label class="form-label" for="sch-end">Конец смены</label>
+      <div class="form-group"><label class="form-label" for="sch-end" data-i18n="sch.shiftEnd">Конец смены</label>
         <input class="form-input" id="sch-end" type="time" value="23:00">
       </div>
     </div>
-    <div class="form-group"><label class="form-label" for="sch-note">Заметка (необязательно)</label>
-      <input class="form-input" id="sch-note" placeholder="Например: двойная смена">
+    <div class="form-group"><label class="form-label" for="sch-note" data-i18n="sch.noteLabel">Заметка (необязательно)</label>
+      <input class="form-input" id="sch-note" placeholder="Например: двойная смена" data-i18n-ph="sch.notePh">
     </div>
-    <button class="btn btn-primary" onclick="addSchedule()">Сохранить</button>
+    <button class="btn btn-primary" onclick="addSchedule()" data-i18n="common.save">Сохранить</button>
   </div>
 </div>
 
