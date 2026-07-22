@@ -20,31 +20,31 @@ function switchAdminTab(tab, btn) {
 async function loadStorageStats() {
   const el = document.getElementById('storage-stats');
   if(!el) return;
-  el.textContent = 'Считаю...';
+  el.textContent = t('adm.calculating');
   try {
     const { data: files, error } = await sb.storage.from('task-reports').list('', { limit: 10000 });
-    if(error) { el.textContent = 'Не удалось получить данные хранилища'; return; }
+    if(error) { el.textContent = t('adm.storageErr'); return; }
     const count = (files||[]).filter(f=>f.name && f.name!=='.emptyFolderPlaceholder').length;
-    el.innerHTML = `Сейчас в хранилище: <b>${count}</b> файлов`;
-  } catch(e) { el.textContent = 'Ошибка чтения хранилища'; }
+    el.innerHTML = t('adm.storageCount',{n:count});
+  } catch(e) { el.textContent = t('adm.storageReadErr'); }
 }
 
 // Очистка медиа старше N дней: удаляет файлы из хранилища и ссылки из записей
 async function cleanupMedia(days) {
-  if(!canEditData()) return showToast('Режим наблюдателя — действие недоступно');
-  if(!await confirmDialog(`Удалить все фото и видео старше ${days} дней?\n\nСами записи (задачи, чек-листы, сообщения) останутся — удалятся только прикреплённые картинки и видео. Отменить будет нельзя.`)) return;
-  showToast('⏳ Чищу старые медиа...');
+  if(!canEditData()) return showToast(t('adm.cleanupUnavailable'));
+  if(!await confirmDialog(t('adm.cleanupConfirm',{days}))) return;
+  showToast(t('adm.cleaning'));
   try {
     const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
     const { data: files, error } = await sb.storage.from('task-reports').list('', { limit: 10000 });
-    if(error) { showToast('Ошибка доступа к хранилищу'); return; }
+    if(error) { showToast(t('adm.storageAccessErr')); return; }
     const toDelete = (files||[]).filter(f=>{
       if(!f.name || f.name==='.emptyFolderPlaceholder') return false;
       const created = f.created_at ? new Date(f.created_at) : null;
       return created && created < cutoff;
     }).map(f=>f.name);
 
-    if(toDelete.length===0) { showToast('Нет файлов старше '+days+' дней'); return; }
+    if(toDelete.length===0) { showToast(t('adm.noOldFiles',{days})); return; }
 
     // Удаляем пачками по 100
     let deleted = 0;
@@ -54,9 +54,9 @@ async function cleanupMedia(days) {
       if(!delErr) deleted += batch.length;
     }
     await logActivity('cleanup_media', `Удалено ${deleted} файлов старше ${days} дней`);
-    showToast(`✅ Удалено ${deleted} файлов`);
+    showToast(t('adm.filesDeleted',{n:deleted}));
     loadStorageStats();
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
 let adminChecklistEmp = ''; // '' = все сотрудники
@@ -66,8 +66,8 @@ async function loadAdminChecklists() {
     // Кнопка фильтра по сотруднику (по цехам)
     const empBtn = document.getElementById('admin-checklist-emp-btn');
     if(empBtn) empBtn.innerHTML = `<button onclick="openAdminChecklistEmpFilter()" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px;cursor:pointer">
-      <span>${adminChecklistEmp ? '👤 '+escapeHtml(adminChecklistEmp) : '👥 Все сотрудники'}</span>
-      <span style="color:var(--text-muted);font-size:12px">по цехам ▾</span>
+      <span>${adminChecklistEmp ? '👤 '+escapeHtml(adminChecklistEmp) : t('common.allEmployees')}</span>
+      <span style="color:var(--text-muted);font-size:12px">${t('common.byDept')}</span>
     </button>`;
 
     const dateSel = document.getElementById('admin-checklist-date-filter');
@@ -79,7 +79,7 @@ async function loadAdminChecklists() {
     if(adminChecklistEmp) datesQuery = datesQuery.eq('user_name', adminChecklistEmp);
     const { data: dateRows } = await datesQuery;
     const uniqueDates = [...new Set((dateRows||[]).map(l=>l.date))].sort().reverse();
-    dateSel.innerHTML = '<option value="">Все даты</option>' + uniqueDates.map(d=>`<option value="${d}" ${d===dateFilter?'selected':''}>${new Date(d).toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</option>`).join('');
+    dateSel.innerHTML = `<option value="">${t('adm.allDates')}</option>` + uniqueDates.map(d=>`<option value="${d}" ${d===dateFilter?'selected':''}>${new Date(d).toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</option>`).join('');
 
     // Сами логи для отображения — уже с учётом выбранной даты
     let query = sb.from('checklist_logs').select('*').eq('filial', currentFilial).order('date',{ascending:false}).order('created_at',{ascending:false});
@@ -88,7 +88,7 @@ async function loadAdminChecklists() {
     const { data: logs } = await query;
 
     const list = document.getElementById('admin-checklists-list');
-    if(!logs || logs.length===0) { list.innerHTML='<div class="card"><div class="empty"><div class="empty-icon">☑️</div><div class="empty-text">Чек-листов пока нет</div></div></div>'; return; }
+    if(!logs || logs.length===0) { list.innerHTML=`<div class="card"><div class="empty"><div class="empty-icon">☑️</div><div class="empty-text">${t('adm.clNone')}</div></div></div>`; return; }
 
     // Get template names
     const templateIds = [...new Set(logs.map(l=>l.template_id))];
@@ -112,17 +112,17 @@ async function loadAdminChecklists() {
           <span class="badge ${pct===100?'badge-green':'badge-amber'}">${pct}%</span>
         </div>
         <div class="progress-track" style="margin-top:8px"><div class="progress-fill" style="width:${pct}%"></div></div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${doneCount} из ${totalItems} пунктов · ${mediaCount} фото/видео прикреплено</div>
-        ${mediaCount>0?`<button onclick='viewChecklistMedia(${JSON.stringify(log.items_media).replace(/'/g,"&#39;")}, ${JSON.stringify(template?.items||[]).replace(/'/g,"&#39;")})' style="margin-top:8px;background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer;width:100%">📸 Смотреть все фото (${mediaCount})</button>`:''}
+        <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${t('adm.clItemsMedia',{done:doneCount,total:totalItems,n:mediaCount})}</div>
+        ${mediaCount>0?`<button onclick='viewChecklistMedia(${JSON.stringify(log.items_media).replace(/'/g,"&#39;")}, ${JSON.stringify(template?.items||[]).replace(/'/g,"&#39;")})' style="margin-top:8px;background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer;width:100%">${t('adm.clWatchAll',{n:mediaCount})}</button>`:''}
       </div>`;
     }).join('');
-  } catch(e) { console.error(e); document.getElementById('admin-checklists-list').innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div></div>'; }
+  } catch(e) { console.error(e); document.getElementById('admin-checklists-list').innerHTML = `<div class="card"><div class="empty"><div class="empty-text">${t('common.loadErrConn')}</div></div></div>`; }
 }
 
 // Пикер сотрудника по цехам для истории чек-листов
 async function openAdminChecklistEmpFilter() {
   const body = document.getElementById('checklist-emp-filter-list');
-  body.innerHTML = '<div class="loading">Загрузка...</div>';
+  body.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
   openModal('modal-checklist-emp-filter');
   const { data: allEmps } = await sb.from('employees').select('id,name,department,filials,status').order('name');
   const emps = (allEmps||[]).filter(e => (e.status!=='Уволен') && (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
@@ -143,7 +143,7 @@ function viewChecklistMedia(itemsMedia, items) {
   Object.entries(itemsMedia).forEach(([itemId, media]) => {
     const arr = Array.isArray(media) ? media : [media];
     html += `<div>
-      <div style="font-size:13px;color:#666;margin-bottom:6px">${escapeHtml(itemMap[itemId]||'')}${arr.length>1?` · ${arr.length} фото`:''}</div>
+      <div style="font-size:13px;color:#666;margin-bottom:6px">${escapeHtml(itemMap[itemId]||'')}${arr.length>1?' · '+t('adm.photoCount',{n:arr.length}):''}</div>
       ${arr.map(m => m.type==='video'
         ? `<video src="${escapeHtml(m.url)}" controls style="width:100%;border-radius:12px;margin-bottom:8px"></video>`
         : `<img src="${escapeHtml(m.url)}" style="width:100%;border-radius:12px;margin-bottom:8px">`).join('')}
@@ -175,7 +175,7 @@ async function loadAdminEmployees() {
     const profileMap = {};
     (profiles||[]).forEach(p=>{ if(p.employee_id) profileMap[p.employee_id]=p.role; });
     const empList = document.getElementById('admin-employees-list');
-    if(!emps||emps.length===0) { empList.innerHTML='<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Сотрудников нет</div></div>'; return; }
+    if(!emps||emps.length===0) { empList.innerHTML=`<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">${t('adm.noEmps')}</div></div>`; return; }
 
     // Карточка сотрудника
     const empItem = e => `
@@ -184,7 +184,7 @@ async function loadAdminEmployees() {
         <div class="item-info">
           <div class="item-name">${escapeHtml(e.name)}</div>
           <div class="item-sub">${escapeHtml(e.role||'')} · <span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}" style="font-size:10px">${escapeHtml(e.status||'Активен')}</span></div>
-          <div class="item-sub">${e.salary?formatNum(e.salary)+' сум':''}</div>
+          <div class="item-sub">${e.salary?formatNum(e.salary)+' '+t('common.sum'):''}</div>
         </div>
         ${!isBoss()?`<button onclick="openEditEmployee(${e.id})" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">✏️</button>`:''}
       </div>`;
@@ -200,7 +200,7 @@ async function loadAdminEmployees() {
     empList.innerHTML = deptKeys.map(dept=>
       deptSection(dept, groups[dept].length, groups[dept].map(empItem).join(''))
     ).join('');
-  } catch(e) { console.error(e); document.getElementById('admin-employees-list').innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div>'; }
+  } catch(e) { console.error(e); document.getElementById('admin-employees-list').innerHTML = `<div class="empty"><div class="empty-text">${t('common.loadErrConn')}</div></div>`; }
 }
 
 async function openEditEmployee(id) {
@@ -258,7 +258,7 @@ function pickSalary(amount) {
 }
 
 async function saveEmployee() {
-  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
+  if(!canEditData()) return showToast(t('common.observerMode'));
   const id = document.getElementById('edit-emp-id').value;
   const name = document.getElementById('edit-emp-name').value.trim();
   const role = document.getElementById('edit-emp-role').value;
@@ -274,23 +274,23 @@ async function saveEmployee() {
     if(typeof invalidateScheduleEmps === 'function') invalidateScheduleEmps();
     await logActivity('edit_employee', name + ' → ' + role + ', ' + status);
     closeModal('modal-edit-employee');
-    showToast('✅ Сохранено');
+    showToast(t('adm.saved'));
     loadAdminEmployees();
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
 async function changePassword() {
-  if(!canManageStaffFully()) return showToast('Смена пароля доступна только управляющему');
+  if(!canManageStaffFully()) return showToast(t('adm.changePwOnlyAdmin'));
   const pass = document.getElementById('edit-emp-password').value.trim();
-  if(!pass || pass.length<6) return showToast('Пароль минимум 6 символов');
+  if(!pass || pass.length<6) return showToast(t('pf.passMin'));
   const id = document.getElementById('edit-emp-id').value;
   const { data: profile } = await sb.from('profiles').select('user_id').eq('employee_id',id).single();
-  if(!profile?.user_id) return showToast('Аккаунт не найден');
-  showToast('⏳ Меняем пароль...');
+  if(!profile?.user_id) return showToast(t('adm.accountNotFound'));
+  showToast(t('adm.changingPw'));
   try {
     const { data: sessionData } = await sb.auth.getSession();
     const accessToken = sessionData?.session?.access_token;
-    if(!accessToken) return showToast('Сессия истекла, войдите заново');
+    if(!accessToken) return showToast(t('adm.sessionExpired'));
     const res = await fetch('https://omeomdkurvtvirhfkffu.supabase.co/functions/v1/admin-reset-password-ts', {
       method: 'POST',
       headers: {
@@ -302,40 +302,40 @@ async function changePassword() {
     });
     const result = await res.json();
     if(!res.ok || result.error) {
-      showToast('Ошибка: ' + (result.error || 'не удалось сменить пароль'));
+      showToast(t('common.error') + (result.error || t('adm.pwFailed')));
       return;
     }
     document.getElementById('edit-emp-password').value = '';
     await logActivity('change_password', document.getElementById('edit-emp-name').value);
-    showToast('✅ Пароль изменён');
+    showToast(t('adm.pwChanged'));
   } catch(e) {
-    showToast('Ошибка: ' + e.message);
+    showToast(t('common.error') + e.message);
   }
 }
 
 async function deleteEmployee(id, name) {
-  if(!canManageStaffFully()) return showToast('Удаление сотрудников доступно только управляющему');
-  if(!await confirmDialog('Удалить сотрудника ' + name + '?')) return;
+  if(!canManageStaffFully()) return showToast(t('adm.delEmpOnlyAdmin'));
+  if(!await confirmDialog(t('adm.delEmpConfirm',{name}))) return;
   await sb.from('profiles').delete().eq('employee_id', id);
   await sb.from('employees').delete().eq('id', id);
   if(typeof invalidateScheduleEmps === 'function') invalidateScheduleEmps();
   await logActivity('delete_employee', name);
-  showToast('✅ Сотрудник удалён');
+  showToast(t('adm.empDeleted'));
   loadAdminEmployees();
 }
 
 // Удаление из карточки редактирования (берёт id/имя из открытой модалки)
 async function deleteEmployeeFromCard() {
-  if(!canManageStaffFully()) return showToast('Удаление сотрудников доступно только управляющему');
+  if(!canManageStaffFully()) return showToast(t('adm.delEmpOnlyAdmin'));
   const id = document.getElementById('edit-emp-id').value;
-  const name = document.getElementById('edit-emp-name').value || 'сотрудника';
+  const name = document.getElementById('edit-emp-name').value || t('adm.empFallback');
   if(!id) return;
-  if(!await confirmDialog('Удалить '+name+'? Это действие необратимо — сотрудник и его аккаунт будут удалены полностью, логин освободится.\n\nЕсли человек просто уволился, лучше поставить статус «Уволен» вместо удаления.')) return;
-  showToast('⏳ Удаляю...');
+  if(!await confirmDialog(t('adm.delEmpCardConfirm',{name}))) return;
+  showToast(t('adm.deleting'));
   try {
     const { data: sessionData } = await sb.auth.getSession();
     const accessToken = sessionData?.session?.access_token;
-    if(!accessToken) return showToast('Сессия истекла, войдите заново');
+    if(!accessToken) return showToast(t('adm.sessionExpired'));
     const res = await fetch('https://omeomdkurvtvirhfkffu.supabase.co/functions/v1/admin-delete-user', {
       method: 'POST',
       headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_KEY, 'Authorization':'Bearer '+accessToken },
@@ -346,16 +346,16 @@ async function deleteEmployeeFromCard() {
       // Фолбэк: если функция не задеплоена — хотя бы удалим карточку и профиль
       await sb.from('profiles').delete().eq('employee_id', id);
       await sb.from('employees').delete().eq('id', id);
-      showToast('Сотрудник удалён, но логин мог не освободиться. ' + (result.error||''));
+      showToast(t('adm.empDelLoginKept') + (result.error||''));
     } else {
-      showToast(result.authDeleted ? '✅ Сотрудник и аккаунт удалены (логин свободен)' : '✅ Сотрудник удалён');
+      showToast(result.authDeleted ? t('adm.empAccDeleted') : t('adm.empDeleted'));
     }
     if(typeof invalidateScheduleEmps === 'function') invalidateScheduleEmps();
     await logActivity('delete_employee', name);
     closeModal('modal-edit-employee');
     if(typeof loadAdminEmployees === 'function' && document.getElementById('screen-admin')?.classList.contains('active')) loadAdminEmployees();
     if(typeof loadHR === 'function' && document.getElementById('screen-hr')?.classList.contains('active')) loadHR();
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
 // TASKS ADMIN
@@ -369,12 +369,12 @@ async function loadAdminTasks(filters={}) {
     if(filters.dateTo) query = query.lte('due_date', filters.dateTo);
     const { data: tasks } = await query;
     const taskList = document.getElementById('admin-tasks-list');
-    if(!tasks||tasks.length===0) { taskList.innerHTML='<div class="card"><div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Задач нет</div></div></div>'; return; }
+    if(!tasks||tasks.length===0) { taskList.innerHTML=`<div class="card"><div class="empty"><div class="empty-icon">✅</div><div class="empty-text">${t('adm.noTasks')}</div></div></div>`; return; }
     taskList.innerHTML = '<div class="card">'+tasks.map(t=>`
       <div class="list-item">
         <div class="item-info">
           <div class="item-name" style="${t.status==='done'?'text-decoration:line-through;color:var(--text-muted)':''}">${escapeHtml(t.title)}</div>
-          <div class="item-sub">👤 ${escapeHtml(t.assigned_to_name||'—')} · ${t.due_date||''} · <span class="${t.status==='done'?'badge badge-green':'badge badge-amber'}">${t.status==='done'?'Выполнено':'Активна'}</span></div>
+          <div class="item-sub">👤 ${escapeHtml(t.assigned_to_name||'—')} · ${t.due_date||''} · <span class="${t.status==='done'?'badge badge-green':'badge badge-amber'}">${t.status==='done'?tr('adm.taskDone'):tr('adm.taskActive')}</span></div>
         </div>
         <button onclick="deleteTask(${t.id})" style="background:#FCEBEB;color:#A32D2D;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer">✕</button>
       </div>`).join('')+'</div>';
@@ -384,7 +384,7 @@ async function loadAdminTasks(filters={}) {
 async function loadFilterEmployees() {
   const { data: emps } = await sb.from('employees').select('name').order('name');
   const sel = document.getElementById('filter-employee');
-  sel.innerHTML = '<option value="">Все сотрудники</option>' + (emps||[]).map(e=>`<option value="${escapeHtml(e.name)}">${escapeHtml(e.name)}</option>`).join('');
+  sel.innerHTML = `<option value="">${t('common.allEmployees').replace('👥 ','')}</option>` + (emps||[]).map(e=>`<option value="${escapeHtml(e.name)}">${escapeHtml(e.name)}</option>`).join('');
 }
 
 function applyTaskFilter() {
@@ -406,18 +406,18 @@ function clearTaskFilter() {
 }
 
 async function deleteTask(id) {
-  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
+  if(!canEditData()) return showToast(t('common.observerMode'));
   await sb.from('tasks').delete().eq('id', id);
-  showToast('✅ Задача удалена');
+  showToast(t('adm.taskDeleted'));
   loadAdminTasks(taskFilters);
 }
 
 async function deleteCompletedTasks() {
-  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
-  if(!await confirmDialog('Удалить все выполненные задачи?')) return;
+  if(!canEditData()) return showToast(t('common.observerMode'));
+  if(!await confirmDialog(t('adm.delCompletedConfirm'))) return;
   await sb.from('tasks').delete().eq('status','done');
   await logActivity('delete_tasks', 'Удалены все выполненные задачи');
-  showToast('✅ Выполненные задачи удалены');
+  showToast(t('adm.completedDeleted'));
   loadAdminTasks(taskFilters);
 }
 
@@ -439,7 +439,7 @@ async function loadAnalytics() {
       return pctB - pctA;
     });
     const ratingEl = document.getElementById('admin-rating-list');
-    if(sorted.length===0) { ratingEl.innerHTML='<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Данных пока нет</div></div>'; }
+    if(sorted.length===0) { ratingEl.innerHTML=`<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">${t('adm.noData')}</div></div>`; }
     else {
       ratingEl.innerHTML = sorted.map(([name,s],i)=>{
         const pct = s.total ? Math.round(s.done/s.total*100) : 0;
@@ -448,7 +448,7 @@ async function loadAnalytics() {
           <div class="avatar ${getColor(name)}">${medal||escapeHtml(getInitials(name))}</div>
           <div class="item-info">
             <div class="item-name">${escapeHtml(name)}</div>
-            <div class="item-sub">${s.done} из ${s.total} задач выполнено</div>
+            <div class="item-sub">${t('adm.tasksDoneOf',{done:s.done,total:s.total})}</div>
             <div class="progress-track" style="margin-top:4px"><div class="progress-fill" style="width:${pct}%"></div></div>
           </div>
           <span style="font-size:16px;font-weight:700;color:${pct>=80?'#3B6D11':pct>=50?'#854F0B':'#A32D2D'}">${pct}%</span>
@@ -462,27 +462,27 @@ async function loadAnalytics() {
     (fins||[]).forEach(f=>{
       if(!f.date) return;
       const d = new Date(f.date);
-      const week = 'Нед. ' + getWeekNumber(d) + ' (' + d.toLocaleDateString('ru-RU',{month:'short'}) + ')';
+      const week = t('adm.week',{n:getWeekNumber(d),month:d.toLocaleDateString('ru-RU',{month:'short'})});
       if(!weeks[week]) weeks[week]={income:0,expense:0};
       if(f.type==='income') weeks[week].income+=Number(f.amount);
       else weeks[week].expense+=Number(f.amount);
     });
     const weeksEl = document.getElementById('admin-finance-weeks');
     const weekEntries = Object.entries(weeks).slice(-6);
-    if(weekEntries.length===0) { weeksEl.innerHTML='<div class="empty"><div class="empty-icon">💰</div><div class="empty-text">Данных пока нет</div></div>'; }
+    if(weekEntries.length===0) { weeksEl.innerHTML=`<div class="empty"><div class="empty-icon">💰</div><div class="empty-text">${t('adm.noData')}</div></div>`; }
     else {
       weeksEl.innerHTML = weekEntries.map(([week,w])=>`
         <div class="list-item">
           <div class="item-info">
             <div class="item-name">${week}</div>
             <div class="item-sub"><span style="color:#0F6E56">+${formatNum(w.income)}</span> / <span style="color:#993C1D">−${formatNum(w.expense)}</span></div>
-            <div class="item-sub" style="font-weight:600;color:${w.income-w.expense>=0?'#0F6E56':'#993C1D'}">Прибыль: ${formatNum(w.income-w.expense)} сум</div>
+            <div class="item-sub" style="font-weight:600;color:${w.income-w.expense>=0?'#0F6E56':'#993C1D'}">${t('adm.weekProfit',{n:formatNum(w.income-w.expense)})}</div>
           </div>
         </div>`).join('');
     }
   } catch(e) {
     console.error(e);
-    const errHtml = '<div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div>';
+    const errHtml = `<div class="empty"><div class="empty-text">${t('common.loadErrConn')}</div></div>`;
     const ratingEl = document.getElementById('admin-rating-list');
     const weeksEl = document.getElementById('admin-finance-weeks');
     if(ratingEl) ratingEl.innerHTML = errHtml;
@@ -500,11 +500,11 @@ async function loadActivityLog() {
   try {
     const { data: logs } = await sb.from('activity_log').select('*').order('created_at',{ascending:false}).limit(50);
     const el = document.getElementById('admin-activity-list');
-    if(!logs||logs.length===0) { el.innerHTML='<div class="empty"><div class="empty-icon">📜</div><div class="empty-text">Активности пока нет</div></div>'; return; }
+    if(!logs||logs.length===0) { el.innerHTML=`<div class="empty"><div class="empty-icon">📜</div><div class="empty-text">${t('adm.noActivity')}</div></div>`; return; }
     const actionLabels = {
-      'add_task':'➕ Задача назначена','edit_employee':'✏️ Сотрудник изменён',
-      'delete_employee':'🗑 Сотрудник удалён','delete_tasks':'🗑 Задачи очищены',
-      'task_done':'✅ Задача выполнена'
+      'add_task':t('adm.actAddTask'),'edit_employee':t('adm.actEditEmp'),
+      'delete_employee':t('adm.actDelEmp'),'delete_tasks':t('adm.actDelTasks'),
+      'task_done':t('adm.actTaskDone')
     };
     el.innerHTML = logs.map(l=>`
       <div class="list-item">
@@ -514,6 +514,6 @@ async function loadActivityLog() {
           <div class="item-sub">${new Date(l.created_at).toLocaleString('ru-RU')}</div>
         </div>
       </div>`).join('');
-  } catch(e) { console.error(e); document.getElementById('admin-activity-list').innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div>'; }
+  } catch(e) { console.error(e); document.getElementById('admin-activity-list').innerHTML = `<div class="empty"><div class="empty-text">${t('common.loadErrConn')}</div></div>`; }
 }
 

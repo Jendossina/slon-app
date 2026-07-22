@@ -479,64 +479,64 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </div>
 
   <div class="screen" id="screen-admin">
-    <div class="header"><h1>⚙️ Админ-панель</h1><p>Только для управляющего</p></div>
+    <div class="header"><h1 data-i18n="adm.title">⚙️ Админ-панель</h1><p data-i18n="adm.onlyAdmin">Только для управляющего</p></div>
     <div class="hscroll tabbar">
-      <button onclick="switchAdminTab('employees',this)" id="atab-employees" class="chip on">👥 Сотрудники</button>
-      <button onclick="switchAdminTab('tasks',this)" id="atab-tasks" class="chip">📋 Задачи</button>
-      <button onclick="switchAdminTab('analytics',this)" id="atab-analytics" class="chip">📊 Аналитика</button>
-      <button onclick="switchAdminTab('activity',this)" id="atab-activity" class="chip">📜 История</button>
-      <button onclick="switchAdminTab('checklists',this)" id="atab-checklists" class="chip">☑️ Чек-листы</button>
-      <button onclick="switchAdminTab('storage',this)" id="atab-storage" class="chip">🗄 Хранилище</button>
+      <button onclick="switchAdminTab('employees',this)" id="atab-employees" class="chip on" data-i18n="adm.tabEmployees">👥 Сотрудники</button>
+      <button onclick="switchAdminTab('tasks',this)" id="atab-tasks" class="chip" data-i18n="adm.tabTasks">📋 Задачи</button>
+      <button onclick="switchAdminTab('analytics',this)" id="atab-analytics" class="chip" data-i18n="adm.tabAnalytics">📊 Аналитика</button>
+      <button onclick="switchAdminTab('activity',this)" id="atab-activity" class="chip" data-i18n="adm.tabActivity">📜 История</button>
+      <button onclick="switchAdminTab('checklists',this)" id="atab-checklists" class="chip" data-i18n="adm.tabChecklists">☑️ Чек-листы</button>
+      <button onclick="switchAdminTab('storage',this)" id="atab-storage" class="chip" data-i18n="adm.tabStorage">🗄 Хранилище</button>
     </div>
     <div class="content">
       <!-- EMPLOYEES TAB -->
       <div id="admin-tab-employees">
-        <div class="card" id="admin-employees-list"><div class="loading">Загрузка...</div></div>
+        <div class="card" id="admin-employees-list"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
       </div>
       <!-- TASKS TAB -->
       <div id="admin-tab-tasks" style="display:none">
         <div style="display:flex;gap:8px;margin-bottom:12px">
-          <button onclick="openModal('modal-task-filter');loadFilterEmployees()" style="flex:1;background:#f0e6d2;color:#8a6a2f;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:500;cursor:pointer">🔍 Фильтр</button>
-          <button onclick="deleteCompletedTasks()" style="flex:1;background:#FCEBEB;color:#A32D2D;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:500;cursor:pointer">🗑 Удалить выполненные</button>
+          <button onclick="openModal('modal-task-filter');loadFilterEmployees()" style="flex:1;background:#f0e6d2;color:#8a6a2f;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:500;cursor:pointer" data-i18n="adm.filterBtn">🔍 Фильтр</button>
+          <button onclick="deleteCompletedTasks()" style="flex:1;background:#FCEBEB;color:#A32D2D;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:500;cursor:pointer" data-i18n="adm.delCompletedBtn">🗑 Удалить выполненные</button>
         </div>
-        <div id="admin-tasks-list"><div class="loading">Загрузка...</div></div>
+        <div id="admin-tasks-list"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
       </div>
       <!-- ANALYTICS TAB -->
       <div id="admin-tab-analytics" style="display:none">
-        <div class="section-label">РЕЙТИНГ СОТРУДНИКОВ</div>
-        <div class="card" id="admin-rating-list"><div class="loading">Загрузка...</div></div>
-        <div class="section-label">ФИНАНСЫ ПО НЕДЕЛЯМ</div>
-        <div class="card" id="admin-finance-weeks"><div class="loading">Загрузка...</div></div>
+        <div class="section-label" data-i18n="adm.ratingLabel">РЕЙТИНГ СОТРУДНИКОВ</div>
+        <div class="card" id="admin-rating-list"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
+        <div class="section-label" data-i18n="adm.financeWeeksLabel">ФИНАНСЫ ПО НЕДЕЛЯМ</div>
+        <div class="card" id="admin-finance-weeks"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
       </div>
       <!-- ACTIVITY TAB -->
       <div id="admin-tab-activity" style="display:none">
-        <div class="section-label">ЖУРНАЛ АКТИВНОСТИ</div>
-        <div class="card" id="admin-activity-list"><div class="loading">Загрузка...</div></div>
+        <div class="section-label" data-i18n="adm.activityLabel">ЖУРНАЛ АКТИВНОСТИ</div>
+        <div class="card" id="admin-activity-list"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
       </div>
       <!-- CHECKLISTS TAB -->
       <div id="admin-tab-checklists" style="display:none">
         <div id="admin-checklist-emp-btn" style="margin-bottom:10px"></div>
         <div class="form-group">
           <select class="form-select" id="admin-checklist-date-filter" onchange="loadAdminChecklists()">
-            <option value="">Все даты</option>
+            <option value="" data-i18n="adm.allDates">Все даты</option>
           </select>
         </div>
-        <div id="admin-checklists-list"><div class="loading">Загрузка...</div></div>
+        <div id="admin-checklists-list"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
       </div>
       <!-- STORAGE TAB -->
       <div id="admin-tab-storage" style="display:none">
-        <div class="section-label">ФОТО И ВИДЕО</div>
+        <div class="section-label" data-i18n="adm.storageLabel">ФОТО И ВИДЕО</div>
         <div class="card">
-          <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px">
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px" data-i18n-html="adm.storageText">
             Фото и видео (отчёты по задачам, чек-листам, фото в чат) занимают место в облаке. Бесплатный план — 1 ГБ.<br>
             Фото автоматически сжимаются при загрузке. Старые медиа можно чистить — данные (кто, когда, что) при этом остаются, удаляются только сами картинки.
           </div>
           <div id="storage-stats" style="font-size:14px;color:var(--text-primary);margin-bottom:14px"></div>
           <div style="display:flex;flex-direction:column;gap:8px">
-            <button onclick="cleanupMedia(90)" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer">🧹 Удалить медиа старше 90 дней</button>
-            <button onclick="cleanupMedia(30)" style="background:#f5e0c8;color:#8a5a2f;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer">🧹 Удалить медиа старше 30 дней</button>
+            <button onclick="cleanupMedia(90)" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="adm.cleanup90">🧹 Удалить медиа старше 90 дней</button>
+            <button onclick="cleanupMedia(30)" style="background:#f5e0c8;color:#8a5a2f;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="adm.cleanup30">🧹 Удалить медиа старше 30 дней</button>
           </div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:10px">Точный объём хранилища смотрите в Supabase → Settings → Usage. Здесь — количество файлов.</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:10px" data-i18n="adm.storageHint">Точный объём хранилища смотрите в Supabase → Settings → Usage. Здесь — количество файлов.</div>
         </div>
       </div>
     </div>
@@ -1394,41 +1394,41 @@ if('serviceWorker' in navigator) {
 <div class="modal-overlay" id="modal-edit-employee">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-edit-employee')">✕</button>
-    <div class="modal-title">✏️ Редактировать сотрудника</div>
+    <div class="modal-title" data-i18n="adm.editEmpTitle">✏️ Редактировать сотрудника</div>
     <input type="hidden" id="edit-emp-id">
-    <div class="form-group"><label class="form-label" for="edit-emp-name">Имя и фамилия</label><input class="form-input" id="edit-emp-name" placeholder="Алиша Каримова"></div>
-    <div class="form-group"><label class="form-label" for="edit-emp-role">Должность</label>
-      <select class="form-select" id="edit-emp-role" onchange="renderSalaryPresets()"><optgroup label="Зал"><option>Официант</option><option>Администратор</option></optgroup><optgroup label="Бар"><option>Бармен</option><option>Старший бармен</option><option>Шеф бармен</option><option>Бар менеджер</option></optgroup><optgroup label="Кальянная"><option>Кальянный мастер</option><option>Старший кальянный мастер</option><option>Шеф кальянной станции</option></optgroup><optgroup label="Кухня"><option>Повар</option><option>Су-шеф</option><option>Шеф повар</option></optgroup><optgroup label="Руководство"><option>Управляющий</option><option>BOSS</option></optgroup><optgroup label="Прочее"><option>Менеджер</option><option>Охранник</option><option>Уборщик</option></optgroup></select>
+    <div class="form-group"><label class="form-label" for="edit-emp-name" data-i18n="hr.fullName">Имя и фамилия</label><input class="form-input" id="edit-emp-name" placeholder="Алиша Каримова"></div>
+    <div class="form-group"><label class="form-label" for="edit-emp-role" data-i18n="hr.role">Должность</label>
+      <select class="form-select" id="edit-emp-role" onchange="renderSalaryPresets()"><optgroup label="Зал" data-i18n-label="hr.grpHall"><option>Официант</option><option>Администратор</option></optgroup><optgroup label="Бар" data-i18n-label="hr.grpBar"><option>Бармен</option><option>Старший бармен</option><option>Шеф бармен</option><option>Бар менеджер</option></optgroup><optgroup label="Кальянная" data-i18n-label="hr.grpHookah"><option>Кальянный мастер</option><option>Старший кальянный мастер</option><option>Шеф кальянной станции</option></optgroup><optgroup label="Кухня" data-i18n-label="hr.grpKitchen"><option>Повар</option><option>Су-шеф</option><option>Шеф повар</option></optgroup><optgroup label="Руководство" data-i18n-label="hr.grpMgmt"><option>Управляющий</option><option>BOSS</option></optgroup><optgroup label="Прочее" data-i18n-label="hr.grpOther"><option>Менеджер</option><option>Охранник</option><option>Уборщик</option></optgroup></select>
     </div>
-    <div class="form-group"><label class="form-label" for="edit-emp-department">Отдел (для графика)</label>
-      <select class="form-select" id="edit-emp-department"><option value="">— Без отдела (не в графике) —</option><option>Официанты</option><option>Бармены</option><option>Кальянные мастера</option><option>Повара</option><option>Техперсонал</option><option>Менеджеры</option></select>
+    <div class="form-group"><label class="form-label" for="edit-emp-department" data-i18n="hr.deptForSchedule">Отдел (для графика)</label>
+      <select class="form-select" id="edit-emp-department"><option value="" data-i18n="hr.noDept">— Без отдела (не в графике) —</option><option>Официанты</option><option>Бармены</option><option>Кальянные мастера</option><option>Повара</option><option>Техперсонал</option><option>Менеджеры</option></select>
     </div>
-    <div class="form-group"><label class="form-label" for="edit-emp-phone">Телефон</label><input class="form-input" id="edit-emp-phone" placeholder="+998 90 123 45 67"></div>
-    <div class="form-group"><label class="form-label" for="edit-emp-salary">Ставка за смену (сум)</label>
+    <div class="form-group"><label class="form-label" for="edit-emp-phone" data-i18n="hr.phone">Телефон</label><input class="form-input" id="edit-emp-phone" placeholder="+998 90 123 45 67"></div>
+    <div class="form-group"><label class="form-label" for="edit-emp-salary" data-i18n="hr.salaryPerShift">Ставка за смену (сум)</label>
       <div id="emp-salary-presets" style="display:none;gap:8px;margin-bottom:8px"></div>
       <input class="form-input" id="edit-emp-salary" type="number">
     </div>
-    <div class="form-group"><label class="form-label" for="edit-emp-status">Статус</label>
+    <div class="form-group"><label class="form-label" for="edit-emp-status" data-i18n="adm.status">Статус</label>
       <select class="form-select" id="edit-emp-status"><option>Активен</option><option>Отпуск</option><option>Уволен</option></select>
     </div>
-    <div class="form-group" id="edit-emp-sysrole-group"><label class="form-label" for="edit-emp-system-role">Роль в системе</label>
-      <select class="form-select" id="edit-emp-system-role"><option value="employee">Сотрудник</option><option value="manager">Менеджер</option><option value="admin">Управляющий</option><option value="boss">Владелец (наблюдатель)</option></select>
+    <div class="form-group" id="edit-emp-sysrole-group"><label class="form-label" for="edit-emp-system-role" data-i18n="hr.systemRole">Роль в системе</label>
+      <select class="form-select" id="edit-emp-system-role"><option value="employee" data-i18n="hr.roleEmployee">Сотрудник</option><option value="manager" data-i18n="hr.roleManager">Менеджер</option><option value="admin" data-i18n="hr.roleAdmin">Управляющий</option><option value="boss" data-i18n="hr.roleBoss">Владелец (наблюдатель)</option></select>
     </div>
-    <div class="form-group"><label class="form-label">На каких филиалах может работать</label>
+    <div class="form-group"><label class="form-label" data-i18n="hr.filialsCanWork">На каких филиалах может работать</label>
       <div class="filial-checkbox-group" id="edit-emp-filials-group">
         <label><input type="checkbox" class="edit-emp-filial-checkbox" value="istikbol"> Истикбол</label>
         <label><input type="checkbox" class="edit-emp-filial-checkbox" value="chekhov"> Чехов</label>
       </div>
     </div>
-    <button class="btn btn-primary" onclick="saveEmployee()">Сохранить</button>
+    <button class="btn btn-primary" onclick="saveEmployee()" data-i18n="common.save">Сохранить</button>
     <div class="form-group" id="edit-emp-pass-group" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-      <label class="form-label" for="edit-emp-password">Новый пароль (оставь пустым если не меняешь)</label>
-      <input class="form-input" id="edit-emp-password" placeholder="минимум 6 символов">
+      <label class="form-label" for="edit-emp-password" data-i18n="adm.newPassOpt">Новый пароль (оставь пустым если не меняешь)</label>
+      <input class="form-input" id="edit-emp-password" placeholder="минимум 6 символов" data-i18n-ph="pf.passNewPh">
     </div>
-    <button class="btn btn-secondary" id="edit-emp-pass-btn" onclick="changePassword()">Сменить пароль</button>
+    <button class="btn btn-secondary" id="edit-emp-pass-btn" onclick="changePassword()" data-i18n="adm.changePwBtn">Сменить пароль</button>
     <div id="edit-emp-delete-group" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
-      <button class="btn btn-secondary" onclick="deleteEmployeeFromCard()" style="background:#FCEBEB;color:#A32D2D">🗑 Удалить сотрудника</button>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center">Удаление безвозвратно уберёт сотрудника и его аккаунт. Если человек просто уволился — лучше поставить статус «Уволен».</div>
+      <button class="btn btn-secondary" onclick="deleteEmployeeFromCard()" style="background:#FCEBEB;color:#A32D2D" data-i18n="adm.delEmpBtn">🗑 Удалить сотрудника</button>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center" data-i18n="adm.delEmpHint">Удаление безвозвратно уберёт сотрудника и его аккаунт. Если человек просто уволился — лучше поставить статус «Уволен».</div>
     </div>
   </div>
 </div>
@@ -1437,19 +1437,19 @@ if('serviceWorker' in navigator) {
 <div class="modal-overlay" id="modal-task-filter">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-task-filter')">✕</button>
-    <div class="modal-title">🔍 Фильтр задач</div>
-    <div class="form-group"><label class="form-label" for="filter-employee">Сотрудник</label>
+    <div class="modal-title" data-i18n="adm.filterTasksTitle">🔍 Фильтр задач</div>
+    <div class="form-group"><label class="form-label" for="filter-employee" data-i18n="adm.filterEmp">Сотрудник</label>
       <select class="form-select" id="filter-employee"><option value="">Все сотрудники</option></select>
     </div>
-    <div class="form-group"><label class="form-label" for="filter-status">Статус</label>
+    <div class="form-group"><label class="form-label" for="filter-status" data-i18n="adm.status">Статус</label>
       <select class="form-select" id="filter-status">
-        <option value="">Все</option><option value="pending">Активные</option><option value="done">Выполненные</option>
+        <option value="" data-i18n="adm.filterAll">Все</option><option value="pending" data-i18n="adm.filterActive">Активные</option><option value="done" data-i18n="adm.filterCompleted">Выполненные</option>
       </select>
     </div>
-    <div class="form-group"><label class="form-label" for="filter-date-from">Дата от</label><input class="form-input" id="filter-date-from" type="date"></div>
-    <div class="form-group"><label class="form-label" for="filter-date-to">Дата до</label><input class="form-input" id="filter-date-to" type="date"></div>
-    <button class="btn btn-primary" onclick="applyTaskFilter()">Применить фильтр</button>
-    <button class="btn btn-secondary" onclick="clearTaskFilter()">Сбросить</button>
+    <div class="form-group"><label class="form-label" for="filter-date-from" data-i18n="adm.dateFrom">Дата от</label><input class="form-input" id="filter-date-from" type="date"></div>
+    <div class="form-group"><label class="form-label" for="filter-date-to" data-i18n="adm.dateTo">Дата до</label><input class="form-input" id="filter-date-to" type="date"></div>
+    <button class="btn btn-primary" onclick="applyTaskFilter()" data-i18n="adm.applyFilter">Применить фильтр</button>
+    <button class="btn btn-secondary" onclick="clearTaskFilter()" data-i18n="adm.resetFilter">Сбросить</button>
   </div>
 </div>
 
