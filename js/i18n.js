@@ -98,6 +98,10 @@ const I18N = {
     'tasks.dueLabel': 'Срок', 'tasks.addBtn': 'Добавить задачу', 'tasks.reportTitle': '📎 Отчёт о выполнении',
     'tasks.uploadHint': 'Нажми чтобы прикрепить фото или видео', 'tasks.sendReport': 'Отправить отчёт', 'tasks.doneNoPhoto': 'Отметить выполненным без фото',
     'tasks.discussion': '💬 Обсуждение', 'tasks.commentPh': 'Написать комментарий...', 'tasks.reportEmp': '📋 Отчёт сотрудника',
+    // Общий чат
+    'chat.title': '💬 Чат команды', 'chat.noMessages': 'Пока нет сообщений.<br>Начни общение первым!',
+    'chat.onlyAdminPin': 'Только управляющий может закреплять', 'chat.observerRead': 'Режим наблюдателя — вы можете только читать чат',
+    'chat.inputPh': 'Написать сообщение...', 'chat.pinned': '📌 Закреплённые',
     // График
     'sch.title': '📅 Расписание', 'sch.week': '📆 На неделю', 'sch.addShift': '+ Смена', 'sch.dayHeader': 'День',
     'sch.prevWeek': '← Пред. неделя', 'sch.nextWeek': 'След. неделя →', 'sch.dayOffShort': 'Вых',
@@ -173,6 +177,10 @@ const I18N = {
     'tasks.dueLabel': 'Муддат', 'tasks.addBtn': 'Вазифа қўшиш', 'tasks.reportTitle': '📎 Бажарилганлик ҳисоботи',
     'tasks.uploadHint': 'Фото ёки видео бириктириш учун босинг', 'tasks.sendReport': 'Ҳисоботни юбориш', 'tasks.doneNoPhoto': 'Фотосиз бажарилган деб белгилаш',
     'tasks.discussion': '💬 Муҳокама', 'tasks.commentPh': 'Шарҳ ёзиш...', 'tasks.reportEmp': '📋 Ходим ҳисоботи',
+    // Общий чат
+    'chat.title': '💬 Жамоа чати', 'chat.noMessages': 'Ҳали хабарлар йўқ.<br>Мулоқотни биринчи бўлиб бошланг!',
+    'chat.onlyAdminPin': 'Фақат бошқарувчи қадай олади', 'chat.observerRead': 'Кузатувчи режими — чатни фақат ўқий оласиз',
+    'chat.inputPh': 'Хабар ёзиш...', 'chat.pinned': '📌 Қадалганлар',
     // График
     'sch.title': '📅 Жадвал', 'sch.week': '📆 Ҳафтага', 'sch.addShift': '+ Смена', 'sch.dayHeader': 'Кун',
     'sch.prevWeek': '← Олдинги ҳафта', 'sch.nextWeek': 'Кейинги ҳафта →', 'sch.dayOffShort': 'Дам',

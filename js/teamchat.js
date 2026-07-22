@@ -85,14 +85,14 @@ function stopTasksPolling() {
 
 async function loadTeamChat(isPoll) {
   const list = document.getElementById('teamchat-list');
-  if(!isPoll) list.innerHTML = '<div class="loading">Загрузка...</div>';
+  if(!isPoll) list.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
   try {
     // Берём последние 50 (по убыванию), затем разворачиваем в хронологический порядок.
     // Так свежие сообщения всегда видны, а старая история не грузится и не тормозит.
     const { data: recent } = await sb.from('team_chat').select('*').eq('channel', currentChatChannel).order('created_at',{ascending:false}).limit(50);
     const messages = (recent||[]).slice().reverse();
     if(!messages || messages.length===0) {
-      if(!isPoll || lastTeamChatCount!==0) list.innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div class="empty-text">Пока нет сообщений.<br>Начни общение первым!</div></div>';
+      if(!isPoll || lastTeamChatCount!==0) list.innerHTML = `<div class="empty"><div class="empty-icon">💬</div><div class="empty-text">${t('chat.noMessages')}</div></div>`;
       lastTeamChatCount = 0;
       return;
     }
@@ -105,20 +105,20 @@ async function loadTeamChat(isPoll) {
     let html = '';
     if(pinned.length > 0) {
       html += `<div style="background:var(--surface-2);border:1px solid var(--gold);border-radius:12px;padding:10px;margin-bottom:8px">
-        <div style="font-size:11px;font-weight:600;color:var(--gold-dark);margin-bottom:6px">📌 Закреплённые</div>
+        <div style="font-size:11px;font-weight:600;color:var(--gold-dark);margin-bottom:6px">${t('chat.pinned')}</div>
         ${pinned.map(m => chatBubbleHTML(m, m.user_id === currentUser?.id, true)).join('')}
       </div>`;
     }
     html += regular.map(m => chatBubbleHTML(m, m.user_id === currentUser?.id, true)).join('');
     list.innerHTML = html;
     if(!isPoll || wasAtBottom) list.scrollTop = list.scrollHeight;
-  } catch(e) { console.error(e); if(!isPoll) list.innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки. Проверьте соединение.</div></div>'; }
+  } catch(e) { console.error(e); if(!isPoll) list.innerHTML = `<div class="empty"><div class="empty-text">${t('common.loadErrConn')}</div></div>`; }
   if(!isPoll) startTeamChatPolling();
 }
 
 async function toggleChatPin(msgId, isPinned) {
   const role = currentProfile?.role;
-  if(role !== 'admin' && role !== 'manager') return showToast('Только управляющий может закреплять');
+  if(role !== 'admin' && role !== 'manager') return showToast(t('chat.onlyAdminPin'));
   await sb.from('team_chat').update({is_pinned: !isPinned}).eq('id', msgId);
   lastTeamChatCount = 0;
   loadTeamChat();
@@ -139,7 +139,7 @@ function pickTeamChatMedia() {
 }
 
 async function sendTeamChat() {
-  if(isBoss()) return showToast('Режим наблюдателя — вы можете только читать чат');
+  if(isBoss()) return showToast(t('chat.observerRead'));
   const input = document.getElementById('teamchat-input');
   const text = input.value.trim();
   if(!text && !teamChatMediaFile) return;
@@ -150,7 +150,7 @@ async function sendTeamChat() {
       const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : teamChatMediaFile.name.split('.').pop());
       const path = `chat-${Date.now()}.${ext}`;
       const { error: upErr } = await sb.storage.from('task-reports').upload(path, fileToUpload);
-      if(upErr) { showToast('Ошибка загрузки: '+upErr.message); return; }
+      if(upErr) { showToast(t('common.uploadErr')+upErr.message); return; }
       const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
       mediaUrl = urlData.publicUrl;
       mediaType = teamChatMediaFile.type.startsWith('video') ? 'video' : 'image';
@@ -161,11 +161,11 @@ async function sendTeamChat() {
       text, channel: currentChatChannel, media_url: mediaUrl, media_type: mediaType
     });
     input.value = '';
-    input.placeholder = 'Написать сообщение...';
+    input.placeholder = t('chat.inputPh');
     teamChatMediaFile = null;
     lastTeamChatCount = 0;
     await loadTeamChat();
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
 // UNREAD MESSAGES INDICATOR
