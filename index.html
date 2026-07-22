@@ -562,11 +562,11 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <!-- PROFILE SCREEN -->
   <div class="screen" id="screen-profile">
     <div class="header">
-      <h1>📄 Личный кабинет</h1>
+      <h1 data-i18n="pf.title">📄 Личный кабинет</h1>
       <p id="profile-name-label">—</p>
     </div>
     <div class="content" id="profile-content">
-      <div class="loading">Загрузка...</div>
+      <div class="loading" data-i18n="common.loading">Загрузка...</div>
     </div>
   </div>
 
@@ -898,10 +898,10 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-my-password">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-my-password')">✕</button>
-    <div class="modal-title">Смена пароля</div>
-    <div class="form-group"><label class="form-label" for="my-pass-new">Новый пароль</label><input class="form-input" id="my-pass-new" type="password" placeholder="минимум 6 символов"></div>
-    <div class="form-group"><label class="form-label" for="my-pass-new2">Повторите пароль</label><input class="form-input" id="my-pass-new2" type="password" placeholder="ещё раз"></div>
-    <button class="btn btn-primary" onclick="saveMyPassword()">Сохранить</button>
+    <div class="modal-title" data-i18n="pf.passModalTitle">Смена пароля</div>
+    <div class="form-group"><label class="form-label" for="my-pass-new" data-i18n="pf.passNew">Новый пароль</label><input class="form-input" id="my-pass-new" type="password" placeholder="минимум 6 символов" data-i18n-ph="pf.passNewPh"></div>
+    <div class="form-group"><label class="form-label" for="my-pass-new2" data-i18n="pf.passRepeat">Повторите пароль</label><input class="form-input" id="my-pass-new2" type="password" placeholder="ещё раз" data-i18n-ph="pf.passRepeatPh"></div>
+    <button class="btn btn-primary" onclick="saveMyPassword()" data-i18n="common.save">Сохранить</button>
   </div>
 </div>
 
