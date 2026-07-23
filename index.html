@@ -604,15 +604,15 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="screen" id="screen-knowledge">
     <div class="header">
       <div class="header-row">
-        <div><h1 id="kb-title">📚 База знаний</h1><p id="kb-subtitle">Регламенты и стандарты</p></div>
-        <button id="kb-add-book-btn" onclick="openKbBookModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Книга</button>
+        <div><h1 id="kb-title" data-i18n="kb.title">📚 База знаний</h1><p id="kb-subtitle" data-i18n="kb.subtitle">Регламенты и стандарты</p></div>
+        <button id="kb-add-book-btn" onclick="openKbBookModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="kb.addBook">+ Книга</button>
       </div>
     </div>
     <div style="padding:10px 12px 0">
-      <input class="form-input" id="kb-search" placeholder="🔍 Поиск по базе знаний..." oninput="kbSearch(this.value)" style="margin:0">
+      <input class="form-input" id="kb-search" placeholder="🔍 Поиск по базе знаний..." data-i18n-ph="kb.searchPh" oninput="kbSearch(this.value)" style="margin:0">
     </div>
     <div class="content" id="kb-content" style="padding:12px">
-      <div class="loading">Загрузка...</div>
+      <div class="loading" data-i18n="common.loading">Загрузка...</div>
     </div>
   </div>
 
@@ -1094,12 +1094,12 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-kb-book">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-kb-book')">✕</button>
-    <div class="modal-title" id="kb-book-modal-title">Новая книга</div>
+    <div class="modal-title" id="kb-book-modal-title" data-i18n="kb.newBook">Новая книга</div>
     <input type="hidden" id="kb-book-id">
-    <div class="form-group"><label class="form-label" for="kb-book-icon">Иконка (эмодзи)</label><input class="form-input" id="kb-book-icon" placeholder="📖" maxlength="4"></div>
-    <div class="form-group"><label class="form-label" for="kb-book-title">Название</label><input class="form-input" id="kb-book-title" placeholder="Например: Bar Book"></div>
-    <button class="btn btn-primary" onclick="saveKbBook()">Сохранить</button>
-    <button class="btn btn-secondary" id="kb-book-delete-btn" onclick="deleteKbBook()" style="display:none;margin-top:8px;background:#FCEBEB;color:#A32D2D">Удалить книгу</button>
+    <div class="form-group"><label class="form-label" for="kb-book-icon" data-i18n="kb.bookIcon">Иконка (эмодзи)</label><input class="form-input" id="kb-book-icon" placeholder="📖" maxlength="4"></div>
+    <div class="form-group"><label class="form-label" for="kb-book-title" data-i18n="kb.name">Название</label><input class="form-input" id="kb-book-title" placeholder="Например: Bar Book"></div>
+    <button class="btn btn-primary" onclick="saveKbBook()" data-i18n="common.save">Сохранить</button>
+    <button class="btn btn-secondary" id="kb-book-delete-btn" onclick="deleteKbBook()" style="display:none;margin-top:8px;background:#FCEBEB;color:#A32D2D" data-i18n="common.delete">Удалить книгу</button>
   </div>
 </div>
 
@@ -1107,15 +1107,15 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-kb-article">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-kb-article')">✕</button>
-    <div class="modal-title" id="kb-article-modal-title">Новая статья</div>
+    <div class="modal-title" id="kb-article-modal-title" data-i18n="kb.newArticle">Новая статья</div>
     <input type="hidden" id="kb-article-id">
     <input type="hidden" id="kb-article-book-id">
-    <div class="form-group"><label class="form-label" for="kb-article-title">Заголовок</label><input class="form-input" id="kb-article-title" placeholder="Например: Классические коктейли"></div>
-    <div class="form-group"><label class="form-label" for="kb-article-content">Текст</label>
+    <div class="form-group"><label class="form-label" for="kb-article-title" data-i18n="kb.articleTitle2">Заголовок</label><input class="form-input" id="kb-article-title" placeholder="Например: Классические коктейли"></div>
+    <div class="form-group"><label class="form-label" for="kb-article-content" data-i18n="kb.articleContentLabel">Текст</label>
       <textarea class="form-input" id="kb-article-content" placeholder="Содержание статьи..." style="min-height:200px;resize:vertical;font-family:inherit;line-height:1.6"></textarea>
     </div>
-    <button class="btn btn-primary" onclick="saveKbArticle()">Сохранить</button>
-    <button class="btn btn-secondary" id="kb-article-delete-btn" onclick="deleteKbArticle()" style="display:none;margin-top:8px;background:#FCEBEB;color:#A32D2D">Удалить статью</button>
+    <button class="btn btn-primary" onclick="saveKbArticle()" data-i18n="common.save">Сохранить</button>
+    <button class="btn btn-secondary" id="kb-article-delete-btn" onclick="deleteKbArticle()" style="display:none;margin-top:8px;background:#FCEBEB;color:#A32D2D" data-i18n="common.delete">Удалить статью</button>
   </div>
 </div>
 

@@ -99,6 +99,16 @@ const I18N = {
     'tasks.dueLabel': 'Срок', 'tasks.addBtn': 'Добавить задачу', 'tasks.reportTitle': '📎 Отчёт о выполнении',
     'tasks.uploadHint': 'Нажми чтобы прикрепить фото или видео', 'tasks.sendReport': 'Отправить отчёт', 'tasks.doneNoPhoto': 'Отметить выполненным без фото',
     'tasks.discussion': '💬 Обсуждение', 'tasks.commentPh': 'Написать комментарий...', 'tasks.reportEmp': '📋 Отчёт сотрудника',
+    // База знаний
+    'kb.title': '📚 База знаний', 'kb.subtitle': 'Регламенты и стандарты', 'kb.addBook': '+ Книга', 'kb.addArticle': '+ Статья',
+    'kb.noBooks': 'Пока нет ни одной книги', 'kb.noBooksHint': '.<br>Нажми «+ Книга», чтобы создать первую.', 'kb.articlesWord': 'статей',
+    'kb.errNotSetup': 'Ошибка загрузки. Возможно, база знаний ещё не настроена в Supabase.',
+    'kb.search': '🔍 Поиск', 'kb.searchResults': 'Результаты по запросу «{q}»', 'kb.searching': 'Ищу...', 'kb.nothingFound': 'Ничего не найдено', 'kb.found': 'Найдено: {n}', 'kb.searchErr': 'Ошибка поиска',
+    'kb.tapArticle': 'Нажми на статью, чтобы открыть', 'kb.allBooks': '← Все книги', 'kb.editBook': '✏️ Изменить книгу', 'kb.noArticles': 'В этой книге пока нет статей', 'kb.noArticlesHint': '.<br>Нажми «+ Статья».',
+    'kb.back': '← Назад', 'kb.edit': '✏️ Редактировать', 'kb.loadErr': 'Ошибка загрузки',
+    'kb.editBookTitle': 'Изменить книгу', 'kb.newBook': 'Новая книга', 'kb.delBookConfirm': 'Удалить книгу вместе со всеми статьями? Это действие необратимо.', 'kb.bookDeleted': '✅ Книга удалена',
+    'kb.editArticleTitle': 'Редактировать статью', 'kb.newArticle': 'Новая статья', 'kb.delArticleConfirm': 'Удалить статью? Это действие необратимо.', 'kb.articleDeleted': '✅ Статья удалена',
+    'kb.bookIcon': 'Иконка (эмодзи)', 'kb.bookName': 'Название книги', 'kb.articleTitleLabel': 'Заголовок статьи', 'kb.articleContentLabel': 'Текст', 'kb.searchPh': '🔍 Поиск по базе знаний...', 'kb.name': 'Название', 'kb.articleTitle2': 'Заголовок',
     // Лента
     'feed.title': '📢 Лента', 'feed.newsImportant': 'Новости и важное', 'feed.teamOpinion': 'Мнение команды', 'feed.addAnn': '+ Объявление', 'feed.addPoll': '+ Опрос',
     'feed.tabAnn': '📢 Объявления', 'feed.tabPolls': '📊 Опросы', 'feed.optionPh': 'Вариант',
@@ -351,6 +361,16 @@ const I18N = {
     'tasks.dueLabel': 'Муддат', 'tasks.addBtn': 'Вазифа қўшиш', 'tasks.reportTitle': '📎 Бажарилганлик ҳисоботи',
     'tasks.uploadHint': 'Фото ёки видео бириктириш учун босинг', 'tasks.sendReport': 'Ҳисоботни юбориш', 'tasks.doneNoPhoto': 'Фотосиз бажарилган деб белгилаш',
     'tasks.discussion': '💬 Муҳокама', 'tasks.commentPh': 'Шарҳ ёзиш...', 'tasks.reportEmp': '📋 Ходим ҳисоботи',
+    // База знаний
+    'kb.title': '📚 Билимлар базаси', 'kb.subtitle': 'Регламент ва стандартлар', 'kb.addBook': '+ Китоб', 'kb.addArticle': '+ Мақола',
+    'kb.noBooks': 'Ҳали бирорта китоб йўқ', 'kb.noBooksHint': '.<br>Биринчисини яратиш учун «+ Китоб» ни босинг.', 'kb.articlesWord': 'мақола',
+    'kb.errNotSetup': 'Юклашда хато. Эҳтимол, билимлар базаси ҳали Supabase да созланмаган.',
+    'kb.search': '🔍 Қидирув', 'kb.searchResults': '«{q}» сўрови бўйича натижалар', 'kb.searching': 'Қидиряпман...', 'kb.nothingFound': 'Ҳеч нарса топилмади', 'kb.found': 'Топилди: {n}', 'kb.searchErr': 'Қидирувда хато',
+    'kb.tapArticle': 'Очиш учун мақолани босинг', 'kb.allBooks': '← Барча китоблар', 'kb.editBook': '✏️ Китобни ўзгартириш', 'kb.noArticles': 'Бу китобда ҳали мақолалар йўқ', 'kb.noArticlesHint': '.<br>«+ Мақола» ни босинг.',
+    'kb.back': '← Орқага', 'kb.edit': '✏️ Таҳрирлаш', 'kb.loadErr': 'Юклашда хато',
+    'kb.editBookTitle': 'Китобни ўзгартириш', 'kb.newBook': 'Янги китоб', 'kb.delBookConfirm': 'Китобни барча мақолалари билан ўчирасизми? Бу амал қайтарилмайди.', 'kb.bookDeleted': '✅ Китоб ўчирилди',
+    'kb.editArticleTitle': 'Мақолани таҳрирлаш', 'kb.newArticle': 'Янги мақола', 'kb.delArticleConfirm': 'Мақолани ўчирасизми? Бу амал қайтарилмайди.', 'kb.articleDeleted': '✅ Мақола ўчирилди',
+    'kb.bookIcon': 'Иконка (эможи)', 'kb.bookName': 'Китоб номи', 'kb.articleTitleLabel': 'Мақола сарлавҳаси', 'kb.articleContentLabel': 'Матн', 'kb.searchPh': '🔍 Билимлар базаси бўйича қидириш...', 'kb.name': 'Номи', 'kb.articleTitle2': 'Сарлавҳа',
     // Лента
     'feed.title': '📢 Лента', 'feed.newsImportant': 'Янгиликлар ва муҳим', 'feed.teamOpinion': 'Жамоа фикри', 'feed.addAnn': '+ Эълон', 'feed.addPoll': '+ Сўровнома',
     'feed.tabAnn': '📢 Эълонлар', 'feed.tabPolls': '📊 Сўровномалар', 'feed.optionPh': 'Вариант',
