@@ -23,9 +23,9 @@ async function loadFinance() {
     const dateInput = document.getElementById('finance-date'); if(dateInput) dateInput.value = sel;
     document.getElementById('finance-period').textContent = getFilialName(currentFilial);
     document.getElementById('finance-month-label').textContent =
-      t('fin.monthDefault') + ' · ' + new Date(sel).toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
+      t('fin.monthDefault') + ' · ' + fmtLocale(new Date(sel), {month:'long',year:'numeric'});
     document.getElementById('finance-day-label').textContent =
-      t('fin.dayDefault') + ' · ' + new Date(sel).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+      t('fin.dayDefault') + ' · ' + fmtLocale(new Date(sel), {weekday:'long',day:'numeric',month:'long'});
 
     // Финансы за выбранный месяц
     const { data: fins } = await sb.from('finances').select('*').eq('filial', currentFilial)

@@ -79,7 +79,7 @@ async function loadAdminChecklists() {
     if(adminChecklistEmp) datesQuery = datesQuery.eq('user_name', adminChecklistEmp);
     const { data: dateRows } = await datesQuery;
     const uniqueDates = [...new Set((dateRows||[]).map(l=>l.date))].sort().reverse();
-    dateSel.innerHTML = `<option value="">${t('adm.allDates')}</option>` + uniqueDates.map(d=>`<option value="${d}" ${d===dateFilter?'selected':''}>${new Date(d).toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</option>`).join('');
+    dateSel.innerHTML = `<option value="">${t('adm.allDates')}</option>` + uniqueDates.map(d=>`<option value="${d}" ${d===dateFilter?'selected':''}>${fmtLocale(new Date(d), {day:'numeric',month:'long'})}</option>`).join('');
 
     // Сами логи для отображения — уже с учётом выбранной даты
     let query = sb.from('checklist_logs').select('*').eq('filial', currentFilial).order('date',{ascending:false}).order('created_at',{ascending:false});
@@ -462,7 +462,7 @@ async function loadAnalytics() {
     (fins||[]).forEach(f=>{
       if(!f.date) return;
       const d = new Date(f.date);
-      const week = t('adm.week',{n:getWeekNumber(d),month:d.toLocaleDateString('ru-RU',{month:'short'})});
+      const week = t('adm.week',{n:getWeekNumber(d),month:fmtLocale(d, {month:'short'})});
       if(!weeks[week]) weeks[week]={income:0,expense:0};
       if(f.type==='income') weeks[week].income+=Number(f.amount);
       else weeks[week].expense+=Number(f.amount);

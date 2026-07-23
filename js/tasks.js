@@ -113,7 +113,7 @@ function renderTasksDaySwitcher() {
     if(i===0) label = t('tasks.today');
     else if(i===1) label = t('tasks.tomorrow');
     else if(i===-1) label = t('tasks.yesterday');
-    else label = d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+    else label = fmtLocale(d, {day:'numeric',month:'short'});
     days.push({ ds, label });
   }
   const chip = (active, onclick, label) =>
@@ -182,7 +182,7 @@ async function loadTasks() {
     if(tasksSelectedEmp) query = query.eq('assigned_to_name', tasksSelectedEmp);
     const { data: tasks } = await query;
     const done = (tasks||[]).filter(t=>t.status==='done').length;
-    const dayLabel = tasksSelectedDay ? new Date(tasksSelectedDay).toLocaleDateString('ru-RU',{day:'numeric',month:'long'}) : t('tasks.allDays');
+    const dayLabel = tasksSelectedDay ? fmtLocale(new Date(tasksSelectedDay), {day:'numeric',month:'long'}) : t('tasks.allDays');
     document.getElementById('tasks-count').textContent = t('tasks.count',{label:dayLabel,done,total:(tasks||[]).length});
     const list = document.getElementById('tasks-list');
     if(!tasks||tasks.length===0) { list.innerHTML=`<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">${t('tasks.none')}</div></div>`; return; }

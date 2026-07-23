@@ -51,7 +51,7 @@ async function loadProfile2() {
         const earned = worked*rate - penalties;
         const forecast = (worked+planned)*rate - penalties;
         tabsContent.overview += `<div class="card" style="background:linear-gradient(135deg,#2d2416,#4a3a1f);border:none;color:#f0e9db">
-          <div style="font-size:11px;opacity:0.7;text-transform:uppercase;margin-bottom:8px">${t('pf.salaryTitle',{month:now.toLocaleDateString('ru-RU',{month:'long'})})}</div>
+          <div style="font-size:11px;opacity:0.7;text-transform:uppercase;margin-bottom:8px">${t('pf.salaryTitle',{month:fmtLocale(now, {month:'long'})})}</div>
           <div style="display:flex;justify-content:space-between;align-items:end">
             <div><div style="font-size:12px;opacity:0.7">${t('pf.earnedNow')}</div><div style="font-size:24px;font-weight:700">${formatNum(earned)} <span style="font-size:13px;opacity:0.7">${t('common.sum')}</span></div></div>
             <div style="text-align:right"><div style="font-size:12px;opacity:0.7">${t('pf.forecast')}</div><div style="font-size:18px;font-weight:700;color:#a3e07a">~${formatNum(forecast)}</div></div>
@@ -64,7 +64,7 @@ async function loadProfile2() {
       const upcoming = upcomingR.data;
       if(upcoming && upcoming.length) {
         tabsContent.overview += `<div class="section-label">${t('pf.upcomingShifts')}</div><div class="card">`;
-        tabsContent.overview += upcoming.map(s=>`<div class="list-item"><div class="item-info"><div class="item-name">${new Date(s.date).toLocaleDateString('ru-RU',{weekday:'short',day:'numeric',month:'short'})}${s.date===todayStr?' · <span style="color:var(--gold-dark)">'+t('pf.today')+'</span>':''}</div><div class="item-sub">${s.is_day_off?t('pf.dayOff'):'🕐 '+s.shift_start+'–'+s.shift_end+' · '+getFilialName(s.filial||'istikbol')}</div></div></div>`).join('');
+        tabsContent.overview += upcoming.map(s=>`<div class="list-item"><div class="item-info"><div class="item-name">${fmtLocale(new Date(s.date), {weekday:'short',day:'numeric',month:'short'})}${s.date===todayStr?' · <span style="color:var(--gold-dark)">'+t('pf.today')+'</span>':''}</div><div class="item-sub">${s.is_day_off?t('pf.dayOff'):'🕐 '+s.shift_start+'–'+s.shift_end+' · '+getFilialName(s.filial||'istikbol')}</div></div></div>`).join('');
         tabsContent.overview += '</div>';
       }
 
@@ -72,7 +72,7 @@ async function loadProfile2() {
       const activeTasks = activeTasksR.data;
       if(activeTasks && activeTasks.length) {
         tabsContent.overview += `<div class="section-label">${t('pf.myActiveTasks',{n:activeTasks.length})}</div><div class="card">`;
-        tabsContent.overview += activeTasks.map(t=>`<div class="list-item"><div class="item-info"><div class="item-name">${escapeHtml(t.title)}</div><div class="item-sub">${t.due_date?tr('tasks.due')+' '+new Date(t.due_date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}):''} · 📍 ${getFilialName(t.filial||'istikbol')}</div></div></div>`).join('');
+        tabsContent.overview += activeTasks.map(t=>`<div class="list-item"><div class="item-info"><div class="item-name">${escapeHtml(t.title)}</div><div class="item-sub">${t.due_date?tr('tasks.due')+' '+fmtLocale(new Date(t.due_date), {day:'numeric',month:'short'}):''} · 📍 ${getFilialName(t.filial||'istikbol')}</div></div></div>`).join('');
         tabsContent.overview += '</div>';
       }
       if(!tabsContent.overview) tabsContent.overview = `<div class="card"><div class="empty"><div class="empty-text">${t('pf.noOverview')}</div></div></div>`;
@@ -94,13 +94,13 @@ async function loadProfile2() {
         const totPen = lateItems.reduce((s,a)=>s+Number(a.penalty),0);
         tabsContent.history += `<div class="section-label">${t('pf.withholdings')}</div><div class="card">
           <div style="font-size:13px;color:#A13C3C;margin-bottom:8px;font-weight:600">${t('pf.totalWithheld',{p:formatNum(totPen)})}</div>
-          ${lateItems.map(a=>`<div class="list-item"><div class="item-info"><div class="item-name">${new Date(a.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}</div><div class="item-sub">${t('pf.lateByMin',{min:a.late_minutes||'?'})}</div></div><span class="badge badge-red">−${formatNum(a.penalty)}</span></div>`).join('')}
+          ${lateItems.map(a=>`<div class="list-item"><div class="item-info"><div class="item-name">${fmtLocale(new Date(a.date), {day:'numeric',month:'short'})}</div><div class="item-sub">${t('pf.lateByMin',{min:a.late_minutes||'?'})}</div></div><span class="badge badge-red">−${formatNum(a.penalty)}</span></div>`).join('')}
         </div>`;
       }
       const shifts = shiftsR.data;
       tabsContent.history += `<div class="section-label">${t('pf.shiftHistory')}</div><div class="card">`;
       if(!shifts || shifts.length===0) tabsContent.history += `<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">${t('pf.noShifts')}</div></div>`;
-      else tabsContent.history += shifts.map(s => `<div class="list-item"><div class="item-info"><div class="item-name">${new Date(s.date).toLocaleDateString('ru-RU',{day:'numeric',month:'short',weekday:'short'})}</div><div class="item-sub">${s.is_day_off?t('pf.dayOff'):'🕐 '+s.shift_start+'–'+s.shift_end+' · '+getFilialName(s.filial||'istikbol')}</div></div></div>`).join('');
+      else tabsContent.history += shifts.map(s => `<div class="list-item"><div class="item-info"><div class="item-name">${fmtLocale(new Date(s.date), {day:'numeric',month:'short',weekday:'short'})}</div><div class="item-sub">${s.is_day_off?t('pf.dayOff'):'🕐 '+s.shift_start+'–'+s.shift_end+' · '+getFilialName(s.filial||'istikbol')}</div></div></div>`).join('');
       tabsContent.history += '</div>';
     } else {
       tabsContent.overview = `<div class="card"><div class="empty"><div class="empty-text">${t('pf.notLinked')}</div></div></div>`;

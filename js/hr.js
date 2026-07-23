@@ -116,7 +116,7 @@ async function openPayroll() {
     const now = new Date();
     const firstStr = ymdLocal(new Date(now.getFullYear(), now.getMonth(), 1));
     const lastStr = ymdLocal(new Date(now.getFullYear(), now.getMonth()+1, 0));
-    document.getElementById('payroll-title').textContent = t('hr.monthLedgerTitle',{month:now.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}),f:getFilialName(currentFilial)});
+    document.getElementById('payroll-title').textContent = t('hr.monthLedgerTitle',{month:fmtLocale(now, {month:'long',year:'numeric'}),f:getFilialName(currentFilial)});
 
     // Сотрудники этого филиала + график за месяц (для точного расчёта по каждой смене)
     const [{ data: allEmps }, { data: att }, { data: sched }] = await Promise.all([
@@ -188,7 +188,7 @@ async function openDailyPayroll() {
   try {
     const t = businessToday(); // ведомость за кассовый день (смена 12:00–03:00)
     document.getElementById('daily-payroll-title').textContent =
-      tr('hr.dailyLedgerTitle',{date:new Date(t).toLocaleDateString('ru-RU',{day:'numeric',month:'long'}),f:getFilialName(currentFilial)});
+      tr('hr.dailyLedgerTitle',{date:fmtLocale(new Date(t), {day:'numeric',month:'long'}),f:getFilialName(currentFilial)});
 
     const [schedR, empR, attR, premR] = await Promise.all([
       sb.from('schedules').select('employee_id,employee_name,shift_start,shift_end,is_day_off').eq('filial',currentFilial).eq('date',t),

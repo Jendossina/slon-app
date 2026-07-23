@@ -120,7 +120,7 @@ async function loadMyNotes() {
       const isNote = n.kind==='note';
       const imp = n.priority==='important';
       const overdue = n.due_date && !n.is_done && n.due_date < todayStr;
-      const dueLabel = n.due_date ? new Date(n.due_date).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}) : '';
+      const dueLabel = n.due_date ? fmtLocale(new Date(n.due_date), {day:'numeric',month:'short'}) : '';
       return `<div class="card" style="${imp?'border-left:3px solid #A32D2D;':''}${n.is_done?'opacity:0.55;':''}display:flex;align-items:start;gap:10px">
         ${!isNote?`<div onclick="toggleMyNote(${n.id},${n.is_done})" style="width:24px;height:24px;border-radius:6px;border:2px solid ${n.is_done?'#3B6D11':'var(--border)'};background:${n.is_done?'#3B6D11':'transparent'};color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;font-size:14px;margin-top:1px">${n.is_done?'✓':''}</div>`:'<div style="font-size:18px;flex:0 0 auto">📝</div>'}
         <div style="flex:1;cursor:pointer" onclick="openMyNoteModal(${n.id})">

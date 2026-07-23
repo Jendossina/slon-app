@@ -355,7 +355,7 @@ function fmtDateShort(d, opts) {
   try {
     const dt = new Date(d);
     if(isNaN(dt)) return d;
-    return dt.toLocaleDateString('ru-RU', opts || {day:'numeric', month:'short'});
+    return fmtLocale(dt, opts || {day:'numeric', month:'short'});
   } catch(e) { return d; }
 }
 // Локальная дата в формате YYYY-MM-DD. Берём компоненты по местному времени телефона,

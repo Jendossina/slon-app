@@ -13,7 +13,7 @@ function renderReviewsDaySwitcher() {
     let label;
     if(i===0) label = t('rev.today');
     else if(i===-1) label = t('rev.yesterday');
-    else label = d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+    else label = fmtLocale(d, {day:'numeric',month:'short'});
     days.push({ ds, label });
   }
   const chip = (active, onclick, label) =>
@@ -22,7 +22,7 @@ function renderReviewsDaySwitcher() {
   html += days.map(d=>chip(reviewsSelectedDay===d.ds, `selectReviewDay('${d.ds}')`, d.label)).join('');
   // Кнопка выбора произвольной даты
   const isCustom = reviewsSelectedDay && !days.find(d=>d.ds===reviewsSelectedDay);
-  const customLabel = isCustom ? '📅 ' + new Date(reviewsSelectedDay).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}) : t('rev.date');
+  const customLabel = isCustom ? '📅 ' + fmtLocale(new Date(reviewsSelectedDay), {day:'numeric',month:'short'}) : t('rev.date');
   html += `<button onclick="document.getElementById('reviews-date-picker').showPicker?document.getElementById('reviews-date-picker').showPicker():document.getElementById('reviews-date-picker').click()" style="flex:0 0 auto;padding:6px 12px;border-radius:16px;border:none;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:${isCustom?'#4a3a1f':'var(--surface-2)'};color:${isCustom?'#fff':'var(--text-primary)'}">${customLabel}</button>`;
   html += `<input type="date" id="reviews-date-picker" aria-label="Выбрать дату" onchange="selectReviewDay(this.value)" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none">`;
   el.innerHTML = html;
@@ -158,7 +158,7 @@ async function loadReviews() {
           ${canEditData()?`<button onclick="openReviewEdit(${r.id},'${escJsAttr(r.category)}','${escJsAttr(r.sentiment)}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px">✏️</button>`:''}
         </div>
         <div style="font-size:14px;color:var(--text-primary);line-height:1.5">${escapeHtml(r.text)}</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${r.guest_name?escapeHtml(r.guest_name)+' · ':''}${new Date(r.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}${r.created_by_name?' · '+t('rev.recordedBy')+' '+escapeHtml(r.created_by_name):''}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${r.guest_name?escapeHtml(r.guest_name)+' · ':''}${fmtLocale(new Date(r.created_at), {day:'numeric',month:'short'})}${r.created_by_name?' · '+t('rev.recordedBy')+' '+escapeHtml(r.created_by_name):''}</div>
       </div>`;
     }).join('');
   } catch(e) { content.innerHTML = `<div class="card"><div class="empty"><div class="empty-text">${t('rev.errNotSetup')}</div></div></div>`; }

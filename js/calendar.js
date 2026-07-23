@@ -105,7 +105,7 @@ async function loadCalendar() {
     content.innerHTML = Object.keys(byDate).sort().map(date=>{
       const d = new Date(date);
       const isToday = date===todayStr;
-      const dayLabel = d.toLocaleDateString('ru-RU',{weekday:'short',day:'numeric',month:'long'});
+      const dayLabel = fmtLocale(d, {weekday:'short',day:'numeric',month:'long'});
       return `<div style="margin-bottom:14px">
         <div style="font-size:13px;font-weight:700;color:${isToday?'var(--gold-dark)':'var(--text-secondary)'};margin-bottom:6px;padding-left:4px">${isToday?t('cal.today'):''}${dayLabel}</div>
         ${byDate[date].map(e=>{

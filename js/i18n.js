@@ -28,6 +28,32 @@ function t(key, vars) {
 // Алиас t() для файлов, где переменная `t` уже занята (напр. tasks.js: taskHTML(t) — объект задачи).
 function tr(key, vars) { return t(key, vars); }
 
+// Локализованная дата. На русском — стандартный toLocaleDateString('ru-RU', opts).
+// На узбекском собираем строку из узбекских (кириллица) названий месяцев/дней недели,
+// т.к. браузерная локаль 'uz' ненадёжна. opts как у toLocaleDateString:
+// { weekday:'long'|'short', day:'numeric', month:'long'|'short', year:'numeric' }.
+const UZ_MONTHS_LONG  = ['Январ','Феврал','Март','Апрел','Май','Июн','Июл','Август','Сентябр','Октябр','Ноябр','Декабр'];
+const UZ_MONTHS_SHORT = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+const UZ_WEEK_LONG  = ['Якшанба','Душанба','Сешанба','Чоршанба','Пайшанба','Жума','Шанба']; // индекс = getDay() (0=Вс)
+const UZ_WEEK_SHORT = ['Як','Ду','Се','Чо','Па','Жу','Ша'];
+function fmtLocale(dateInput, opts) {
+  opts = opts || { day:'numeric', month:'short' };
+  const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if(isNaN(d)) return String(dateInput == null ? '' : dateInput);
+  if(_lang !== 'uz') return d.toLocaleDateString('ru-RU', opts);
+  let out = '';
+  if(opts.weekday) {
+    out += (opts.weekday === 'short' ? UZ_WEEK_SHORT : UZ_WEEK_LONG)[d.getDay()];
+    if(opts.day || opts.month) out += ', ';
+  }
+  const seg = [];
+  if(opts.day) seg.push(String(d.getDate()));
+  if(opts.month) seg.push((opts.month === 'short' ? UZ_MONTHS_SHORT : UZ_MONTHS_LONG)[d.getMonth()]);
+  out += seg.join(' ');
+  if(opts.year) out += (out ? ' ' : '') + d.getFullYear();
+  return out.trim();
+}
+
 // Применить перевод к статическому HTML (вызывается на старте и не требует повторного вызова
 // при переключении — там перезагрузка). data-i18n → textContent, -ph → placeholder, -html → innerHTML.
 function applyStaticI18n(root) {

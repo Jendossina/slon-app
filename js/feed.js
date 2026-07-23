@@ -243,7 +243,7 @@ function annCard(a) {
       ${canEditData()?`<button onclick="deleteAnnouncement(${a.id})" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px">🗑</button>`:''}
     </div>
     ${a.text?`<div style="font-size:14px;color:var(--text-primary);line-height:1.6;margin-top:6px;white-space:pre-wrap">${escapeHtml(a.text)}</div>`:''}
-    <div style="font-size:12px;color:var(--text-muted);margin-top:8px">${new Date(a.created_at).toLocaleDateString('ru-RU',{day:'numeric',month:'long'})} · ${escapeHtml(a.created_by_name||'')} · 📍 ${scope}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:8px">${fmtLocale(new Date(a.created_at), {day:'numeric',month:'long'})} · ${escapeHtml(a.created_by_name||'')} · 📍 ${scope}</div>
   </div>`;
 }
 

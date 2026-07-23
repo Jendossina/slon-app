@@ -1,7 +1,7 @@
 async function loadHome() {
   const d = new Date();
-  document.getElementById('home-date').textContent = d.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
-  document.getElementById('finance-period').textContent = d.toLocaleDateString('ru-RU', {month:'long', year:'numeric'});
+  document.getElementById('home-date').textContent = fmtLocale(d, {weekday:'long', day:'numeric', month:'long'});
+  document.getElementById('finance-period').textContent = fmtLocale(d, {month:'long', year:'numeric'});
   const role = currentProfile?.role;
   const name = currentProfile?.name || currentUser?.email;
   document.getElementById('home-welcome-text').textContent = t('home.welcome', {name});

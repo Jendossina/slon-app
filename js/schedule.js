@@ -84,7 +84,7 @@ async function loadSchedule() {
 
   const weekEnd = new Date(scheduleWeekStart);
   weekEnd.setDate(weekEnd.getDate()+6);
-  document.getElementById('schedule-week').textContent = scheduleWeekStart.toLocaleDateString('ru-RU',{day:'numeric',month:'short'}) + ' — ' + weekEnd.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+  document.getElementById('schedule-week').textContent = fmtLocale(scheduleWeekStart, {day:'numeric',month:'short'}) + ' — ' + fmtLocale(weekEnd, {day:'numeric',month:'short'});
 
   await loadScheduleGrid();
 }
@@ -210,7 +210,7 @@ let quickEditEmpId = null, quickEditEmpName = null, quickEditDate = null;
 function quickEditSchedule(empId, empName, date) {
   quickEditEmpId = empId; quickEditEmpName = empName; quickEditDate = date;
   document.getElementById('sch-employee-display').textContent = empName;
-  document.getElementById('sch-date-display').textContent = new Date(date).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('sch-date-display').textContent = fmtLocale(new Date(date), {weekday:'long',day:'numeric',month:'long'});
   document.getElementById('sch-filial-display').textContent = '📍 ' + getFilialName(currentFilial);
   document.getElementById('sch-dayoff').checked = false;
   document.getElementById('sch-time-fields').style.display = 'block';
