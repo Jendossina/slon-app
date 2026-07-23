@@ -620,16 +620,16 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="screen" id="screen-supply">
     <div class="header">
       <div class="header-row">
-        <div><h1>🧴 Хозчасть</h1><p id="supply-subtitle">Учёт расходников</p></div>
-        <button id="supply-add-item-btn" onclick="openSupplyItemModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Позиция</button>
+        <div><h1 data-i18n="sup.title">🧴 Хозчасть</h1><p id="supply-subtitle">Учёт расходников</p></div>
+        <button id="supply-add-item-btn" onclick="openSupplyItemModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="inv.addItemBtn">+ Позиция</button>
       </div>
     </div>
     <div style="display:flex;gap:8px;padding:10px 12px 0">
-      <button id="supply-tab-stock" onclick="switchSupplyTab('stock')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--gold-dark);color:#fff">Остатки</button>
-      <button id="supply-tab-report" onclick="switchSupplyTab('report')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)">Отчёт расхода</button>
+      <button id="supply-tab-stock" onclick="switchSupplyTab('stock')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--gold-dark);color:#fff" data-i18n="sup.tabStock">Остатки</button>
+      <button id="supply-tab-report" onclick="switchSupplyTab('report')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)" data-i18n="sup.tabReport">Отчёт расхода</button>
     </div>
     <div class="content" id="supply-content" style="padding:12px">
-      <div class="loading">Загрузка...</div>
+      <div class="loading" data-i18n="common.loading">Загрузка...</div>
     </div>
   </div>
 
@@ -637,16 +637,16 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="screen" id="screen-dishware">
     <div class="header">
       <div class="header-row">
-        <div><h1>🍽️ Посуда</h1><p id="dishware-subtitle">Учёт посуды и боя</p></div>
-        <button id="dishware-add-item-btn" onclick="openDishwareItemModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Позиция</button>
+        <div><h1 data-i18n="dish.title">🍽️ Посуда</h1><p id="dishware-subtitle">Учёт посуды и боя</p></div>
+        <button id="dishware-add-item-btn" onclick="openDishwareItemModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="inv.addItemBtn">+ Позиция</button>
       </div>
     </div>
     <div style="display:flex;gap:8px;padding:10px 12px 0">
-      <button id="dishware-tab-stock" onclick="switchDishwareTab('stock')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--gold-dark);color:#fff">Остатки</button>
-      <button id="dishware-tab-report" onclick="switchDishwareTab('report')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)">Отчёт боя</button>
+      <button id="dishware-tab-stock" onclick="switchDishwareTab('stock')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--gold-dark);color:#fff" data-i18n="dish.tabStock">Остатки</button>
+      <button id="dishware-tab-report" onclick="switchDishwareTab('report')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)" data-i18n="dish.tabReport">Отчёт боя</button>
     </div>
     <div class="content" id="dishware-content" style="padding:12px">
-      <div class="loading">Загрузка...</div>
+      <div class="loading" data-i18n="common.loading">Загрузка...</div>
     </div>
   </div>
 
@@ -796,12 +796,12 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-dishware-item">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-dishware-item')">✕</button>
-    <div class="modal-title">Новая позиция посуды</div>
+    <div class="modal-title" data-i18n="dish.newItemTitle">Новая позиция посуды</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="dishware-item-filial">—</div>
-    <div class="form-group"><label class="form-label" for="dishware-item-name">Название</label><input class="form-input" id="dishware-item-name" placeholder="Например: Роксы 300мл"></div>
-    <div class="form-group"><label class="form-label" for="dishware-item-cost">Себестоимость за штуку (сум)</label><input class="form-input" id="dishware-item-cost" type="number" step="any" placeholder="15000"></div>
-    <div class="form-group"><label class="form-label" for="dishware-item-qty">Сколько сейчас на складе (шт)</label><input class="form-input" id="dishware-item-qty" type="number" step="any" placeholder="20"></div>
-    <button class="btn btn-primary" onclick="saveDishwareItem()">Создать</button>
+    <div class="form-group"><label class="form-label" for="dishware-item-name" data-i18n="dish.name">Название</label><input class="form-input" id="dishware-item-name" placeholder="Например: Роксы 300мл"></div>
+    <div class="form-group"><label class="form-label" for="dishware-item-cost" data-i18n="dish.cost">Себестоимость за штуку (сум)</label><input class="form-input" id="dishware-item-cost" type="number" step="any" placeholder="15000"></div>
+    <div class="form-group"><label class="form-label" for="dishware-item-qty" data-i18n="dish.qtyStart">Сколько сейчас на складе (шт)</label><input class="form-input" id="dishware-item-qty" type="number" step="any" placeholder="20"></div>
+    <button class="btn btn-primary" onclick="saveDishwareItem()" data-i18n="dish.create">Создать</button>
   </div>
 </div>
 
@@ -809,14 +809,14 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-dishware-in">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-dishware-in')">✕</button>
-    <div class="modal-title">📥 Пополнить (докупили)</div>
+    <div class="modal-title" data-i18n="dish.inTitle">📥 Пополнить (докупили)</div>
     <input type="hidden" id="dishware-in-item-id">
     <div class="card" style="background:var(--surface-2);margin-bottom:12px">
       <div style="font-weight:600;color:var(--text-primary)" id="dishware-in-item-name">—</div>
     </div>
-    <div class="form-group"><label class="form-label" for="dishware-in-qty">Сколько добавить (шт)</label><input class="form-input" id="dishware-in-qty" type="number" step="any" placeholder="10"></div>
-    <div class="form-group"><label class="form-label" for="dishware-in-cost">Новая себестоимость за штуку (необязательно)</label><input class="form-input" id="dishware-in-cost" type="number" step="any" placeholder="если цена изменилась"></div>
-    <button class="btn btn-primary" onclick="saveDishwareIn()">Оприходовать</button>
+    <div class="form-group"><label class="form-label" for="dishware-in-qty" data-i18n="dish.qtyPcs">Сколько добавить (шт)</label><input class="form-input" id="dishware-in-qty" type="number" step="any" placeholder="10"></div>
+    <div class="form-group"><label class="form-label" for="dishware-in-cost" data-i18n="dish.costOpt">Новая себестоимость за штуку (необязательно)</label><input class="form-input" id="dishware-in-cost" type="number" step="any" placeholder="если цена изменилась"></div>
+    <button class="btn btn-primary" onclick="saveDishwareIn()" data-i18n="dish.addIn">Оприходовать</button>
   </div>
 </div>
 
@@ -824,18 +824,18 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-dishware-break">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-dishware-break')">✕</button>
-    <div class="modal-title">💥 Записать бой</div>
+    <div class="modal-title" data-i18n="dish.breakTitle">💥 Записать бой</div>
     <input type="hidden" id="dishware-break-item-id">
     <div class="card" style="background:var(--surface-2);margin-bottom:12px">
       <div style="font-weight:600;color:var(--text-primary)" id="dishware-break-item-name">—</div>
-      <div style="font-size:13px;color:var(--text-muted);margin-top:2px" id="dishware-break-stock">Остаток: —</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:2px" id="dishware-break-stock">—</div>
     </div>
-    <div class="form-group"><label class="form-label" for="dishware-break-qty">Сколько разбито (шт)</label><input class="form-input" id="dishware-break-qty" type="number" step="any" placeholder="1"></div>
-    <div class="form-group"><label class="form-label" for="dishware-break-who">Кто разбил</label>
+    <div class="form-group"><label class="form-label" for="dishware-break-qty" data-i18n="dish.qtyPcs">Сколько разбито (шт)</label><input class="form-input" id="dishware-break-qty" type="number" step="any" placeholder="1"></div>
+    <div class="form-group"><label class="form-label" for="dishware-break-who" data-i18n="dish.who">Кто разбил</label>
       <select class="form-select" id="dishware-break-who"><option value="">— выберите сотрудника —</option></select>
     </div>
-    <div class="form-group"><label class="form-label" for="dishware-break-note">Комментарий (необязательно)</label><input class="form-input" id="dishware-break-note" placeholder="Как произошло"></div>
-    <button class="btn btn-primary" onclick="saveDishwareBreak()">Записать бой</button>
+    <div class="form-group"><label class="form-label" for="dishware-break-note" data-i18n="dish.note">Комментарий (необязательно)</label><input class="form-input" id="dishware-break-note" placeholder="Как произошло"></div>
+    <button class="btn btn-primary" onclick="saveDishwareBreak()" data-i18n="dish.recordBreak">Записать бой</button>
   </div>
 </div>
 
@@ -844,7 +844,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-dishware-history')">✕</button>
     <div class="modal-title" id="dishware-history-title">История</div>
-    <div id="dishware-history-body"><div class="loading">Загрузка...</div></div>
+    <div id="dishware-history-body"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
   </div>
 </div>
 
@@ -1039,13 +1039,13 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-supply-item">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-supply-item')">✕</button>
-    <div class="modal-title">Новая позиция хозчасти</div>
+    <div class="modal-title" data-i18n="sup.newItemTitle">Новая позиция хозчасти</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="supply-item-filial">—</div>
-    <div class="form-group"><label class="form-label" for="supply-item-name">Название</label><input class="form-input" id="supply-item-name" placeholder="Например: Средство для мытья посуды"></div>
-    <div class="form-group"><label class="form-label" for="supply-item-unit">Единица измерения</label>
+    <div class="form-group"><label class="form-label" for="supply-item-name" data-i18n="sup.name">Название</label><input class="form-input" id="supply-item-name" placeholder="Например: Средство для мытья посуды"></div>
+    <div class="form-group"><label class="form-label" for="supply-item-unit" data-i18n="sup.unit">Единица измерения</label>
       <select class="form-select" id="supply-item-unit"><option>л</option><option>мл</option><option>шт</option><option>упак</option><option>кг</option><option>гр</option></select>
     </div>
-    <button class="btn btn-primary" onclick="saveSupplyItem()">Создать</button>
+    <button class="btn btn-primary" onclick="saveSupplyItem()" data-i18n="dish.create">Создать</button>
   </div>
 </div>
 
@@ -1053,15 +1053,15 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-supply-in">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-supply-in')">✕</button>
-    <div class="modal-title">📥 Приход (закупка)</div>
+    <div class="modal-title" data-i18n="sup.inTitle">📥 Приход (закупка)</div>
     <input type="hidden" id="supply-in-item-id">
     <div class="card" style="background:var(--surface-2);margin-bottom:12px">
       <div style="font-weight:600;color:var(--text-primary)" id="supply-in-item-name">—</div>
     </div>
-    <div class="form-group"><label class="form-label" for="supply-in-qty">Сколько пришло (<span id="supply-in-unit">л</span>)</label><input class="form-input" id="supply-in-qty" type="number" step="any" placeholder="10"></div>
-    <div class="form-group"><label class="form-label" for="supply-in-price">Цена за 1 <span id="supply-in-unit2">л</span> (сум)</label><input class="form-input" id="supply-in-price" type="number" step="any" placeholder="15000"></div>
-    <div class="form-group"><label class="form-label" for="supply-in-note">Комментарий (необязательно)</label><input class="form-input" id="supply-in-note" placeholder="Поставщик, накладная…"></div>
-    <button class="btn btn-primary" onclick="saveSupplyIn()">Оприходовать</button>
+    <div class="form-group"><label class="form-label" for="supply-in-qty"><span data-i18n="sup.qtyCame">Сколько пришло</span> (<span id="supply-in-unit">л</span>)</label><input class="form-input" id="supply-in-qty" type="number" step="any" placeholder="10"></div>
+    <div class="form-group"><label class="form-label" for="supply-in-price"><span data-i18n="sup.pricePer1">Цена за 1</span> <span id="supply-in-unit2">л</span> (<span data-i18n="common.sum">сум</span>)</label><input class="form-input" id="supply-in-price" type="number" step="any" placeholder="15000"></div>
+    <div class="form-group"><label class="form-label" for="supply-in-note" data-i18n="sup.note">Комментарий (необязательно)</label><input class="form-input" id="supply-in-note" placeholder="Поставщик, накладная…"></div>
+    <button class="btn btn-primary" onclick="saveSupplyIn()" data-i18n="sup.addIn">Оприходовать</button>
   </div>
 </div>
 
@@ -1069,15 +1069,15 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-supply-out">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-supply-out')">✕</button>
-    <div class="modal-title">📤 Списать со склада</div>
+    <div class="modal-title" data-i18n="sup.outTitle">📤 Списать со склада</div>
     <input type="hidden" id="supply-out-item-id">
     <div class="card" style="background:var(--surface-2);margin-bottom:12px">
       <div style="font-weight:600;color:var(--text-primary)" id="supply-out-item-name">—</div>
-      <div style="font-size:13px;color:var(--text-muted);margin-top:2px" id="supply-out-stock">Остаток: —</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:2px" id="supply-out-stock">—</div>
     </div>
-    <div class="form-group"><label class="form-label" for="supply-out-qty">Сколько беру (<span id="supply-out-unit">л</span>)</label><input class="form-input" id="supply-out-qty" type="number" step="any" placeholder="2"></div>
-    <div class="form-group"><label class="form-label" for="supply-out-note">Комментарий (необязательно)</label><input class="form-input" id="supply-out-note" placeholder="Куда/на что"></div>
-    <button class="btn btn-primary" onclick="saveSupplyOut()">Списать</button>
+    <div class="form-group"><label class="form-label" for="supply-out-qty"><span data-i18n="sup.qtyTake">Сколько беру</span> (<span id="supply-out-unit">л</span>)</label><input class="form-input" id="supply-out-qty" type="number" step="any" placeholder="2"></div>
+    <div class="form-group"><label class="form-label" for="supply-out-note" data-i18n="sup.note">Комментарий (необязательно)</label><input class="form-input" id="supply-out-note" placeholder="Куда/на что"></div>
+    <button class="btn btn-primary" onclick="saveSupplyOut()" data-i18n="sup.recordOut">Списать</button>
   </div>
 </div>
 
@@ -1086,7 +1086,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-supply-history')">✕</button>
     <div class="modal-title" id="supply-history-title">История</div>
-    <div id="supply-history-body"><div class="loading">Загрузка...</div></div>
+    <div id="supply-history-body"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
   </div>
 </div>
 

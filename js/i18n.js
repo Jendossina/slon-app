@@ -99,6 +99,25 @@ const I18N = {
     'tasks.dueLabel': 'Срок', 'tasks.addBtn': 'Добавить задачу', 'tasks.reportTitle': '📎 Отчёт о выполнении',
     'tasks.uploadHint': 'Нажми чтобы прикрепить фото или видео', 'tasks.sendReport': 'Отправить отчёт', 'tasks.doneNoPhoto': 'Отметить выполненным без фото',
     'tasks.discussion': '💬 Обсуждение', 'tasks.commentPh': 'Написать комментарий...', 'tasks.reportEmp': '📋 Отчёт сотрудника',
+    // Склад (общее для Посуды и Хозчасти)
+    'inv.enterName': 'Введите название', 'inv.enterQty': 'Введите количество', 'inv.show': 'Показать', 'inv.from': 'С', 'inv.to': 'По',
+    'inv.itemCreated': '✅ Позиция создана', 'inv.remaining': 'Остаток:', 'inv.warehouseFilial': '📍 Склад филиала: ', 'inv.byItems': 'По позициям', 'inv.totalSpent': 'ИТОГО потрачено',
+    'inv.noItems': 'Позиций пока нет', 'inv.addItemHint': '.<br>Нажми «+ Позиция».', 'inv.inBtn': '+ Приход', 'inv.nothingYet': 'Пока нет', 'inv.noMoves': 'Движений пока нет', 'inv.deleted': '(удалено)', 'inv.leftover': 'осталось', 'inv.addItemBtn': '+ Позиция',
+    // Посуда
+    'dish.title': '🍽️ Посуда', 'dish.tabStock': 'Остатки', 'dish.tabReport': 'Бой за период', 'dish.stockValue': 'Стоимость посуды на складе', 'dish.pcs': 'шт', 'dish.perPcs': 'сум/шт',
+    'dish.breakBtn': '💥 Бой', 'dish.errNotSetup': 'Ошибка. Возможно, учёт посуды ещё не настроен в Supabase.',
+    'dish.receivedIn': '✅ Оприходовано: {n} шт', 'dish.selectEmp': '— выберите сотрудника —', 'dish.breakRecorded': '💥 Записан бой: {n} шт · −{loss} сум',
+    'dish.noBreak': 'За этот период боя нет 👍', 'dish.brokenPeriod': 'Разбито за период · {f}', 'dish.loss': 'убыток {n} сум', 'dish.whoBreaks': 'Кто бьёт (антирейтинг)',
+    'dish.newItemTitle': 'Новая позиция посуды', 'dish.name': 'Название', 'dish.cost': 'Стоимость за штуку (сум)', 'dish.qtyStart': 'Начальный остаток (шт)', 'dish.create': 'Создать',
+    'dish.inTitle': '📥 Приход посуды', 'dish.qtyPcs': 'Количество (шт)', 'dish.costOpt': 'Стоимость за шт (необязательно)', 'dish.addIn': 'Оприходовать',
+    'dish.breakTitle': '💥 Записать бой', 'dish.who': 'Кто разбил', 'dish.note': 'Комментарий', 'dish.recordBreak': 'Записать бой',
+    // Хозчасть
+    'sup.title': '🧴 Хозчасть', 'sup.tabStock': 'Остатки', 'sup.tabReport': 'Отчёт расхода', 'sup.takeBtn': 'Взять', 'sup.errNotSetup': 'Ошибка. Возможно, хозчасть ещё не настроена в Supabase.',
+    'sup.enterPrice': 'Введите цену', 'sup.receivedIn': '✅ Оприходовано: {n}', 'sup.notEnough': 'Недостаточно на складе. Остаток: {n}', 'sup.writtenOff': '✅ Списано: {n}',
+    'sup.purchases': 'Приходы (закупки)', 'sup.writeoffs': 'Списания (расход)', 'sup.noWriteoffs': 'За этот период списаний нет', 'sup.spentPeriod': 'Израсходовано за {from} — {to} · {f}',
+    'sup.newItemTitle': 'Новая позиция хозчасти', 'sup.name': 'Название', 'sup.unit': 'Единица измерения',
+    'sup.inTitle': '📥 Приход', 'sup.qty': 'Количество', 'sup.pricePerUnit': 'Цена за единицу (сум)', 'sup.note': 'Комментарий', 'sup.addIn': 'Оприходовать',
+    'sup.outTitle': '📤 Взять со склада', 'sup.recordOut': 'Списать', 'sup.qtyCame': 'Сколько пришло', 'sup.pricePer1': 'Цена за 1', 'sup.qtyTake': 'Сколько беру',
     // Брони
     'crm.title': 'Брони', 'crm.count': '{n} броней · {f}', 'crm.none': 'Броней пока нет', 'crm.people': 'чел.', 'crm.enterGuest': 'Введите имя гостя', 'crm.added': '✅ Бронь добавлена', 'crm.opForFilial': '📍 Операция для филиала: ', 'crm.bookForFilial': '📍 Бронь на филиал: ',
     'crm.newBooking': 'Новая бронь', 'crm.guestName': 'Имя гостя', 'crm.phone': 'Телефон', 'crm.date': 'Дата', 'crm.time': 'Время', 'crm.guestsCount': 'Количество гостей', 'crm.zone': 'Зона', 'crm.addBooking': 'Добавить бронь',
@@ -305,6 +324,25 @@ const I18N = {
     'tasks.dueLabel': 'Муддат', 'tasks.addBtn': 'Вазифа қўшиш', 'tasks.reportTitle': '📎 Бажарилганлик ҳисоботи',
     'tasks.uploadHint': 'Фото ёки видео бириктириш учун босинг', 'tasks.sendReport': 'Ҳисоботни юбориш', 'tasks.doneNoPhoto': 'Фотосиз бажарилган деб белгилаш',
     'tasks.discussion': '💬 Муҳокама', 'tasks.commentPh': 'Шарҳ ёзиш...', 'tasks.reportEmp': '📋 Ходим ҳисоботи',
+    // Склад (общее)
+    'inv.enterName': 'Номини киритинг', 'inv.enterQty': 'Миқдорни киритинг', 'inv.show': 'Кўрсатиш', 'inv.from': 'Дан', 'inv.to': 'Гача',
+    'inv.itemCreated': '✅ Позиция яратилди', 'inv.remaining': 'Қолдиқ:', 'inv.warehouseFilial': '📍 Филиал склади: ', 'inv.byItems': 'Позициялар бўйича', 'inv.totalSpent': 'ЖАМИ сарфланди',
+    'inv.noItems': 'Ҳали позициялар йўқ', 'inv.addItemHint': '.<br>«+ Позиция» ни босинг.', 'inv.inBtn': '+ Кирим', 'inv.nothingYet': 'Ҳали йўқ', 'inv.noMoves': 'Ҳали ҳаракатлар йўқ', 'inv.deleted': '(ўчирилган)', 'inv.leftover': 'қолди', 'inv.addItemBtn': '+ Позиция',
+    // Посуда
+    'dish.title': '🍽️ Идиш-товоқ', 'dish.tabStock': 'Қолдиқлар', 'dish.tabReport': 'Давр синиши', 'dish.stockValue': 'Складдаги идиш қиймати', 'dish.pcs': 'дона', 'dish.perPcs': 'сўм/дона',
+    'dish.breakBtn': '💥 Синиш', 'dish.errNotSetup': 'Хато. Эҳтимол, идиш ҳисоби ҳали Supabase да созланмаган.',
+    'dish.receivedIn': '✅ Кирим қилинди: {n} дона', 'dish.selectEmp': '— ходимни танланг —', 'dish.breakRecorded': '💥 Синиш ёзилди: {n} дона · −{loss} сўм',
+    'dish.noBreak': 'Бу даврда синиш йўқ 👍', 'dish.brokenPeriod': 'Давр учун синган · {f}', 'dish.loss': 'зарар {n} сўм', 'dish.whoBreaks': 'Ким кўп синдиради (антирейтинг)',
+    'dish.newItemTitle': 'Янги идиш позицияси', 'dish.name': 'Номи', 'dish.cost': 'Донаси нархи (сўм)', 'dish.qtyStart': 'Бошланғич қолдиқ (дона)', 'dish.create': 'Яратиш',
+    'dish.inTitle': '📥 Идиш кирими', 'dish.qtyPcs': 'Миқдор (дона)', 'dish.costOpt': 'Дона нархи (ихтиёрий)', 'dish.addIn': 'Кирим қилиш',
+    'dish.breakTitle': '💥 Синишни ёзиш', 'dish.who': 'Ким синдирди', 'dish.note': 'Изоҳ', 'dish.recordBreak': 'Синишни ёзиш',
+    // Хозчасть
+    'sup.title': '🧴 Хўжалик қисми', 'sup.tabStock': 'Қолдиқлар', 'sup.tabReport': 'Сарф ҳисоботи', 'sup.takeBtn': 'Олиш', 'sup.errNotSetup': 'Хато. Эҳтимол, хўжалик қисми ҳали Supabase да созланмаган.',
+    'sup.enterPrice': 'Нархни киритинг', 'sup.receivedIn': '✅ Кирим қилинди: {n}', 'sup.notEnough': 'Складда етарли эмас. Қолдиқ: {n}', 'sup.writtenOff': '✅ Ҳисобдан чиқарилди: {n}',
+    'sup.purchases': 'Киримлар (харидлар)', 'sup.writeoffs': 'Ҳисобдан чиқаришлар (сарф)', 'sup.noWriteoffs': 'Бу даврда сарф йўқ', 'sup.spentPeriod': '{from} — {to} учун сарфланди · {f}',
+    'sup.newItemTitle': 'Янги хўжалик позицияси', 'sup.name': 'Номи', 'sup.unit': 'Ўлчов бирлиги',
+    'sup.inTitle': '📥 Кирим', 'sup.qty': 'Миқдор', 'sup.pricePerUnit': 'Бирлик нархи (сўм)', 'sup.note': 'Изоҳ', 'sup.addIn': 'Кирим қилиш',
+    'sup.outTitle': '📤 Складдан олиш', 'sup.recordOut': 'Ҳисобдан чиқариш', 'sup.qtyCame': 'Қанча келди', 'sup.pricePer1': '1 нархи', 'sup.qtyTake': 'Қанча оламан',
     // Брони
     'crm.title': 'Бронлар', 'crm.count': '{n} брон · {f}', 'crm.none': 'Ҳали бронлар йўқ', 'crm.people': 'киши', 'crm.enterGuest': 'Меҳмон исмини киритинг', 'crm.added': '✅ Брон қўшилди', 'crm.opForFilial': '📍 Филиал учун операция: ', 'crm.bookForFilial': '📍 Филиалга брон: ',
     'crm.newBooking': 'Янги брон', 'crm.guestName': 'Меҳмон исми', 'crm.phone': 'Телефон', 'crm.date': 'Сана', 'crm.time': 'Вақт', 'crm.guestsCount': 'Меҳмонлар сони', 'crm.zone': 'Зона', 'crm.addBooking': 'Брон қўшиш',
