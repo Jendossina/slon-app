@@ -654,13 +654,13 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="screen" id="screen-directory">
     <div class="header">
       <div class="header-row">
-        <div><h1>📇 Справочник</h1><p>Поставщики, контакты, доступы</p></div>
-        <button id="dir-add-btn" onclick="openDirectoryModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Добавить</button>
+        <div><h1 data-i18n="dir.title">📇 Справочник</h1><p data-i18n="dir.subtitle">Поставщики, контакты, доступы</p></div>
+        <button id="dir-add-btn" onclick="openDirectoryModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="note.addBtn">+ Добавить</button>
       </div>
     </div>
     <div class="hscroll" style="display:flex;gap:8px;padding:10px 12px 0;overflow-x:auto" id="dir-tabs"></div>
     <div class="content" id="directory-content" style="padding:12px">
-      <div class="loading">Загрузка...</div>
+      <div class="loading" data-i18n="common.loading">Загрузка...</div>
     </div>
   </div>
 
@@ -668,14 +668,14 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="screen" id="screen-reviews">
     <div class="header">
       <div class="header-row">
-        <div><h1>⭐ Отзывы</h1><p id="reviews-subtitle">Отзывы гостей</p></div>
-        <button onclick="openReviewModal()" style="background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Отзыв</button>
+        <div><h1 data-i18n="rev.title">⭐ Отзывы</h1><p id="reviews-subtitle">Отзывы гостей</p></div>
+        <button onclick="openReviewModal()" style="background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="rev.addBtn">+ Отзыв</button>
       </div>
     </div>
     <div class="hscroll" style="display:flex;gap:6px;padding:8px 12px 0;overflow-x:auto" id="reviews-day-switcher"></div>
     <div class="hscroll" style="display:flex;gap:6px;padding:8px 12px 0;overflow-x:auto" id="reviews-filters"></div>
     <div class="content" id="reviews-content" style="padding:12px">
-      <div class="loading">Загрузка...</div>
+      <div class="loading" data-i18n="common.loading">Загрузка...</div>
     </div>
   </div>
 
@@ -684,16 +684,16 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="screen" id="screen-feed">
     <div class="header">
       <div class="header-row">
-        <div><h1>📢 Лента</h1><p id="feed-subtitle">Новости и опросы</p></div>
-        <button id="feed-add-btn" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">+ Добавить</button>
+        <div><h1 data-i18n="feed.title">📢 Лента</h1><p id="feed-subtitle">Новости и опросы</p></div>
+        <button id="feed-add-btn" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="note.addBtn">+ Добавить</button>
       </div>
     </div>
     <div style="display:flex;gap:8px;padding:10px 12px 0">
-      <button id="feed-tab-ann" onclick="switchFeedTab('ann')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--gold-dark);color:#fff">📢 Объявления</button>
-      <button id="feed-tab-polls" onclick="switchFeedTab('polls')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)">📊 Опросы</button>
+      <button id="feed-tab-ann" onclick="switchFeedTab('ann')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--gold-dark);color:#fff" data-i18n="feed.tabAnn">📢 Объявления</button>
+      <button id="feed-tab-polls" onclick="switchFeedTab('polls')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)" data-i18n="feed.tabPolls">📊 Опросы</button>
     </div>
     <div class="content" id="feed-content" style="padding:12px">
-      <div class="loading">Загрузка...</div>
+      <div class="loading" data-i18n="common.loading">Загрузка...</div>
     </div>
     <!-- скрытые контейнеры для переиспользования старой логики -->
     <div id="announcements-content" style="display:none"></div>
@@ -852,21 +852,21 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-directory">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-directory')">✕</button>
-    <div class="modal-title" id="dir-modal-title">Новая запись</div>
+    <div class="modal-title" id="dir-modal-title" data-i18n="note.new">Новая запись</div>
     <input type="hidden" id="dir-id">
-    <div class="form-group"><label class="form-label" for="dir-category">Категория</label>
+    <div class="form-group"><label class="form-label" for="dir-category" data-i18n="dir.category">Категория</label>
       <select class="form-select" id="dir-category" onchange="updateDirFields()">
-        <option value="supplier">📦 Поставщик</option>
-        <option value="contact">📞 Контакт</option>
-        <option value="access">🔑 Доступ</option>
+        <option value="supplier" data-i18n="dir.optSupplier">📦 Поставщик</option>
+        <option value="contact" data-i18n="dir.optContact">📞 Контакт</option>
+        <option value="access" data-i18n="dir.optAccess">🔑 Доступ</option>
       </select>
     </div>
-    <div class="form-group"><label class="form-label" for="dir-title" id="dir-title-label">Название</label><input class="form-input" id="dir-title" placeholder=""></div>
-    <div class="form-group"><label class="form-label" for="dir-field1" id="dir-field1-label">Телефон</label><input class="form-input" id="dir-field1" placeholder=""></div>
-    <div class="form-group"><label class="form-label" for="dir-field2" id="dir-field2-label">Что поставляет</label><input class="form-input" id="dir-field2" placeholder=""></div>
-    <div class="form-group"><label class="form-label" for="dir-note">Комментарий</label><input class="form-input" id="dir-note" placeholder="необязательно"></div>
-    <button class="btn btn-primary" onclick="saveDirectory()">Сохранить</button>
-    <button class="btn btn-secondary" id="dir-delete-btn" onclick="deleteDirectory()" style="display:none;margin-top:8px;background:#FCEBEB;color:#A32D2D">Удалить</button>
+    <div class="form-group"><label class="form-label" for="dir-title" id="dir-title-label" data-i18n="dir.name">Название</label><input class="form-input" id="dir-title" placeholder=""></div>
+    <div class="form-group"><label class="form-label" for="dir-field1" id="dir-field1-label" data-i18n="dir.phone">Телефон</label><input class="form-input" id="dir-field1" placeholder=""></div>
+    <div class="form-group"><label class="form-label" for="dir-field2" id="dir-field2-label" data-i18n="dir.whatSupplies">Что поставляет</label><input class="form-input" id="dir-field2" placeholder=""></div>
+    <div class="form-group"><label class="form-label" for="dir-note" data-i18n="dir.comment">Комментарий</label><input class="form-input" id="dir-note" placeholder="необязательно"></div>
+    <button class="btn btn-primary" onclick="saveDirectory()" data-i18n="common.save">Сохранить</button>
+    <button class="btn btn-secondary" id="dir-delete-btn" onclick="deleteDirectory()" style="display:none;margin-top:8px;background:#FCEBEB;color:#A32D2D" data-i18n="common.delete">Удалить</button>
   </div>
 </div>
 
@@ -938,20 +938,20 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-poll">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-poll')">✕</button>
-    <div class="modal-title">Новый опрос</div>
-    <div class="form-group"><label class="form-label" for="poll-question">Вопрос</label><input class="form-input" id="poll-question" placeholder="Например: Какой график удобнее?"></div>
-    <div class="form-group"><label class="form-label">Варианты ответа</label>
+    <div class="modal-title" data-i18n="feed.newPoll">Новый опрос</div>
+    <div class="form-group"><label class="form-label" for="poll-question" data-i18n="feed.question">Вопрос</label><input class="form-input" id="poll-question" placeholder="Например: Какой график удобнее?"></div>
+    <div class="form-group"><label class="form-label" data-i18n="feed.options">Варианты ответа</label>
       <div id="poll-options-list"></div>
-      <button onclick="addPollOption()" style="background:var(--surface-2);color:var(--text-primary);border:1px dashed var(--border);border-radius:8px;padding:8px;width:100%;font-size:13px;cursor:pointer;margin-top:6px">+ Добавить вариант</button>
+      <button onclick="addPollOption()" style="background:var(--surface-2);color:var(--text-primary);border:1px dashed var(--border);border-radius:8px;padding:8px;width:100%;font-size:13px;cursor:pointer;margin-top:6px" data-i18n="feed.addOption">+ Добавить вариант</button>
     </div>
-    <div class="form-group"><label class="form-label" for="poll-filial">Для какого филиала</label>
-      <select class="form-select" id="poll-filial"><option value="">Все филиалы</option><option value="istikbol">Истикбол</option><option value="chekhov">Чехов</option></select>
+    <div class="form-group"><label class="form-label" for="poll-filial" data-i18n="feed.filialAll">Для какого филиала</label>
+      <select class="form-select" id="poll-filial"><option value="" data-i18n="cal.allFilialsOpt">Все филиалы</option><option value="istikbol">Истикбол</option><option value="chekhov">Чехов</option></select>
     </div>
     <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text-primary);cursor:pointer;margin-bottom:14px">
       <input type="checkbox" id="poll-anonymous" checked style="width:18px;height:18px">
-      Анонимный опрос (не видно, кто как проголосовал)
+      <span data-i18n="feed.anonymous">Анонимный опрос (не видно, кто как проголосовал)</span>
     </label>
-    <button class="btn btn-primary" onclick="savePoll()">Опубликовать опрос</button>
+    <button class="btn btn-primary" onclick="savePoll()" data-i18n="feed.publishPoll">Опубликовать опрос</button>
   </div>
 </div>
 
@@ -959,19 +959,19 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-announcement">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-announcement')">✕</button>
-    <div class="modal-title">Новое объявление</div>
-    <div class="form-group"><label class="form-label" for="ann-title">Заголовок</label><input class="form-input" id="ann-title" placeholder="Например: Завтра проверка СЭС"></div>
-    <div class="form-group"><label class="form-label" for="ann-text">Текст</label>
+    <div class="modal-title" data-i18n="feed.newAnn">Новое объявление</div>
+    <div class="form-group"><label class="form-label" for="ann-title" data-i18n="feed.annTitleLabel">Заголовок</label><input class="form-input" id="ann-title" placeholder="Например: Завтра проверка СЭС"></div>
+    <div class="form-group"><label class="form-label" for="ann-text" data-i18n="feed.annTextLabel">Текст</label>
       <textarea class="form-input" id="ann-text" placeholder="Подробности..." style="min-height:100px;resize:vertical;font-family:inherit;line-height:1.5"></textarea>
     </div>
-    <div class="form-group"><label class="form-label" for="ann-filial">Для какого филиала</label>
-      <select class="form-select" id="ann-filial"><option value="">Все филиалы</option><option value="istikbol">Истикбол</option><option value="chekhov">Чехов</option></select>
+    <div class="form-group"><label class="form-label" for="ann-filial" data-i18n="feed.filialAll">Для какого филиала</label>
+      <select class="form-select" id="ann-filial"><option value="" data-i18n="cal.allFilialsOpt">Все филиалы</option><option value="istikbol">Истикбол</option><option value="chekhov">Чехов</option></select>
     </div>
     <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text-primary);cursor:pointer;margin-bottom:14px">
       <input type="checkbox" id="ann-important" style="width:18px;height:18px">
-      🔴 Важное (закрепить вверху и на главной)
+      <span data-i18n="feed.important">🔴 Важное (закрепить вверху и на главной)</span>
     </label>
-    <button class="btn btn-primary" onclick="saveAnnouncement()">Опубликовать</button>
+    <button class="btn btn-primary" onclick="saveAnnouncement()" data-i18n="feed.publish">Опубликовать</button>
   </div>
 </div>
 
@@ -979,14 +979,14 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-review">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-review')">✕</button>
-    <div class="modal-title">Новый отзыв</div>
+    <div class="modal-title" data-i18n="rev.newReview">Новый отзыв</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="review-filial-display">—</div>
-    <div class="form-group"><label class="form-label" for="review-guest">Имя гостя (необязательно)</label><input class="form-input" id="review-guest" placeholder="Например: Акбар"></div>
-    <div class="form-group"><label class="form-label" for="review-text">Текст отзыва</label>
+    <div class="form-group"><label class="form-label" for="review-guest" data-i18n="rev.guestName">Имя гостя (необязательно)</label><input class="form-input" id="review-guest" placeholder="Например: Акбар"></div>
+    <div class="form-group"><label class="form-label" for="review-text" data-i18n="rev.reviewText">Текст отзыва</label>
       <textarea class="form-input" id="review-text" placeholder="Что сказал гость..." style="min-height:120px;resize:vertical;font-family:inherit;line-height:1.5"></textarea>
     </div>
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">🤖 Категория (бар/кухня) и тон определятся автоматически. После сохранения можно поправить вручную.</div>
-    <button class="btn btn-primary" onclick="saveReview()">Сохранить отзыв</button>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px" data-i18n="rev.aiHint">🤖 Категория (бар/кухня) и тон определятся автоматически. После сохранения можно поправить вручную.</div>
+    <button class="btn btn-primary" onclick="saveReview()" data-i18n="rev.save">Сохранить отзыв</button>
   </div>
 </div>
 
@@ -994,16 +994,16 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-review-edit">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-review-edit')">✕</button>
-    <div class="modal-title">Поправить отзыв</div>
+    <div class="modal-title" data-i18n="rev.editTitle">Поправить отзыв</div>
     <input type="hidden" id="review-edit-id">
-    <div class="form-group"><label class="form-label" for="review-edit-category">Категория</label>
-      <select class="form-select" id="review-edit-category"><option value="bar">🍹 Бар</option><option value="kitchen">🍽️ Кухня</option><option value="hookah">💨 Кальян</option><option value="other">💬 Прочее</option></select>
+    <div class="form-group"><label class="form-label" for="review-edit-category" data-i18n="rev.category">Категория</label>
+      <select class="form-select" id="review-edit-category"><option value="bar" data-i18n="rev.catBar">🍹 Бар</option><option value="kitchen" data-i18n="rev.catKitchen">🍽️ Кухня</option><option value="hookah" data-i18n="rev.catHookah">💨 Кальян</option><option value="other" data-i18n="rev.catOther">💬 Прочее</option></select>
     </div>
-    <div class="form-group"><label class="form-label" for="review-edit-sentiment">Тональность</label>
-      <select class="form-select" id="review-edit-sentiment"><option value="positive">👍 Положительный</option><option value="negative">👎 Отрицательный</option><option value="neutral">😐 Нейтральный</option></select>
+    <div class="form-group"><label class="form-label" for="review-edit-sentiment" data-i18n="rev.sentiment">Тональность</label>
+      <select class="form-select" id="review-edit-sentiment"><option value="positive" data-i18n="rev.sentPos">👍 Положительный</option><option value="negative" data-i18n="rev.sentNeg">👎 Отрицательный</option><option value="neutral" data-i18n="rev.sentNeu">😐 Нейтральный</option></select>
     </div>
-    <button class="btn btn-primary" onclick="saveReviewEdit()">Сохранить</button>
-    <button class="btn btn-secondary" onclick="deleteReview()" style="margin-top:8px;background:#FCEBEB;color:#A32D2D">Удалить отзыв</button>
+    <button class="btn btn-primary" onclick="saveReviewEdit()" data-i18n="common.save">Сохранить</button>
+    <button class="btn btn-secondary" onclick="deleteReview()" style="margin-top:8px;background:#FCEBEB;color:#A32D2D" data-i18n="common.delete">Удалить отзыв</button>
   </div>
 </div>
 

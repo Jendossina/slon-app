@@ -1,9 +1,9 @@
 // ============ СПРАВОЧНИК (DIRECTORY) ============
 let dirCategory = 'supplier';
 const DIR_CATS = [
-  { id:'supplier', label:'📦 Поставщики' },
-  { id:'contact', label:'📞 Контакты' },
-  { id:'access', label:'🔑 Доступы' }
+  { id:'supplier', label:t('dir.suppliers') },
+  { id:'contact', label:t('dir.contacts') },
+  { id:'access', label:t('dir.access') }
 ];
 // Доступы (пароли) видят только управляющий и владелец
 function dirVisibleCats() {
@@ -26,22 +26,22 @@ function switchDirCat(cat) { dirCategory = cat; loadDirectory(); }
 
 async function renderDirectoryList() {
   const content = document.getElementById('directory-content');
-  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  content.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
   try {
     const { data: entries } = await sb.from('directory_entries').select('*').eq('category', dirCategory).order('title');
     if(!entries || entries.length===0) {
-      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📇</div><div class="empty-text">Пусто'+(dirCanEdit()?'.<br>Нажми «+ Добавить».':'')+'</div></div></div>';
+      content.innerHTML = `<div class="card"><div class="empty"><div class="empty-icon">📇</div><div class="empty-text">${t('dir.empty')}${dirCanEdit()?t('dir.addHint'):''}</div></div></div>`;
       return;
     }
     const isAccess = dirCategory === 'access';
     content.innerHTML = entries.map(e=>{
-      const f1label = dirCategory==='access' ? 'Логин' : 'Телефон';
-      const f2label = dirCategory==='access' ? 'Пароль' : (dirCategory==='supplier'?'Поставляет':'');
+      const f1label = dirCategory==='access' ? t('dir.login') : t('dir.phone');
+      const f2label = dirCategory==='access' ? t('dir.password') : (dirCategory==='supplier'?t('dir.supplies'):'');
       return `<div class="card">
         <div style="display:flex;justify-content:space-between;align-items:start;gap:8px">
           <div style="flex:1">
             <div style="font-size:15px;font-weight:600;color:var(--text-primary)">${escapeHtml(e.title)}</div>
-            ${e.field1?`<div style="font-size:13px;color:var(--text-secondary);margin-top:4px">${f1label}: <span style="color:var(--text-primary)">${escapeHtml(e.field1)}</span>${dirCategory!=='access'&&e.field1?` · <a href="tel:${escapeHtml(e.field1)}" style="color:var(--gold-dark)">позвонить</a>`:''}</div>`:''}
+            ${e.field1?`<div style="font-size:13px;color:var(--text-secondary);margin-top:4px">${f1label}: <span style="color:var(--text-primary)">${escapeHtml(e.field1)}</span>${dirCategory!=='access'&&e.field1?` · <a href="tel:${escapeHtml(e.field1)}" style="color:var(--gold-dark)">${t('dir.call')}</a>`:''}</div>`:''}
             ${e.field2?`<div style="font-size:13px;color:var(--text-secondary);margin-top:2px">${f2label}: <span style="color:var(--text-primary)">${escapeHtml(e.field2)}</span></div>`:''}
             ${e.note?`<div style="font-size:12px;color:var(--text-muted);margin-top:4px">${escapeHtml(e.note)}</div>`:''}
           </div>
@@ -49,7 +49,7 @@ async function renderDirectoryList() {
         </div>
       </div>`;
     }).join('');
-  } catch(e) { content.innerHTML='<div class="card"><div class="empty"><div class="empty-text">Ошибка. Возможно, справочник ещё не настроен в Supabase.</div></div></div>'; }
+  } catch(e) { content.innerHTML=`<div class="card"><div class="empty"><div class="empty-text">${t('dir.errNotSetup')}</div></div></div>`; }
 }
 
 function updateDirFields() {
@@ -58,9 +58,9 @@ function updateDirFields() {
   const f1L = document.getElementById('dir-field1-label');
   const f2L = document.getElementById('dir-field2-label');
   const f2group = document.getElementById('dir-field2').closest('.form-group');
-  if(cat==='supplier') { titleL.textContent='Название'; f1L.textContent='Телефон'; f2L.textContent='Что поставляет'; f2group.style.display=''; }
-  else if(cat==='contact') { titleL.textContent='Имя / организация'; f1L.textContent='Телефон'; f2L.textContent='Кто это (роль)'; f2group.style.display=''; }
-  else if(cat==='access') { titleL.textContent='Сервис (iiko, Wi-Fi…)'; f1L.textContent='Логин'; f2L.textContent='Пароль'; f2group.style.display=''; }
+  if(cat==='supplier') { titleL.textContent=t('dir.name'); f1L.textContent=t('dir.phone'); f2L.textContent=t('dir.whatSupplies'); f2group.style.display=''; }
+  else if(cat==='contact') { titleL.textContent=t('dir.nameOrg'); f1L.textContent=t('dir.phone'); f2L.textContent=t('dir.whoIs'); f2group.style.display=''; }
+  else if(cat==='access') { titleL.textContent=t('dir.service'); f1L.textContent=t('dir.login'); f2L.textContent=t('dir.password'); f2group.style.display=''; }
 }
 
 function openDirectoryModal(id) {
@@ -68,7 +68,7 @@ function openDirectoryModal(id) {
   document.getElementById('dir-id').value = id || '';
   const delBtn = document.getElementById('dir-delete-btn');
   if(id) {
-    document.getElementById('dir-modal-title').textContent = 'Редактировать';
+    document.getElementById('dir-modal-title').textContent = t('note.edit');
     delBtn.style.display = 'block';
     sb.from('directory_entries').select('*').eq('id', id).single().then(({data})=>{
       document.getElementById('dir-category').value = data.category;
@@ -79,7 +79,7 @@ function openDirectoryModal(id) {
       document.getElementById('dir-note').value = data.note||'';
     });
   } else {
-    document.getElementById('dir-modal-title').textContent = 'Новая запись';
+    document.getElementById('dir-modal-title').textContent = t('note.new');
     document.getElementById('dir-category').value = dirCategory;
     updateDirFields();
     ['dir-title','dir-field1','dir-field2','dir-note'].forEach(f=>document.getElementById(f).value='');
@@ -89,14 +89,14 @@ function openDirectoryModal(id) {
 }
 
 async function saveDirectory() {
-  if(!dirCanEdit()) return showToast('Нет прав');
+  if(!dirCanEdit()) return showToast(t('dir.noRights'));
   const id = document.getElementById('dir-id').value;
   const category = document.getElementById('dir-category').value;
   const title = document.getElementById('dir-title').value.trim();
   const field1 = document.getElementById('dir-field1').value.trim();
   const field2 = document.getElementById('dir-field2').value.trim();
   const note = document.getElementById('dir-note').value.trim();
-  if(!title) return showToast('Введите название');
+  if(!title) return showToast(t('inv.enterName'));
   try {
     if(id) {
       await sb.from('directory_entries').update({category,title,field1,field2,note}).eq('id',id);
@@ -104,22 +104,22 @@ async function saveDirectory() {
       await sb.from('directory_entries').insert({category,title,field1,field2,note});
     }
     closeModal('modal-directory');
-    showToast('✅ Сохранено');
+    showToast(t('sch.saved'));
     dirCategory = category;
     loadDirectory();
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
 async function deleteDirectory() {
   if(!dirCanEdit()) return;
   const id = document.getElementById('dir-id').value;
   if(!id) return;
-  if(!await confirmDialog('Удалить запись?')) return;
+  if(!await confirmDialog(t('note.delConfirm'))) return;
   try {
     await sb.from('directory_entries').delete().eq('id', id);
     closeModal('modal-directory');
-    showToast('✅ Удалено');
+    showToast(t('sch.deleted'));
     loadDirectory();
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 

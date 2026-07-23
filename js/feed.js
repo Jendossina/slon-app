@@ -17,20 +17,20 @@ function switchFeedTab(tab) {
 async function loadFeed() {
   const addBtn = document.getElementById('feed-add-btn');
   const content = document.getElementById('feed-content');
-  document.getElementById('feed-subtitle').textContent = feedTab==='ann' ? 'Новости и важное' : 'Мнение команды';
+  document.getElementById('feed-subtitle').textContent = feedTab==='ann' ? t('feed.newsImportant') : t('feed.teamOpinion');
 
   // Кнопка добавления — своя для каждой вкладки
   if(addBtn) {
     if(canEditData()) {
       addBtn.style.display = 'block';
-      addBtn.textContent = feedTab==='ann' ? '+ Объявление' : '+ Опрос';
+      addBtn.textContent = feedTab==='ann' ? t('feed.addAnn') : t('feed.addPoll');
       addBtn.onclick = feedTab==='ann' ? openAnnouncementModal : openPollModal;
     } else {
       addBtn.style.display = 'none';
     }
   }
 
-  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  content.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
   // Рендерим в скрытый контейнер, затем переносим в видимый
   if(feedTab==='ann') {
     await loadAnnouncements();
@@ -57,41 +57,41 @@ function addPollOption() {
   const list = document.getElementById('poll-options-list');
   const div = document.createElement('div');
   div.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;align-items:center';
-  div.innerHTML = `<input class="form-input poll-option-input" placeholder="Вариант" style="margin:0;flex:1">
+  div.innerHTML = `<input class="form-input poll-option-input" placeholder="${t('feed.optionPh')}" style="margin:0;flex:1">
     <button onclick="this.parentElement.remove()" style="background:#FCEBEB;color:#A32D2D;border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;flex:0 0 auto">✕</button>`;
   list.appendChild(div);
 }
 
 async function savePoll() {
-  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
+  if(!canEditData()) return showToast(t('common.observerMode'));
   const question = document.getElementById('poll-question').value.trim();
   const options = Array.from(document.querySelectorAll('.poll-option-input')).map(i=>i.value.trim()).filter(Boolean);
   const filial = document.getElementById('poll-filial').value || null;
   const isAnon = document.getElementById('poll-anonymous').checked;
-  if(!question) return showToast('Введите вопрос');
-  if(options.length < 2) return showToast('Нужно минимум 2 варианта');
+  if(!question) return showToast(t('feed.enterQuestion'));
+  if(options.length < 2) return showToast(t('feed.min2options'));
   try {
     await sb.from('polls').insert({
       question, options, is_anonymous: isAnon, filial,
       created_by: currentUser.id, created_by_name: currentProfile?.name || currentUser?.email
     });
     closeModal('modal-poll');
-    showToast('✅ Опрос опубликован');
+    showToast(t('feed.pollPublished'));
     loadPolls();
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
 async function loadPolls() {
   const addBtn = document.getElementById('polls-add-btn');
   if(addBtn) addBtn.style.display = canEditData() ? 'block' : 'none';
   const content = document.getElementById('polls-content');
-  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  content.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
   try {
     const { data: polls } = await sb.from('polls').select('*')
       .or(`filial.eq.${currentFilial},filial.is.null`)
       .order('created_at',{ascending:false});
     if(!polls || polls.length===0) {
-      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Опросов пока нет</div></div></div>';
+      content.innerHTML = `<div class="card"><div class="empty"><div class="empty-icon">📊</div><div class="empty-text">${t('feed.noPolls')}</div></div></div>`;
       syncFeedView('polls');
       return;
     }
@@ -104,7 +104,7 @@ async function loadPolls() {
     }
     content.innerHTML = html.join('');
     syncFeedView('polls');
-  } catch(e) { content.innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка. Возможно, опросы ещё не настроены в Supabase.</div></div></div>'; syncFeedView('polls'); }
+  } catch(e) { content.innerHTML = `<div class="card"><div class="empty"><div class="empty-text">${t('feed.pollsErrNotSetup')}</div></div></div>`; syncFeedView('polls'); }
 }
 
 async function pollCard(p, allVotes) {
@@ -143,33 +143,33 @@ async function pollCard(p, allVotes) {
       ${canEditData()?`<button onclick="deletePoll(${p.id})" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px">🗑</button>`:''}
     </div>
     ${optionsHtml}
-    <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${total} голос${total%10===1&&total%100!==11?'':total%10>=2&&total%10<=4&&(total%100<10||total%100>=20)?'а':'ов'} · ${p.is_anonymous?'🔒 анонимный':'открытый'}${voted?' · вы проголосовали':''}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${t('feed.votes',{n:total})} · ${p.is_anonymous?t('feed.anon'):t('feed.open')}${voted?t('feed.youVoted'):''}</div>
   </div>`;
 }
 
 async function votePoll(pollId, optionIndex) {
-  if(isBoss()) return showToast('Режим наблюдателя — голосовать нельзя');
+  if(isBoss()) return showToast(t('feed.cantVote'));
   try {
     await sb.from('poll_votes').insert({
       poll_id: pollId, option_index: optionIndex,
       user_id: currentUser.id, user_name: currentProfile?.name || currentUser?.email
     });
-    showToast('✅ Голос учтён');
+    showToast(t('feed.voteCounted'));
     loadPolls();
   } catch(e) {
-    if(String(e.message).includes('duplicate')) showToast('Вы уже голосовали');
-    else showToast('Ошибка: '+e.message);
+    if(String(e.message).includes('duplicate')) showToast(t('feed.alreadyVoted'));
+    else showToast(t('common.error')+e.message);
   }
 }
 
 async function deletePoll(id) {
   if(!canEditData()) return;
-  if(!await confirmDialog('Удалить опрос вместе с голосами?')) return;
+  if(!await confirmDialog(t('feed.delPollConfirm'))) return;
   try {
     await sb.from('polls').delete().eq('id', id);
-    showToast('✅ Удалено');
+    showToast(t('sch.deleted'));
     loadPolls();
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
 // ============ ОБЪЯВЛЕНИЯ (ANNOUNCEMENTS) ============
@@ -182,46 +182,46 @@ function openAnnouncementModal() {
 }
 
 async function saveAnnouncement() {
-  if(!canEditData()) return showToast('Режим наблюдателя — редактирование недоступно');
+  if(!canEditData()) return showToast(t('common.observerMode'));
   const title = document.getElementById('ann-title').value.trim();
   const text = document.getElementById('ann-text').value.trim();
   const filial = document.getElementById('ann-filial').value || null;
   const important = document.getElementById('ann-important').checked;
-  if(!title) return showToast('Введите заголовок');
+  if(!title) return showToast(t('feed.enterTitle'));
   try {
     await sb.from('announcements').insert({
       title, text, is_important: important, filial,
       created_by: currentUser.id, created_by_name: currentProfile?.name || currentUser?.email
     });
     closeModal('modal-announcement');
-    showToast('✅ Объявление опубликовано');
+    showToast(t('feed.annPublished'));
     // Уведомляем руководство о важном объявлении
     if(important) {
       const scope = filial ? getFilialName(filial) : 'Все филиалы';
       await notifyAdmin(`📢 <b>Важное объявление</b> · ${scope}\n\n🔴 ${tgEscape(title)}${text?'\n\n'+tgEscape(text):''}\n\nОпубликовал: ${tgEscape(currentProfile?.name||'')}`);
     }
     loadAnnouncements();
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
 async function loadAnnouncements() {
   const addBtn = document.getElementById('ann-add-btn');
   if(addBtn) addBtn.style.display = canEditData() ? 'block' : 'none';
   const content = document.getElementById('announcements-content');
-  content.innerHTML = '<div class="loading">Загрузка...</div>';
+  content.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
   try {
     // объявления для текущего филиала ИЛИ общие (filial null)
     const { data: anns } = await sb.from('announcements').select('*')
       .or(`filial.eq.${currentFilial},filial.is.null`)
       .order('is_important',{ascending:false}).order('created_at',{ascending:false});
     if(!anns || anns.length===0) {
-      content.innerHTML = '<div class="card"><div class="empty"><div class="empty-icon">📢</div><div class="empty-text">Объявлений пока нет</div></div></div>';
+      content.innerHTML = `<div class="card"><div class="empty"><div class="empty-icon">📢</div><div class="empty-text">${t('feed.noAnns')}</div></div></div>`;
       syncFeedView('ann');
       return;
     }
     content.innerHTML = anns.map(a=>annCard(a)).join('');
     syncFeedView('ann');
-  } catch(e) { content.innerHTML = '<div class="card"><div class="empty"><div class="empty-text">Ошибка. Возможно, объявления ещё не настроены в Supabase.</div></div></div>'; syncFeedView('ann'); }
+  } catch(e) { content.innerHTML = `<div class="card"><div class="empty"><div class="empty-text">${t('feed.annErrNotSetup')}</div></div></div>`; syncFeedView('ann'); }
 }
 
 // Переносит контент скрытого контейнера в видимую ленту, если она открыта на нужной вкладке
@@ -236,7 +236,7 @@ function syncFeedView(which) {
 
 function annCard(a) {
   const imp = a.is_important;
-  const scope = a.filial ? getFilialName(a.filial) : 'Все филиалы';
+  const scope = a.filial ? getFilialName(a.filial) : t('cal.allFilialsOpt');
   return `<div class="card" style="${imp?'border-left:3px solid #A32D2D;':''}">
     <div style="display:flex;justify-content:space-between;align-items:start;gap:8px">
       <div style="font-size:16px;font-weight:700;color:var(--text-primary)">${imp?'🔴 ':''}${escapeHtml(a.title)}</div>
@@ -249,13 +249,13 @@ function annCard(a) {
 
 async function deleteAnnouncement(id) {
   if(!canEditData()) return;
-  if(!await confirmDialog('Удалить объявление?')) return;
+  if(!await confirmDialog(t('feed.delAnnConfirm'))) return;
   try {
     await sb.from('announcements').delete().eq('id', id);
-    showToast('✅ Удалено');
+    showToast(t('sch.deleted'));
     loadAnnouncements();
     if(typeof loadHome==='function' && document.getElementById('screen-home')?.classList.contains('active')) loadHome();
-  } catch(e) { showToast('Ошибка: '+e.message); }
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
 // Важные объявления на главном экране
