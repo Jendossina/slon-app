@@ -516,6 +516,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       </div>
       <!-- CHECKLISTS TAB -->
       <div id="admin-tab-checklists" style="display:none">
+        <button onclick="openChecklistDeadlines()" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg,#2d2416,#4a3a1f);color:#f0e9db;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="cld.openBtn">⏰ Сроки сдачи и невыполнения</button>
         <div id="admin-checklist-emp-btn" style="margin-bottom:10px"></div>
         <div class="form-group">
           <select class="form-select" id="admin-checklist-date-filter" onchange="loadAdminChecklists()">
@@ -1081,6 +1082,19 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="form-group"><label class="form-label" for="wp-points" data-i18n="bonus.fPoints">Сколько баллов</label><input class="form-input" id="wp-points" type="number" inputmode="numeric" value="1"></div>
     <div class="form-group"><label class="form-label" for="wp-note" data-i18n="bonus.fNote">Комментарий (необязательно)</label><input class="form-input" id="wp-note" placeholder="Например: стол 12, гость жаловался на ожидание" data-i18n-ph="bonus.fNotePh"></div>
     <button class="btn btn-primary" onclick="saveWaiterPoint()" data-i18n="bonus.savePoint">Поставить балл</button>
+  </div>
+</div>
+
+<!-- ЧЕК-ЛИСТЫ: сроки сдачи и журнал невыполнений -->
+<div class="modal-overlay" id="modal-checklist-deadlines">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-checklist-deadlines')">✕</button>
+    <div class="modal-title" data-i18n="cld.title">⏰ Сроки сдачи чек-листов</div>
+    <div style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:12px" data-i18n="cld.hint">Если чек-лист не сдан через час после срока — придёт уведомление смене и руководству, а невыполнение попадёт в журнал. Официантам дополнительно ставится штрафной балл в блок «Дисциплина». Пустой срок = чек-лист не проверяется.</div>
+    <div id="cld-list"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
+    <button class="btn btn-primary" onclick="saveChecklistDeadlines()" data-i18n="cld.save">Сохранить сроки</button>
+    <div class="section-label" style="margin-top:18px" data-i18n="cld.missesLabel">ПОСЛЕДНИЕ НЕВЫПОЛНЕНИЯ</div>
+    <div id="cld-misses"></div>
   </div>
 </div>
 

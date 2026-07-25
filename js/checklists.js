@@ -473,3 +473,99 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pagehide', () => { flushChecklistSave(); stopChecklistPolling(); unsubscribeChecklistRealtime(); });
 
+
+// ===== СРОКИ СДАЧИ ЧЕК-ЛИСТОВ (руководство) =====
+// Просрочку на час ловит база (pg_cron → checklist_check_overdue), здесь только настройка.
+
+let cldTemplates = [];
+
+async function openChecklistDeadlines() {
+  if(!canEditData()) return showToast(t('common.observerMode'));
+  openModal('modal-checklist-deadlines');
+  const list = document.getElementById('cld-list');
+  list.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
+  try {
+    const { data, error } = await sb.from('checklist_templates')
+      .select('id,name,department,due_time,owner_shift_start').eq('is_active', true).order('department').order('name');
+    if(error) throw error;
+    cldTemplates = data || [];
+    const byDept = {};
+    cldTemplates.forEach(x => { (byDept[x.department || '—'] = byDept[x.department || '—'] || []).push(x); });
+    list.innerHTML = Object.keys(byDept).map(dept => `
+      <div style="margin-bottom:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:6px">${DEPT_ICONS[dept]||'👥'} ${escapeHtml(dept)}</div>
+        ${byDept[dept].map(x => `
+          <div style="background:var(--surface-2);border-radius:10px;padding:10px;margin-bottom:8px">
+            <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:8px">${escapeHtml(x.name)}</div>
+            <div style="display:flex;gap:8px">
+              <label style="flex:1">
+                <span style="font-size:11px;color:var(--text-muted)">${t('cld.due')}</span>
+                <input class="form-input cld-due" data-id="${x.id}" type="time" value="${(x.due_time||'').slice(0,5)}" style="margin:2px 0 0">
+              </label>
+              <label style="flex:1">
+                <span style="font-size:11px;color:var(--text-muted)">${t('cld.owner')}</span>
+                <input class="form-input cld-owner" data-id="${x.id}" type="time" value="${(x.owner_shift_start||'').slice(0,5)}" style="margin:2px 0 0">
+              </label>
+            </div>
+          </div>`).join('')}
+      </div>`).join('');
+    loadChecklistMisses();
+  } catch(e) {
+    list.innerHTML = `<div class="empty"><div class="empty-text">${t('cld.loadErr')}</div></div>`;
+  }
+}
+
+async function saveChecklistDeadlines() {
+  if(!canEditData()) return showToast(t('common.observerMode'));
+  const val = el => { const v = el.value.trim(); return v ? v : null; };
+  const updates = Array.from(document.querySelectorAll('.cld-due')).map(due => {
+    const id = Number(due.dataset.id);
+    const owner = document.querySelector(`.cld-owner[data-id="${id}"]`);
+    return { id, due_time: val(due), owner_shift_start: owner ? val(owner) : null };
+  });
+  try {
+    for(const u of updates) {
+      const before = cldTemplates.find(x => x.id === u.id) || {};
+      const same = (before.due_time||'').slice(0,5) === (u.due_time||'')
+                && (before.owner_shift_start||'').slice(0,5) === (u.owner_shift_start||'');
+      if(same) continue; // не трогаем то, что не меняли
+      const { error } = await sb.from('checklist_templates')
+        .update({ due_time: u.due_time, owner_shift_start: u.owner_shift_start }).eq('id', u.id);
+      if(error) return showToast(t('common.error')+error.message);
+    }
+    showToast(t('cld.saved'));
+    closeModal('modal-checklist-deadlines');
+  } catch(e) { showToast(t('common.error')+e.message); }
+}
+
+async function loadChecklistMisses() {
+  const el = document.getElementById('cld-misses');
+  if(!el) return;
+  try {
+    const { data } = await sb.from('checklist_misses').select('*')
+      .eq('filial', currentFilial).order('date', {ascending:false}).order('id', {ascending:false}).limit(20);
+    if(!data || data.length === 0) {
+      el.innerHTML = `<div style="font-size:12px;color:var(--text-muted);padding:6px 2px">${t('cld.noMisses')}</div>`;
+      return;
+    }
+    el.innerHTML = data.map(m => `
+      <div class="list-item" style="align-items:flex-start">
+        <div class="item-info">
+          <div class="item-name" style="font-size:13px">${escapeHtml(m.template_name||'')}</div>
+          <div class="item-sub">${fmtLocale(new Date(m.date),{day:'numeric',month:'short'})} · ${t('cld.wasDue',{time:(m.due_time||'').slice(0,5)})}</div>
+          <div class="item-sub">${escapeHtml(m.employee_names||'—')}${m.points_given>0?` · <span style="color:#A13C3C">${t('cld.pointsGiven',{n:m.points_given})}</span>`:''}</div>
+        </div>
+        <span onclick="deleteChecklistMiss(${m.id})" style="color:#A32D2D;cursor:pointer;font-weight:700">✕</span>
+      </div>`).join('');
+  } catch(e) { el.innerHTML = ''; }
+}
+
+// Снять ошибочное невыполнение. Штрафной балл, если он был, снимается отдельно
+// на экране «Проценты» → «Баллы» — там видно, кому именно он стоит.
+async function deleteChecklistMiss(id) {
+  if(!canEditData()) return;
+  if(!await confirmDialog(t('cld.removeMiss'))) return;
+  const { error } = await sb.from('checklist_misses').delete().eq('id', id);
+  if(error) return showToast(t('common.error')+error.message);
+  loadChecklistMisses();
+}
