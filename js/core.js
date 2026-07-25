@@ -36,6 +36,69 @@ function computeShiftPay(role, salary, shiftStart, isAlone) {
   return { amount: salary, note: '' };
 }
 
+// ===== ПРОЦЕНТЫ ОФИЦИАНТОВ =====
+// Официант может заработать до 2% от своей личной выручки за неделю (БЕЗ кальяна).
+// Четыре независимых блока по 0,5%, каждый либо получен целиком, либо сгорает:
+//   fill       — наполняемость чека (блюд на чек, цифра из iiko)
+//   service    — сервис, знание стандартов и меню (штрафные баллы + еженедельная аттестация)
+//   discipline — дисциплина, опрятность, чек-листы, опоздания, бой посуды (штрафные баллы)
+//   dessert    — десертов на чек (цифра из iiko)
+// ЭТО единственное место, где меняются пороги.
+const WAITER_BONUS = {
+  maxPercent: 2,
+  stepPercent: 0.5,
+  dishesPerCheck: 3,        // блюд на чек — порог; ВРЕМЕННОЕ значение, уточняется
+  dessertsPerCheck: 0.7,    // 70 десертов на 100 чеков
+  attestationPass: 80,      // балл еженедельной аттестации из 100 (null = не проводилась, не штрафуем)
+  servicePointsLimit: 2,    // штрафных баллов за неделю; больше — 0,5% сгорает
+  disciplinePointsLimit: 2,
+};
+// Причины штрафных баллов (коды). Подписи — в i18n: bonus.reason.<код>.
+const WAITER_POINT_REASONS = {
+  service:    ['complaint','table','order','menu','standard'],
+  discipline: ['checklist','look','dishware','effort','absence'],
+};
+const WAITER_BONUS_CATS = ['fill','service','discipline','dessert'];
+
+// Понедельник недели, к которой относится дата (по кассовому дню).
+function weekStartOf(dateStr) {
+  const d = new Date(dateStr || businessToday());
+  d.setDate(d.getDate() - (d.getDay() + 6) % 7); // 0=Вс → 6
+  return ymdLocal(d);
+}
+function weekEndOf(weekStart) {
+  const d = new Date(weekStart); d.setDate(d.getDate() + 6);
+  return ymdLocal(d);
+}
+function addWeeks(weekStart, delta) { // не shiftWeek — это имя уже занято навигацией графика
+  const d = new Date(weekStart); d.setDate(d.getDate() + 7 * delta);
+  return ymdLocal(d);
+}
+
+// Расчёт недельного процента официанта. На входе — уже собранные показатели:
+// { revenue, checks, dishes, desserts, attestation, servicePoints, disciplinePoints }
+// Возвращает { cats:[{key, ok, value, target}], percent, amount }.
+function computeWaiterBonus(s) {
+  const c = WAITER_BONUS;
+  const checks   = Number(s.checks) || 0;
+  const perCheck = checks ? (Number(s.dishes) || 0) / checks : 0;
+  const dessPer  = checks ? (Number(s.desserts) || 0) / checks : 0;
+  const att      = (s.attestation === null || s.attestation === undefined || s.attestation === '') ? null : Number(s.attestation);
+  const svcPts   = Number(s.servicePoints) || 0;
+  const discPts  = Number(s.disciplinePoints) || 0;
+  const EPS = 1e-9; // чтобы ровно 70 десертов на 100 чеков не срезалось на дробной погрешности
+  const cats = [
+    { key:'fill',       ok: checks > 0 && perCheck >= c.dishesPerCheck - EPS, value: perCheck, target: c.dishesPerCheck },
+    // аттестацию учитываем, только если её проводили: не наказываем за бездействие администратора
+    { key:'service',    ok: svcPts <= c.servicePointsLimit && (att === null || att >= c.attestationPass),
+                        value: svcPts, target: c.servicePointsLimit, att },
+    { key:'discipline', ok: discPts <= c.disciplinePointsLimit,          value: discPts,  target: c.disciplinePointsLimit },
+    { key:'dessert',    ok: checks > 0 && dessPer >= c.dessertsPerCheck - EPS, value: dessPer, target: c.dessertsPerCheck },
+  ];
+  const percent = cats.filter(x => x.ok).length * c.stepPercent;
+  return { cats, percent, amount: Math.round((Number(s.revenue) || 0) * percent / 100) };
+}
+
 // Единый вид секции цеха для списков сотрудников (HR и админ-панель)
 const DEPT_ICONS = { 'Менеджеры':'📋', 'Официанты':'🍽️', 'Бармены':'🍹', 'Кальянные мастера':'💨', 'Повара':'👨‍🍳', 'Техперсонал':'🔧', 'Без отдела':'👥' };
 function deptSection(dept, count, innerHtml) {
@@ -332,6 +395,7 @@ function switchFilial(id) {
   if(document.getElementById('screen-hr')?.classList.contains('active') && typeof loadHR === 'function') loadHR();
   if(document.getElementById('screen-supply')?.classList.contains('active') && typeof loadSupply === 'function') loadSupply();
   if(document.getElementById('screen-dishware')?.classList.contains('active') && typeof loadDishware === 'function') loadDishware();
+  if(document.getElementById('screen-bonus')?.classList.contains('active') && typeof loadBonus === 'function') { bonusData = null; loadBonus(); }
   if(document.getElementById('screen-crm')?.classList.contains('active') && typeof loadCRM === 'function') loadCRM();
   if(document.getElementById('screen-reviews')?.classList.contains('active') && typeof loadReviews === 'function') loadReviews();
   if(document.getElementById('screen-feed')?.classList.contains('active') && typeof loadFeed === 'function') loadFeed();
@@ -667,6 +731,7 @@ function openMoreMenu() {
     ]},
     { title:t('more.group.team'), items:[
       {id:'hr', label:'👥 '+t('more.hr'), show:true},
+      {id:'bonus', label:'📊 '+t('more.bonus'), show:true},
       {id:'teamchat', label:'💬 '+t('more.teamchat'), show:true},
       {id:'feed', label:'📢 '+t('more.feed'), show:true},
       {id:'reviews', label:'⭐ '+t('more.reviews'), show:true},
@@ -716,6 +781,7 @@ function showScreen(name, btn) {
   if(name==='knowledge') loadKnowledgeBase();
   if(name==='supply') loadSupply();
   if(name==='dishware') loadDishware();
+  if(name==='bonus') loadBonus();
   if(name==='directory') loadDirectory();
   if(name==='reviews') loadReviews();
   if(name==='feed') loadFeed();

@@ -650,6 +650,23 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     </div>
   </div>
 
+  <!-- BONUS (ПРОЦЕНТЫ ОФИЦИАНТОВ) SCREEN -->
+  <div class="screen" id="screen-bonus">
+    <div class="header">
+      <div class="header-row">
+        <div><h1 data-i18n="bonus.title">📊 Проценты официантов</h1><p id="bonus-subtitle">—</p></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px 0" id="bonus-week-nav"></div>
+    <div style="display:flex;gap:8px;padding:10px 12px 0">
+      <button id="bonus-tab-results" onclick="switchBonusTab('results')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--gold-dark);color:#fff" data-i18n="bonus.tabResults">Итоги недели</button>
+      <button id="bonus-tab-points" onclick="switchBonusTab('points')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)" data-i18n="bonus.tabPoints">Баллы</button>
+    </div>
+    <div class="content" id="bonus-content" style="padding:12px">
+      <div class="loading" data-i18n="common.loading">Загрузка...</div>
+    </div>
+  </div>
+
   <!-- DIRECTORY (СПРАВОЧНИК) SCREEN -->
   <div class="screen" id="screen-directory">
     <div class="header">
@@ -1035,6 +1052,36 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </div>
 </div>
 
+<!-- ПРОЦЕНТЫ: показатели официанта за неделю (из iiko) -->
+<div class="modal-overlay" id="modal-waiter-stats">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-waiter-stats')">✕</button>
+    <div class="modal-title" data-i18n="bonus.statsTitle">📊 Показатели за неделю</div>
+    <div style="font-size:13px;color:var(--gold-dark);margin-bottom:2px" id="ws-emp-name">—</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px" id="ws-week">—</div>
+    <div class="form-group"><label class="form-label" for="ws-revenue" data-i18n="bonus.fRevenue">Личная выручка без кальяна (сум)</label><input class="form-input" id="ws-revenue" type="number" inputmode="numeric" placeholder="0"></div>
+    <div class="form-group"><label class="form-label" for="ws-checks" data-i18n="bonus.fChecks">Количество чеков</label><input class="form-input" id="ws-checks" type="number" inputmode="numeric" placeholder="0"></div>
+    <div class="form-group"><label class="form-label" for="ws-dishes" data-i18n="bonus.fDishes">Количество блюд</label><input class="form-input" id="ws-dishes" type="number" inputmode="numeric" placeholder="0"></div>
+    <div class="form-group"><label class="form-label" for="ws-desserts" data-i18n="bonus.fDesserts">Количество десертов</label><input class="form-input" id="ws-desserts" type="number" inputmode="numeric" placeholder="0"></div>
+    <div class="form-group"><label class="form-label" for="ws-attestation" data-i18n="bonus.fAttestation">Аттестация по меню и стандартам (балл из 100)</label><input class="form-input" id="ws-attestation" type="number" inputmode="numeric" placeholder="—"></div>
+    <button class="btn btn-primary" onclick="saveWaiterStats()" data-i18n="bonus.saveStats">Сохранить</button>
+  </div>
+</div>
+
+<!-- ПРОЦЕНТЫ: штрафной балл официанту -->
+<div class="modal-overlay" id="modal-waiter-point">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-waiter-point')">✕</button>
+    <div class="modal-title" data-i18n="bonus.pointTitle">➖ Штрафной балл</div>
+    <div style="font-size:13px;color:var(--gold-dark);margin-bottom:12px" id="wp-emp-name">—</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px" id="wp-categories"></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px" id="wp-reasons"></div>
+    <div class="form-group"><label class="form-label" for="wp-points" data-i18n="bonus.fPoints">Сколько баллов</label><input class="form-input" id="wp-points" type="number" inputmode="numeric" value="1"></div>
+    <div class="form-group"><label class="form-label" for="wp-note" data-i18n="bonus.fNote">Комментарий (необязательно)</label><input class="form-input" id="wp-note" placeholder="Например: стол 12, гость жаловался на ожидание" data-i18n-ph="bonus.fNotePh"></div>
+    <button class="btn btn-primary" onclick="saveWaiterPoint()" data-i18n="bonus.savePoint">Поставить балл</button>
+  </div>
+</div>
+
 <!-- SUPPLY: NEW ITEM -->
 <div class="modal-overlay" id="modal-supply-item">
   <div class="modal">
@@ -1320,6 +1367,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <script src="js/kb.js"></script>
 <script src="js/supply.js"></script>
 <script src="js/dishware.js"></script>
+<script src="js/bonus.js"></script>
 <script src="js/directory.js"></script>
 <script src="js/help.js"></script>
 <script src="js/notes.js"></script>

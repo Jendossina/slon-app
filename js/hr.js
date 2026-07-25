@@ -145,6 +145,10 @@ async function openPayroll() {
       if(empDept[s.employee_id]==='Бармены') bartendersByDate[s.date] = (bartendersByDate[s.date]||0)+1;
     });
 
+    // Проценты официантов за месяц (неделя относится к месяцу своего понедельника)
+    const bonusByEmp = typeof loadWaiterBonusForMonth === 'function'
+      ? await loadWaiterBonusForMonth(firstStr, lastStr) : {};
+
     let grandTotal = 0;
     const rows = emps.map(e=>{
       const salary = Number(e.salary)||0;
@@ -155,9 +159,10 @@ async function openPayroll() {
         const isAlone = e.department==='Бармены' && bartendersByDate[date]===1;
         earned += computeShiftPay(e.role, salary, shiftStart, isAlone).amount;
       });
-      const total = earned - w.penalty;
+      const bonus = bonusByEmp[e.id] || { amount:0, weeks:0 };
+      const total = earned - w.penalty + bonus.amount;
       grandTotal += total;
-      return { name:e.name, rate:salary, shifts:w.dates.length, earned, penalty:w.penalty, total };
+      return { name:e.name, rate:salary, shifts:w.dates.length, earned, penalty:w.penalty, bonus, total };
     }).filter(r=>r.shifts>0 || r.rate>0);
 
     if(rows.length===0) { body.innerHTML = `<div class="empty"><div class="empty-text">${t('hr.noMonthData')}</div></div>`; return; }
@@ -168,7 +173,7 @@ async function openPayroll() {
         <div class="list-item">
           <div class="item-info">
             <div class="item-name">${escapeHtml(r.name)}</div>
-            <div class="item-sub">${t('hr.shiftsRate',{n:r.shifts,r:formatNum(r.rate),e:formatNum(r.earned)})}${r.penalty>0?` · <span style="color:#A13C3C">${t('hr.penalty',{p:formatNum(r.penalty)})}</span>`:''}</div>
+            <div class="item-sub">${t('hr.shiftsRate',{n:r.shifts,r:formatNum(r.rate),e:formatNum(r.earned)})}${r.penalty>0?` · <span style="color:#A13C3C">${t('hr.penalty',{p:formatNum(r.penalty)})}</span>`:''}${r.bonus.amount>0?` · <span style="color:#3B6D11">${t('hr.waiterPercent',{a:formatNum(r.bonus.amount),w:r.bonus.weeks})}</span>`:''}</div>
           </div>
           <div style="font-weight:700;color:var(--text-primary);white-space:nowrap">${formatNum(r.total)}</div>
         </div>`).join('')}
