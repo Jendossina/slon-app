@@ -13,7 +13,8 @@ function switchAdminTab(tab, btn) {
   if(tab==='analytics') loadAnalytics();
   if(tab==='activity') loadActivityLog();
   if(tab==='checklists') loadAdminChecklists();
-  if(tab==='storage') loadStorageStats();
+  if(tab==='storage') { loadStorageStats(); renderCleanupSections(); resetCleanupPreview();
+    const cc = document.getElementById('cleanup-card'); if(cc) cc.style.display = isAdmin() ? 'block' : 'none'; }
 }
 
 // Статистика хранилища: сколько файлов лежит в бакете
@@ -517,3 +518,109 @@ async function loadActivityLog() {
   } catch(e) { console.error(e); document.getElementById('admin-activity-list').innerHTML = `<div class="empty"><div class="empty-text">${t('common.loadErrConn')}</div></div>`; }
 }
 
+
+// ===== ОЧИСТКА СТАРЫХ ДАННЫХ (только владелец/админ) =====
+// Считает и удаляет база (cleanup_old_data), здесь — выбор и подтверждение.
+// Финансы, график, явка, премии, баллы, аттестации и склад намеренно недоступны.
+
+const CLEANUP_SECTIONS = [
+  { key:'tasks',      label:'clp.s.tasks' },
+  { key:'reviews',    label:'clp.s.reviews' },
+  { key:'checklists', label:'clp.s.checklists' },
+  { key:'feed',       label:'clp.s.feed' },
+  { key:'chat',       label:'clp.s.chat' },
+  { key:'bookings',   label:'clp.s.bookings' },
+  { key:'activity',   label:'clp.s.activity' },
+  { key:'notes',      label:'clp.s.notes' },
+];
+// Подписи строк результата — чтобы показывать «Задачи: 9», а не «tasks: 9»
+const CLEANUP_ROW_LABELS = {
+  tasks:'clp.r.tasks', tasks_unfinished:'clp.r.tasksUnfinished', task_comments:'clp.r.comments',
+  reviews:'clp.r.reviews', checklist_logs:'clp.r.checklists', announcements:'clp.r.announcements',
+  polls:'clp.r.polls', team_chat:'clp.r.chat', bookings:'clp.r.bookings',
+  activity_log:'clp.r.activity', my_notes:'clp.r.notes',
+};
+
+function renderCleanupSections() {
+  const el = document.getElementById('cleanup-sections');
+  if(!el) return;
+  el.innerHTML = CLEANUP_SECTIONS.map(s => `
+    <label style="display:flex;align-items:center;gap:10px;padding:7px 0">
+      <input type="checkbox" class="cleanup-sec" value="${s.key}" checked onchange="resetCleanupPreview()" style="width:18px;height:18px;flex:0 0 auto">
+      <span style="font-size:13px;color:var(--text-primary)">${t(s.label)}</span>
+    </label>`).join('');
+}
+
+function cleanupSelected() {
+  return Array.from(document.querySelectorAll('.cleanup-sec:checked')).map(c => c.value);
+}
+// Дата среза: сегодня минус N месяцев (по местному времени, не через toISOString)
+function cleanupCutoff() {
+  const months = parseInt(document.getElementById('cleanup-period').value) || 12;
+  const d = new Date(); d.setMonth(d.getMonth() - months);
+  return ymdLocal(d);
+}
+function resetCleanupPreview() {
+  const box = document.getElementById('cleanup-result');
+  if(box) box.innerHTML = '';
+}
+
+async function previewCleanup() {
+  if(!isAdmin()) return showToast(t('clp.onlyAdmin'));
+  const box = document.getElementById('cleanup-result');
+  const sections = cleanupSelected();
+  if(sections.length === 0) { box.innerHTML = `<div style="font-size:12px;color:#A13C3C">${t('clp.pickSection')}</div>`; return; }
+  const before = cleanupCutoff();
+  box.innerHTML = `<div class="loading">${t('adm.calculating')}</div>`;
+  try {
+    const { data, error } = await sb.rpc('cleanup_old_data', { p_before: before, p_sections: sections, p_dry_run: true });
+    if(error) return box.innerHTML = `<div style="font-size:12px;color:#A13C3C">${t('common.error')+error.message}</div>`;
+    if(data?.error) return box.innerHTML = `<div style="font-size:12px;color:#A13C3C">${t('clp.err.'+data.error)}</div>`;
+    renderCleanupPreview(data, before, sections);
+  } catch(e) { box.innerHTML = `<div style="font-size:12px;color:#A13C3C">${t('common.error')+e.message}</div>`; }
+}
+
+function renderCleanupPreview(data, before, sections) {
+  const box = document.getElementById('cleanup-result');
+  // tasks_unfinished — не отдельные записи, а срез внутри задач, в сумму не входит
+  const total = Object.keys(data)
+    .filter(k => CLEANUP_ROW_LABELS[k] && k !== 'tasks_unfinished')
+    .reduce((s,k) => s + (Number(data[k])||0), 0);
+  const rows = Object.keys(CLEANUP_ROW_LABELS)
+    .filter(k => data[k] != null && (Number(data[k]) > 0 || k === 'tasks_unfinished'))
+    .map(k => {
+      const warn = k === 'tasks_unfinished' && Number(data[k]) > 0;
+      return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;${warn?'color:#A13C3C;font-weight:600':'color:var(--text-secondary)'}">
+        <span>${t(CLEANUP_ROW_LABELS[k])}</span><span>${data[k]}</span></div>`;
+    }).join('');
+
+  if(total === 0) {
+    box.innerHTML = `<div style="font-size:12px;color:var(--text-muted)">${t('clp.nothing',{date:fmtDateShort(before,{day:'numeric',month:'long',year:'numeric'})})}</div>`;
+    return;
+  }
+  box.innerHTML = `
+    <div style="background:var(--surface-2);border-radius:10px;padding:10px">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">${t('clp.olderThan',{date:fmtDateShort(before,{day:'numeric',month:'long',year:'numeric'})})}</div>
+      ${rows}
+      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:var(--text-primary);border-top:1px solid var(--border);margin-top:6px;padding-top:6px">
+        <span>${t('clp.total')}</span><span>${total}</span></div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin:8px 0">${t('clp.backupHint')}</div>
+    <button onclick="runCleanup('${before}','${sections.join(',')}',${total})" style="width:100%;background:#A13C3C;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer">${t('clp.delete',{n:total})}</button>`;
+}
+
+async function runCleanup(before, sectionsCsv, total) {
+  if(!isAdmin()) return showToast(t('clp.onlyAdmin'));
+  if(!await confirmDialog(t('clp.confirm',{n:total,date:fmtDateShort(before,{day:'numeric',month:'long',year:'numeric'})}))) return;
+  const box = document.getElementById('cleanup-result');
+  box.innerHTML = `<div class="loading">${t('clp.deleting')}</div>`;
+  try {
+    const { data, error } = await sb.rpc('cleanup_old_data', {
+      p_before: before, p_sections: sectionsCsv.split(','), p_dry_run: false });
+    if(error) return box.innerHTML = `<div style="font-size:12px;color:#A13C3C">${t('common.error')+error.message}</div>`;
+    if(data?.error) return box.innerHTML = `<div style="font-size:12px;color:#A13C3C">${t('clp.err.'+data.error)}</div>`;
+    box.innerHTML = `<div style="font-size:13px;color:#3B6D11;font-weight:600">${t('clp.done',{n:total})}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${t('clp.mediaHint')}</div>`;
+    showToast(t('clp.done',{n:total}));
+  } catch(e) { box.innerHTML = `<div style="font-size:12px;color:#A13C3C">${t('common.error')+e.message}</div>`; }
+}

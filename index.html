@@ -527,6 +527,21 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       </div>
       <!-- STORAGE TAB -->
       <div id="admin-tab-storage" style="display:none">
+        <div class="section-label" data-i18n="clp.label">СТАРЫЕ ДАННЫЕ</div>
+        <div class="card" id="cleanup-card">
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:10px" data-i18n="clp.desc">Удаляет старые записи оперативных разделов. Финансы, график, явка, премии, баллы, аттестации и склад не трогаются — на них держится зарплата и отчётность.</div>
+          <div class="form-group">
+            <label class="form-label" for="cleanup-period" data-i18n="clp.period">Удалить всё старше</label>
+            <select class="form-select" id="cleanup-period" onchange="resetCleanupPreview()">
+              <option value="12" data-i18n="clp.p12">12 месяцев</option>
+              <option value="6" data-i18n="clp.p6">6 месяцев</option>
+              <option value="3" data-i18n="clp.p3">3 месяцев</option>
+            </select>
+          </div>
+          <div id="cleanup-sections" style="margin-bottom:10px"></div>
+          <button onclick="previewCleanup()" style="width:100%;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="clp.count">Посчитать</button>
+          <div id="cleanup-result" style="margin-top:10px"></div>
+        </div>
         <div class="section-label" data-i18n="adm.storageLabel">ФОТО И ВИДЕО</div>
         <div class="card">
           <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px" data-i18n-html="adm.storageText">
