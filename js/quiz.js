@@ -175,7 +175,9 @@ async function renderQuizBank() {
       <div class="card" style="padding:12px;margin-bottom:8px;${isDraft?'border-left:3px solid var(--gold-dark)':''}">
         <div style="font-size:13px;font-weight:600;color:var(--text-primary);line-height:1.45;margin-bottom:8px">${escapeHtml(q.question)}</div>
         ${(q.options||[]).map((o,i)=>`<div style="font-size:12px;color:${i===q.correct_index?'#3B6D11':'var(--text-muted)'};padding:2px 0">${i===q.correct_index?'✓':'○'} ${escapeHtml(o)}</div>`).join('')}
-        ${q.source?`<div style="font-size:11px;color:var(--text-muted);margin-top:6px">${t('quiz.source')}: ${escapeHtml(q.source)}</div>`:''}
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+          ${q.source?`${t('quiz.source')}: ${escapeHtml(q.source)}`:''}${q.source&&q.topic?' · ':''}${q.topic?`${t('quiz.topic')}: ${escapeHtml(q.topic)}`:''}
+        </div>
         ${manage?`<div style="display:flex;gap:6px;margin-top:10px">
           ${isDraft?`<button onclick="approveQuizQuestion(${q.id})" style="flex:1;background:#EAF3DE;color:#3B6D11;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer">${t('quiz.approve')}</button>`:''}
           <button onclick="openQuizQuestion(${q.id})" style="flex:0 0 auto;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer">${t('quiz.edit')}</button>
@@ -201,6 +203,7 @@ async function openQuizQuestion(id) {
   if(id) { const { data } = await sb.from('quiz_questions').select('*').eq('id', id).single(); q = data; }
   document.getElementById('qq-text').value = q?.question || '';
   for(let i=0;i<4;i++) document.getElementById('qq-opt-'+i).value = q?.options?.[i] || '';
+  document.getElementById('qq-topic').value = q?.topic || '';
   quizCorrectIndex = q?.correct_index ?? 0;
   renderQuizCorrectPicker();
   openModal('modal-quiz-question');
@@ -218,13 +221,14 @@ async function saveQuizQuestion() {
   const options = [0,1,2,3].map(i => document.getElementById('qq-opt-'+i).value.trim());
   if(!question) return showToast(t('quiz.enterQuestion'));
   if(options.some(o=>!o)) return showToast(t('quiz.enterOptions'));
+  const topic = document.getElementById('qq-topic').value.trim().toLowerCase() || null;
   const row = {
-    department: quizBankDept, question, options, correct_index: quizCorrectIndex, status: 'active',
+    department: quizBankDept, question, options, correct_index: quizCorrectIndex, topic, status: 'active',
     created_by: currentUser?.id, created_by_name: currentProfile?.name || currentUser?.email,
   };
   try {
     const { error } = quizEditId
-      ? await sb.from('quiz_questions').update({ question, options, correct_index: quizCorrectIndex }).eq('id', quizEditId)
+      ? await sb.from('quiz_questions').update({ question, options, correct_index: quizCorrectIndex, topic }).eq('id', quizEditId)
       : await sb.from('quiz_questions').insert(row);
     if(error) return showToast(t('common.error')+error.message);
     closeModal('modal-quiz-question');

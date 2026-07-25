@@ -30,9 +30,10 @@ const QUESTION_SCHEMA = {
           question: { type: "string" },
           options: { type: "array", items: { type: "string" } },
           correct_index: { type: "integer", enum: [0, 1, 2, 3] },
-          source: { type: "string" }
+          source: { type: "string" },
+          topic: { type: "string" }
         },
-        required: ["question", "options", "correct_index", "source"],
+        required: ["question", "options", "correct_index", "source", "topic"],
         additionalProperties: false
       }
     }
@@ -51,7 +52,8 @@ const SYSTEM = `Ты составляешь вопросы для еженеде
 - Правильный ответ ставь на случайную позицию: correct_index должен быть разным у разных вопросов, а не всегда 0.
 - Формулируй коротко и по-русски, как говорят в зале, без канцелярита.
 - В поле source укажи название статьи Базы знаний, из которой взят вопрос.
-- Не повторяй вопросы: каждый — про своё блюдо, напиток или правило.`;
+- Не повторяй вопросы: каждый — про своё блюдо, напиток или правило.
+- В поле topic укажи тему вопроса — по ней мы следим, чтобы в один тест не попали два похожих вопроса. Вопросы одного шаблона должны получить ОДНУ тему, даже если они про разные блюда: все «Сколько готовится...» → «время приготовления», все про аллергены → «аллергены». Остальным ставь темой блюдо или правило, о котором спрашиваешь («том ям», «цезарь», «расчёт гостя»). Пиши тему коротко и в нижнем регистре.`;
 
 async function fetchBookArticles(bookId: number): Promise<{ text: string; count: number }> {
   const url = Deno.env.get("SUPABASE_URL");
@@ -172,6 +174,7 @@ Deno.serve(async (req) => {
         options: q.options.map((o: string) => o.trim()),
         correct_index: q.correct_index,
         source: (q.source || "").toString().slice(0, 200) || null,
+        topic: (q.topic || "").toString().trim().toLowerCase().slice(0, 100) || null,
         status: "draft",
         created_by_name: "ИИ по Базе знаний"
       }));

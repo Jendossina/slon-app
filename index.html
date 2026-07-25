@@ -1108,6 +1108,10 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="form-group"><label class="form-label" data-i18n="quiz.qCorrect">Правильный ответ</label>
       <div style="display:flex;gap:8px" id="qq-correct"></div>
     </div>
+    <div class="form-group"><label class="form-label" for="qq-topic" data-i18n="quiz.qTopic">Тема (необязательно)</label>
+      <input class="form-input" id="qq-topic" placeholder="Например: время приготовления" data-i18n-ph="quiz.qTopicPh">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px" data-i18n="quiz.qTopicHint">Вопросы с одной темой не попадут в один тест вместе. Ставьте одну тему похожим по формулировке вопросам.</div>
+    </div>
     <button class="btn btn-primary" onclick="saveQuizQuestion()" data-i18n="quiz.qSave">Сохранить вопрос</button>
   </div>
 </div>

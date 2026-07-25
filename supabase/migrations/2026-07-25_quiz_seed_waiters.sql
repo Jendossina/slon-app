@@ -191,3 +191,17 @@ insert into public.quiz_questions (department, question, options, correct_index,
 ('Официанты', 'Что предлагаем гостю в конце трапезы?',
  '["Ничего, ждём просьбы о счёте","Сразу пречек","Десерты, сладкое, комплимент или дижестивы","Только чай"]'::jsonb,
  2, 'Стандарт обслуживания зала', 'active', 'Составлено по Базе знаний');
+
+-- Темы: в один тест попадает максимум один вопрос из темы (см. 2026-07-26_quiz_topics.sql).
+-- Держим здесь же, чтобы пересоздание банка не теряло группировку.
+update public.quiz_questions set topic = 'время приготовления' where question ilike 'Сколько готов%';
+update public.quiz_questions set topic = 'аллергены'           where question ilike '%аллерген%';
+update public.quiz_questions set topic = 'песто'   where question in (
+  'Что подаётся в пасте с соусом песто?', 'Из чего готовится соус песто?');
+update public.quiz_questions set topic = 'том ям'  where question in (
+  'Что входит в Том ям с морепродуктами?', 'Что рекомендуем дополнительно к Том яму?');
+update public.quiz_questions set topic = 'фастфуд' where question in (
+  'Что хрустит в классическом гамбургере?',
+  'Что предлагаем дополнительно к бургерам и чиабаттам?',
+  'Какой соус в чиабатте с рваной говядиной?');
+update public.quiz_questions set topic = 'крылья'  where question = 'Сколько соусов в ассорти из куриных крыльев и какие?';
