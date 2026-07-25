@@ -408,6 +408,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
         <p id="home-role-text"></p>
       </div>
       <div id="home-announcements"></div>
+      <div id="home-quiz-card"></div>
       <div id="home-shift-card"></div>
       <div id="home-attendance-card"></div>
       <div id="home-salary-card"></div>
@@ -661,6 +662,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div style="display:flex;gap:8px;padding:10px 12px 0">
       <button id="bonus-tab-results" onclick="switchBonusTab('results')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--gold-dark);color:#fff" data-i18n="bonus.tabResults">Итоги недели</button>
       <button id="bonus-tab-points" onclick="switchBonusTab('points')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)" data-i18n="bonus.tabPoints">Баллы</button>
+      <button id="bonus-tab-quiz" onclick="switchBonusTab('quiz')" style="display:none;flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)" data-i18n="bonus.tabQuiz">Вопросы</button>
     </div>
     <div class="content" id="bonus-content" style="padding:12px">
       <div class="loading" data-i18n="common.loading">Загрузка...</div>
@@ -1082,6 +1084,47 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </div>
 </div>
 
+<!-- АТТЕСТАЦИЯ: прохождение теста -->
+<div class="modal-overlay" id="modal-quiz">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-quiz')">✕</button>
+    <div class="modal-title" data-i18n="quiz.title">🎓 Аттестация по меню</div>
+    <div id="quiz-body"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
+  </div>
+</div>
+
+<!-- АТТЕСТАЦИЯ: вопрос банка -->
+<div class="modal-overlay" id="modal-quiz-question">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-quiz-question')">✕</button>
+    <div class="modal-title" data-i18n="quiz.qTitle">Вопрос аттестации</div>
+    <div class="form-group"><label class="form-label" for="qq-text" data-i18n="quiz.qText">Вопрос</label><input class="form-input" id="qq-text" placeholder="Например: что входит в состав «Цезаря» с курицей?" data-i18n-ph="quiz.qTextPh"></div>
+    <div class="form-group"><label class="form-label" for="qq-opt-0" data-i18n="quiz.qOptions">Варианты ответа</label>
+      <input class="form-input" id="qq-opt-0" placeholder="А" style="margin-bottom:6px">
+      <input class="form-input" id="qq-opt-1" placeholder="Б" style="margin-bottom:6px">
+      <input class="form-input" id="qq-opt-2" placeholder="В" style="margin-bottom:6px">
+      <input class="form-input" id="qq-opt-3" placeholder="Г">
+    </div>
+    <div class="form-group"><label class="form-label" data-i18n="quiz.qCorrect">Правильный ответ</label>
+      <div style="display:flex;gap:8px" id="qq-correct"></div>
+    </div>
+    <button class="btn btn-primary" onclick="saveQuizQuestion()" data-i18n="quiz.qSave">Сохранить вопрос</button>
+  </div>
+</div>
+
+<!-- АТТЕСТАЦИЯ: генерация вопросов из Базы знаний -->
+<div class="modal-overlay" id="modal-quiz-generate">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-quiz-generate')">✕</button>
+    <div class="modal-title" data-i18n="quiz.genTitle">✨ Сгенерировать вопросы</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px" data-i18n="quiz.genHint">ИИ прочитает выбранную книгу Базы знаний и предложит вопросы. Они попадут в черновики — проверьте и утвердите.</div>
+    <div class="form-group"><label class="form-label" for="qg-book" data-i18n="quiz.genBook">Книга Базы знаний</label><select class="form-select" id="qg-book"></select></div>
+    <div class="form-group"><label class="form-label" for="qg-count" data-i18n="quiz.genCount">Сколько вопросов</label><input class="form-input" id="qg-count" type="number" inputmode="numeric" value="10"></div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:10px;min-height:16px" id="qg-status"></div>
+    <button class="btn btn-primary" onclick="generateQuizQuestions()" data-i18n="quiz.genRun">Сгенерировать</button>
+  </div>
+</div>
+
 <!-- SUPPLY: NEW ITEM -->
 <div class="modal-overlay" id="modal-supply-item">
   <div class="modal">
@@ -1368,6 +1411,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <script src="js/supply.js"></script>
 <script src="js/dishware.js"></script>
 <script src="js/bonus.js"></script>
+<script src="js/quiz.js"></script>
 <script src="js/directory.js"></script>
 <script src="js/help.js"></script>
 <script src="js/notes.js"></script>

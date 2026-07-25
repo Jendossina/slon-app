@@ -52,6 +52,8 @@ async function loadHome() {
 
       // Моя зарплата за месяц
       await loadSalaryCard();
+      // Аттестация по меню (официантам, по субботам)
+      await loadQuizCard();
     }
 
     // Telegram link card

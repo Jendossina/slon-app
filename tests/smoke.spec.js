@@ -25,7 +25,7 @@ test('все js-модули загрузились и объявили свои
   const names = [
     'showScreen', 'loadHome', 'loadTasks', 'loadHR', 'loadFinance', 'loadCRM',
     'loadAdmin', 'loadSchedule', 'loadChecklist', 'loadKnowledgeBase', 'loadSupply',
-    'loadDishware', 'loadBonus', 'loadDirectory', 'loadHelp', 'loadMyNotes', 'loadDashboard',
+    'loadDishware', 'loadBonus', 'openQuiz', 'loadDirectory', 'loadHelp', 'loadMyNotes', 'loadDashboard',
     'loadCalendar', 'loadFeed', 'loadReviews', 'initTeamChat',
     'escapeHtml', 'escJsAttr', 'doLogin', 'showApp',
   ];

@@ -15,6 +15,10 @@ async function loadBonus() {
   if(!bonusWeek) bonusWeek = weekStartOf();
   const sub = document.getElementById('bonus-subtitle');
   if(sub) sub.textContent = getFilialName(currentFilial);
+  // Банк вопросов — только руководству
+  const quizTab = document.getElementById('bonus-tab-quiz');
+  if(quizTab) quizTab.style.display = (canEditData() || isBoss()) ? 'block' : 'none';
+  if(bonusTab === 'quiz' && !(canEditData() || isBoss())) bonusTab = 'results';
   renderBonusWeekNav();
   switchBonusTab(bonusTab);
 }
@@ -45,26 +49,40 @@ function bonusNavWeek(delta) {
 
 function switchBonusTab(tab) {
   bonusTab = tab;
-  const r = document.getElementById('bonus-tab-results');
-  const p = document.getElementById('bonus-tab-points');
-  if(r && p) {
-    r.style.background = tab==='results' ? 'var(--gold-dark)' : 'var(--surface-2)';
-    r.style.color      = tab==='results' ? '#fff' : 'var(--text-primary)';
-    p.style.background = tab==='points'  ? 'var(--gold-dark)' : 'var(--surface-2)';
-    p.style.color      = tab==='points'  ? '#fff' : 'var(--text-primary)';
-  }
-  if(tab==='results') renderBonusResults(); else renderBonusPoints();
+  ['results','points','quiz'].forEach(k=>{
+    const el = document.getElementById('bonus-tab-'+k);
+    if(!el) return;
+    el.style.background = tab===k ? 'var(--gold-dark)' : 'var(--surface-2)';
+    el.style.color      = tab===k ? '#fff' : 'var(--text-primary)';
+  });
+  if(tab==='results') renderBonusResults();
+  else if(tab==='points') renderBonusPoints();
+  else renderQuizBank();
+}
+
+// Суббота этой недели уже прошла? До неё аттестацию не спрашиваем, после — не сдал = 0.
+function weekSaturdayPassed(weekStart) {
+  const sat = new Date(weekStart); sat.setDate(sat.getDate() + 5); // пн + 5 = сб
+  return businessToday() > ymdLocal(sat);
+}
+// Балл аттестации за неделю: сначала пройденный в приложении тест, потом ручной ввод,
+// потом — «не сдавал»: 0, если суббота прошла, и null, если ещё нет.
+function attestationForWeek(attempt, weekStart, manualScore) {
+  if(attempt && attempt.finished_at != null) return (Number(attempt.score) || 0) * 10;
+  if(manualScore != null) return manualScore;
+  return weekSaturdayPassed(weekStart) ? 0 : null;
 }
 
 // Все данные недели одним заходом; кэшируем до смены недели/правки
 async function loadBonusWeek() {
   if(bonusData) return bonusData;
   const from = bonusWeek, to = weekEndOf(bonusWeek);
-  const [empR, statsR, pointsR, attR] = await Promise.all([
+  const [empR, statsR, pointsR, attR, quizR] = await Promise.all([
     sb.from('employees_view').select('id,name,department,filials,status').eq('department','Официанты').order('name'),
     sb.from('waiter_week_stats').select('*').eq('filial', currentFilial).eq('week_start', from),
     sb.from('waiter_points').select('*').eq('filial', currentFilial).gte('date', from).lte('date', to).order('created_at', {ascending:false}),
     sb.from('attendance').select('employee_id,date,is_late').eq('filial', currentFilial).gte('date', from).lte('date', to),
+    sb.from('quiz_attempts').select('employee_id,score,passed,finished_at').eq('week_start', from).eq('superseded', false),
   ]);
   let emps = (empR.data||[]).filter(e =>
     (e.filials && e.filials.length ? e.filials : ['istikbol','chekhov']).includes(currentFilial) && e.status !== 'Уволен');
@@ -73,7 +91,8 @@ async function loadBonusWeek() {
   const stats = {}; (statsR.data||[]).forEach(s => { stats[s.employee_id] = s; });
   const points = {}; (pointsR.data||[]).forEach(p => { (points[p.employee_id] = points[p.employee_id] || []).push(p); });
   const lates = {}; (attR.data||[]).forEach(a => { if(a.is_late) lates[a.employee_id] = (lates[a.employee_id]||0) + 1; });
-  bonusData = { emps, stats, points, lates };
+  const quiz = {}; (quizR.data||[]).forEach(q => { quiz[q.employee_id] = q; });
+  bonusData = { emps, stats, points, lates, quiz };
   return bonusData;
 }
 
@@ -84,11 +103,13 @@ function bonusRowFor(empId, d) {
   const svc  = pts.filter(p=>p.category==='service').reduce((s,p)=>s+(Number(p.points)||0),0);
   const disc = pts.filter(p=>p.category==='discipline').reduce((s,p)=>s+(Number(p.points)||0),0);
   const late = d.lates[empId] || 0; // опоздания подтягиваются из отметок прихода автоматически
+  const quiz = (d.quiz || {})[empId] || null;
+  const attestation = attestationForWeek(quiz, bonusWeek, st.attestation_score);
   const res = computeWaiterBonus({
     revenue: st.revenue, checks: st.checks, dishes: st.dishes, desserts: st.desserts,
-    attestation: st.attestation_score, servicePoints: svc, disciplinePoints: disc + late,
+    attestation, servicePoints: svc, disciplinePoints: disc + late,
   });
-  return { st, pts, svc, disc, late, res };
+  return { st, pts, svc, disc, late, quiz, attestation, res };
 }
 
 function fmtPct(n) { return String(n).replace('.', ','); }
@@ -135,6 +156,7 @@ async function renderBonusResults() {
           </div>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">${row.res.cats.map(x=>bonusCatChip(x,row)).join('')}</div>
+        ${bonusAttestationLine(e, row, manage)}
         ${row.late>0?`<div style="font-size:11px;color:var(--text-muted);margin-top:8px">${t('bonus.lateAuto',{n:row.late})}</div>`:''}
         ${manage?`<button onclick="openWaiterStats(${e.id},'${escJsAttr(e.name)}')" style="width:100%;margin-top:10px;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:9px;font-size:13px;font-weight:600;cursor:pointer">${t('bonus.editStats')}</button>`:''}
       </div>`;
@@ -150,6 +172,39 @@ async function renderBonusResults() {
   } catch(e) {
     c.innerHTML = `<div class="card"><div class="empty"><div class="empty-text">${t('bonus.loadErr')}</div></div></div>`;
   }
+}
+
+// Строка про аттестацию: результат теста, «не сдавал» или «будет в субботу» + пересдача
+function bonusAttestationLine(emp, row, manage) {
+  const q = row.quiz;
+  let text, color = 'var(--text-muted)';
+  if(q && q.finished_at) {
+    text = t('bonus.attResult', {score: q.score, total: 10});
+    color = q.passed ? '#3B6D11' : '#A13C3C';
+  } else if(row.st.attestation_score != null) {
+    text = t('bonus.attManual', {n: row.st.attestation_score});
+  } else if(weekSaturdayPassed(bonusWeek)) {
+    text = t('bonus.attMissed');
+    color = '#A13C3C';
+  } else {
+    text = t('bonus.attSaturday');
+  }
+  const retake = (manage && q) ? ` <span onclick="reopenQuiz(${emp.id},'${escJsAttr(emp.name)}')" style="color:var(--gold-dark);cursor:pointer;font-weight:600">${t('bonus.attRetake')}</span>` : '';
+  return `<div style="font-size:11px;margin-top:8px;color:${color}">🎓 ${text}${retake}</div>`;
+}
+
+// Открыть официанту пересдачу: старая попытка гасится, новая доступна сразу (не только в субботу)
+async function reopenQuiz(empId, empName) {
+  if(!canEditData()) return showToast(t('bonus.onlyMgr'));
+  if(!await confirmDialog(t('bonus.attRetakeConfirm', {name: empName}))) return;
+  try {
+    const { data, error } = await sb.rpc('quiz_reopen', { p_employee_id: empId, p_week_start: bonusWeek });
+    if(error) return showToast(t('common.error')+error.message);
+    if(data?.error) return showToast(t('common.error')+data.error);
+    showToast(t('bonus.attRetakeDone'));
+    bonusData = null;
+    switchBonusTab(bonusTab);
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
 
 function bonusRulesCard() {
@@ -306,11 +361,13 @@ async function loadWaiterBonusForMonth(firstStr, lastStr) {
   const out = {}; // employee_id -> { percentSum, amount, weeks }
   try {
     const weekFrom = weekStartOf(firstStr), weekTo = weekStartOf(lastStr);
-    const [statsR, pointsR, attR] = await Promise.all([
+    const [statsR, pointsR, attR, quizR] = await Promise.all([
       sb.from('waiter_week_stats').select('*').eq('filial', currentFilial).gte('week_start', firstStr).lte('week_start', lastStr),
       sb.from('waiter_points').select('employee_id,date,category,points').eq('filial', currentFilial).gte('date', weekFrom).lte('date', weekEndOf(weekTo)),
       sb.from('attendance').select('employee_id,date,is_late').eq('filial', currentFilial).gte('date', weekFrom).lte('date', weekEndOf(weekTo)),
+      sb.from('quiz_attempts').select('employee_id,week_start,score,passed,finished_at').gte('week_start', weekFrom).lte('week_start', weekTo).eq('superseded', false),
     ]);
+    const quizByWeek = {}; (quizR.data||[]).forEach(q => { quizByWeek[q.employee_id+'_'+q.week_start] = q; });
     // баллы и опоздания раскладываем по неделям
     const byWeek = {}; // empId_weekStart -> { svc, disc }
     const bump = (empId, date, cat, n) => {
@@ -325,7 +382,8 @@ async function loadWaiterBonusForMonth(firstStr, lastStr) {
       const w = byWeek[s.employee_id + '_' + s.week_start] || { svc:0, disc:0 };
       const res = computeWaiterBonus({
         revenue: s.revenue, checks: s.checks, dishes: s.dishes, desserts: s.desserts,
-        attestation: s.attestation_score, servicePoints: w.svc, disciplinePoints: w.disc,
+        attestation: attestationForWeek(quizByWeek[s.employee_id+'_'+s.week_start], s.week_start, s.attestation_score),
+        servicePoints: w.svc, disciplinePoints: w.disc,
       });
       const acc = out[s.employee_id] = out[s.employee_id] || { amount:0, weeks:0, percentSum:0 };
       acc.amount += res.amount;
