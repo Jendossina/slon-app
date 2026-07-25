@@ -39,17 +39,18 @@ drop policy if exists checklist_misses_delete on public.checklist_misses;
 create policy checklist_misses_delete on public.checklist_misses for delete to authenticated
   using (exists (select 1 from public.profiles p where p.user_id = auth.uid() and p.role = any(array['admin','manager'])));
 
--- ===== дефолтные сроки =====
+-- ===== стартовые сроки =====
 -- Проставлены по названиям смен; управляющий правит их в приложении.
--- «Второй официант (13:00/15:00)» намеренно оставлен пустым — время неоднозначное.
-update public.checklist_templates set due_time = '11:00', owner_shift_start = '11:00' where type = 'open';
-update public.checklist_templates set due_time = '03:00', owner_shift_start = '18:00' where type = 'close';
-update public.checklist_templates set due_time = '11:30', owner_shift_start = '11:30' where type = 'bar_open';
-update public.checklist_templates set due_time = '02:00', owner_shift_start = '15:00' where type = 'bar_close';
-update public.checklist_templates set due_time = '11:30', owner_shift_start = '11:30' where type = 'hookah_open';
-update public.checklist_templates set due_time = '03:00', owner_shift_start = '14:45' where type = 'hookah_close';
-update public.checklist_templates set due_time = '11:00', owner_shift_start = '11:00' where type = 'kitchen_open';
-update public.checklist_templates set due_time = '02:30', owner_shift_start = '14:30' where type = 'kitchen_close';
+-- `where due_time is null` — чтобы повторный прогон файла не затирал правки из приложения.
+update public.checklist_templates set due_time = '11:00', owner_shift_start = '11:00' where type = 'open'          and due_time is null;
+update public.checklist_templates set due_time = '15:00', owner_shift_start = '15:00' where type = 'second'        and due_time is null;
+update public.checklist_templates set due_time = '03:00', owner_shift_start = '18:00' where type = 'close'         and due_time is null;
+update public.checklist_templates set due_time = '11:30', owner_shift_start = '11:30' where type = 'bar_open'      and due_time is null;
+update public.checklist_templates set due_time = '02:00', owner_shift_start = '15:00' where type = 'bar_close'     and due_time is null;
+update public.checklist_templates set due_time = '11:30', owner_shift_start = '11:30' where type = 'hookah_open'   and due_time is null;
+update public.checklist_templates set due_time = '03:00', owner_shift_start = '14:45' where type = 'hookah_close'  and due_time is null;
+update public.checklist_templates set due_time = '11:00', owner_shift_start = '11:00' where type = 'kitchen_open'  and due_time is null;
+update public.checklist_templates set due_time = '02:30', owner_shift_start = '14:30' where type = 'kitchen_close' and due_time is null;
 
 -- ===== проверка просроченных =====
 create extension if not exists pg_cron;
