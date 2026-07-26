@@ -492,9 +492,27 @@ async function saveChecklistNow(templateId, date) {
       if(newLog) currentChecklistLog.id = newLog.id;
       _handleChecklistDone(completed, date);
     }
-    currentChecklistLog.items_done = merged;
-    currentChecklistLog.items_by = mergedBy;
+    // Пока шла запись, человек мог отметить ещё пункты. Раньше их тут просто
+    // затирало результатом, собранным ДО начала записи: галочки на экране
+    // оставались, а в памяти исчезали — и следующий тап откатывал шкалу назад.
+    const nowLocal = currentChecklistLog.items_done || [];
+    const addedMeanwhile   = nowLocal.filter(x => !local.includes(x));
+    const removedMeanwhile = local.filter(x => !nowLocal.includes(x));
+
+    let finalDone = merged.slice();
+    addedMeanwhile.forEach(x => { if(!finalDone.includes(x)) finalDone.push(x); });
+    finalDone = finalDone.filter(x => !removedMeanwhile.includes(x));
+
+    const finalBy = Object.assign({}, mergedBy);
+    addedMeanwhile.forEach(x => { finalBy[x] = (currentChecklistLog.items_by || {})[x] || myName; });
+    removedMeanwhile.forEach(x => { delete finalBy[x]; });
+
+    currentChecklistLog.items_done = finalDone;
+    currentChecklistLog.items_by = finalBy;
+    // База — это то, что реально лежит в базе. Отметки, сделанные во время записи,
+    // остаются «несохранёнными» и уйдут следующим проходом.
     clBaseline = merged.slice();
+    if(addedMeanwhile.length || removedMeanwhile.length) scheduleChecklistSave(templateId, date);
   } catch(e) {
     console.error(e);
     showToast(t('cl.saveErr') + e.message);

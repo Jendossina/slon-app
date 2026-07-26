@@ -197,3 +197,59 @@ test('проверка связи различает отсутствие инт
 
   await expect(page.locator('#login-diag')).toContainText(/до базы телефон не доходит/, { timeout: 20000 });
 });
+
+// Регресс-тест на реальную жалобу: «отметил все, а стало 52%».
+// Пока шла запись в базу, отметки, сделанные в этот момент, затирались
+// состоянием, собранным ДО её начала. Подменяем ответы PostgREST, чтобы
+// запись была заметно медленной, и отмечаем пункты прямо во время неё.
+test('галочки, поставленные во время сохранения, не теряются (регресс-тест)', async ({ page }) => {
+  let server = [];                       // «состояние базы»
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  await page.route('**/rest/v1/checklist_logs**', async (route) => {
+    const req = route.request();
+    if (req.method() === 'GET') {
+      await sleep(150);
+      return route.fulfill({
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id: 10, items_done: server.slice(), items_by: {} }),
+      });
+    }
+    if (req.method() === 'PATCH') {
+      const patch = JSON.parse(req.postData() || '{}');
+      await sleep(300);                  // медленная запись — окно для потери отметок
+      server = (patch.items_done || []).slice();
+      return route.fulfill({
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify([{ id: 10 }]),
+      });
+    }
+    return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: '[]' });
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.toggleChecklistItem === 'function');
+
+  const local = await page.evaluate(async () => {
+    // Переменные объявлены через let — снаружи через window их не задать, только так
+    eval(`
+      currentUser = { id: 'u1', email: 't@slon.uz' };
+      currentProfile = { name: 'Тест', role: 'employee' };
+      currentChecklistTemplate = { id: 1, items: [1,2,3,4,5].map(id => ({ id, text: 'п'+id, section: 'с' })) };
+      currentChecklistLog = { id: 10, items_done: [], items_by: {} };
+      clBaseline = [];
+    `);
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    window.toggleChecklistItem(1, 1, '2026-07-27');
+    await wait(600);                                   // запись началась
+    [2, 3, 4, 5].forEach((id) => window.toggleChecklistItem(id, 1, '2026-07-27'));
+    await wait(4000);                                  // даём досохраниться
+    return eval('(currentChecklistLog.items_done || []).slice().sort((a,b)=>a-b)');
+  });
+
+  expect(local, 'в приложении должны остаться все 5 отметок').toEqual([1, 2, 3, 4, 5]);
+  expect(server.slice().sort((a, b) => a - b), 'в базу должны уйти все 5 отметок').toEqual([1, 2, 3, 4, 5]);
+});
