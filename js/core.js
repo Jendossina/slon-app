@@ -623,6 +623,52 @@ function isNetworkError(error) {
   return /failed to fetch|networkerror|load failed|network request failed|timeout|ecconn|aborted/i.test(error.message || '');
 }
 
+// Проверка связи с экрана входа. Нужна, когда «не заходит» у одного человека:
+// показывает, интернет ли отсутствует вообще или доступен только сам сайт, а до
+// базы телефон не доходит (так выглядит ограниченный тариф, прокси или блокировка).
+// Результат сотрудник просто присылает скриншотом.
+async function probeUrl(url, timeoutMs = 8000) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  const started = Date.now();
+  try {
+    const res = await fetch(url, { signal: ctl.signal, cache: 'no-store' });
+    return { ok: res.ok, status: res.status, ms: Date.now() - started };
+  } catch(e) {
+    return { ok: false, status: 0, ms: Date.now() - started, aborted: ctl.signal.aborted, message: e.message || String(e) };
+  } finally { clearTimeout(timer); }
+}
+
+async function runLoginDiagnostics() {
+  const box = document.getElementById('login-diag');
+  if(!box) return;
+  box.innerHTML = t('login.diagRunning');
+  const line = (label, r) => {
+    const good = r.ok;
+    const what = r.ok ? t('login.diagOk',{ms:r.ms})
+      : r.aborted ? t('login.diagTimeout')
+      : r.status ? t('login.diagStatus',{s:r.status})
+      : t('login.diagNoReach');
+    return `<div style="color:${good?'#3B6D11':'#A32D2D'}">${good?'✅':'❌'} ${label}: ${what}</div>`;
+  };
+
+  const online = (typeof navigator !== 'undefined') ? navigator.onLine !== false : true;
+  // 1) свой сайт — работает ли интернет вообще; 2) база — доходит ли до неё телефон
+  const site = await probeUrl(location.origin + '/manifest.json?ping=' + Date.now());
+  const api  = await probeUrl(SUPABASE_URL + '/auth/v1/health?ping=' + Date.now());
+
+  let verdict;
+  if(!site.ok && !api.ok) verdict = t('login.diagVerdictNoNet');
+  else if(site.ok && !api.ok) verdict = t('login.diagVerdictBlocked');
+  else if(api.ok) verdict = t('login.diagVerdictOk');
+
+  box.innerHTML =
+    `<div style="color:${online?'var(--text-muted)':'#A32D2D'}">${online?'✅':'❌'} ${t('login.diagOnline')}</div>`
+    + line(t('login.diagSite'), site)
+    + line(t('login.diagApi'), api)
+    + `<div style="margin-top:8px;color:var(--text-primary);font-weight:600">${verdict}</div>`;
+}
+
 async function doLogin() {
   let login = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-password').value;
@@ -637,9 +683,11 @@ async function doLogin() {
     // Раньше на ЛЮБУЮ ошибку показывали «неверный логин или пароль» — и человек
     // на мобильном интернете перебирал пароли, хотя до сервера просто не доходило.
     console.error('login failed', error);
-    errEl.textContent = isNetworkError(error)
-      ? t('login.errNetwork')
-      : t('login.error');
+    const netErr = isNetworkError(error);
+    errEl.textContent = netErr ? t('login.errNetwork') : t('login.error');
+    // Кнопку проверки связи показываем только когда она уместна
+    const diagBtn = document.getElementById('login-diag-btn');
+    if(diagBtn) diagBtn.style.display = netErr ? 'block' : 'none';
     return;
   }
   // Запомнить логин, если стоит галочка

@@ -184,3 +184,16 @@ test('при обрыве связи вход сообщает о сети, а �
 
   await expect(page.locator('#login-error')).toHaveText(/Нет связи с сервером/, { timeout: 15000 });
 });
+
+// Проверка связи должна отличать «интернета нет» от «интернет есть, но до базы
+// не доходит» — это разные причины, и чинят их по-разному.
+test('проверка связи различает отсутствие интернета и недоступность базы', async ({ page }) => {
+  // Сайт открывается, а база — нет: имитируем ограниченный тариф / блокировку
+  await page.route('**/auth/v1/health**', (route) => route.abort('failed'));
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.runLoginDiagnostics === 'function');
+  await page.evaluate(() => window.runLoginDiagnostics());
+
+  await expect(page.locator('#login-diag')).toContainText(/до базы телефон не доходит/, { timeout: 20000 });
+});

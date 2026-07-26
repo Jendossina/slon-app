@@ -373,6 +373,8 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       </label>
       <button class="btn btn-primary" onclick="doLogin()" data-i18n="login.submit">Войти</button>
       <div id="login-error" style="color:#A32D2D;font-size:13px;margin-top:12px;text-align:center;"></div>
+      <button type="button" id="login-diag-btn" onclick="runLoginDiagnostics()" style="display:none;width:100%;margin-top:10px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:10px;padding:10px;font-size:12px;cursor:pointer" data-i18n="login.diagBtn">Проверить связь</button>
+      <div id="login-diag" style="font-size:12px;margin-top:10px;line-height:1.7;text-align:left"></div>
     </div>
   </main>
 </div>
