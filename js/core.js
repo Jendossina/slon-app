@@ -310,6 +310,85 @@ function getFilialName(id) { return FILIALS.find(f=>f.id===id)?.name || id; }
 const PILOT_MODE = true;
 const PILOT_FILIAL = 'chekhov';
 
+// ===== EXIF-ориентация фото =====
+// Телефон не поворачивает пиксели, а пишет в EXIF «показывать повёрнутым/зеркальным».
+// canvas.toBlob() EXIF НЕ сохраняет, поэтому при пересжатии ориентацию надо применить
+// к пикселям. Беда в том, что браузеры ведут себя по-разному: Chromium разворачивает
+// сам (и делать это ещё раз нельзя — получится двойной поворот), а Android WebView и
+// Samsung Internet отдают сырые пиксели — именно там фото приходило зеркальным.
+// Поэтому один раз проверяем поведение браузера эталонным снимком и доворачиваем
+// только если он этого не сделал.
+
+// Эталон 8×8: в пикселях слева КРАСНЫЙ, справа синий, в EXIF — «зеркалить».
+// Значит, при верной обработке слева должен оказаться СИНИЙ.
+const EXIF_PROBE_JPEG = '/9j/4QAiRXhpZgAASUkqAAgAAAABABIBAwABAAAAAgAAAAAAAAD/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAIAAgDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAj/xAAYEAEAAwEAAAAAAAAAAAAAAAAAB0WDwv/EABUBAQEAAAAAAAAAAAAAAAAAAAYI/8QAHBEAAAYDAAAAAAAAAAAAAAAAAAMFBzeDCLO0/9oADAMBAAIRAxEAPwCNpVq9+AFw43RgmXdBoVv9IijToKH/2Q==';
+
+let _exifAutoPromise = null;
+// true — браузер применяет EXIF сам, доворачивать не нужно.
+// При любой неудаче проверки возвращаем true: лучше оставить как есть, чем рискнуть
+// перевернуть дважды там, где и так всё работало.
+function browserAppliesExif() {
+  if(_exifAutoPromise) return _exifAutoPromise;
+  _exifAutoPromise = (async () => {
+    try {
+      const res = await fetch('data:image/jpeg;base64,' + EXIF_PROBE_JPEG);
+      const src = await loadOrientedImage(await res.blob());
+      const c = document.createElement('canvas');
+      c.width = src.width; c.height = src.height;
+      const cx = c.getContext('2d');
+      cx.drawImage(src, 0, 0);
+      const p = cx.getImageData(1, 4, 1, 1).data;
+      if(typeof src.close === 'function') src.close();
+      return p[2] > p[0]; // слева синий = браузер развернул
+    } catch(e) { return true; }
+  })();
+  return _exifAutoPromise;
+}
+
+// Ориентация из EXIF (1..8) или null. Читаем только начало файла — там APP1.
+async function readExifOrientation(file) {
+  try {
+    const v = new DataView(await file.slice(0, 256 * 1024).arrayBuffer());
+    if(v.byteLength < 4 || v.getUint16(0) !== 0xFFD8) return null; // не JPEG
+    let off = 2;
+    while(off + 4 <= v.byteLength) {
+      const marker = v.getUint16(off);
+      if((marker & 0xFF00) !== 0xFF00) break;
+      const size = v.getUint16(off + 2);
+      if(marker === 0xFFE1) {
+        const start = off + 4;
+        if(start + 14 > v.byteLength || v.getUint32(start) !== 0x45786966) return null; // не 'Exif'
+        const tiff = start + 6;
+        const little = v.getUint16(tiff) === 0x4949;
+        const ifd = tiff + v.getUint32(tiff + 4, little);
+        const count = v.getUint16(ifd, little);
+        for(let i = 0; i < count; i++) {
+          const e = ifd + 2 + i * 12;
+          if(e + 12 > v.byteLength) break;
+          if(v.getUint16(e, little) === 0x0112) return v.getUint16(e + 8, little);
+        }
+        return null;
+      }
+      off += 2 + size;
+    }
+  } catch(e) {}
+  return null;
+}
+
+// Разворот холста под ориентацию. Для 5..8 стороны меняются местами.
+function orientationSwapsSides(o) { return o >= 5 && o <= 8; }
+function applyOrientationTransform(ctx, o, w, h) {
+  switch(o) {
+    case 2: ctx.translate(w, 0); ctx.scale(-1, 1); break;
+    case 3: ctx.translate(w, h); ctx.rotate(Math.PI); break;
+    case 4: ctx.translate(0, h); ctx.scale(1, -1); break;
+    case 5: ctx.rotate(0.5 * Math.PI); ctx.scale(1, -1); break;
+    case 6: ctx.rotate(0.5 * Math.PI); ctx.translate(0, -h); break;
+    case 7: ctx.rotate(0.5 * Math.PI); ctx.translate(w, -h); ctx.scale(-1, 1); break;
+    case 8: ctx.rotate(-0.5 * Math.PI); ctx.translate(-w, 0); break;
+  }
+}
+
 // Картинка с УЖЕ применённой EXIF-ориентацией.
 // Телефон не поворачивает пиксели, а пишет в EXIF «показывать повёрнутым/зеркальным».
 // canvas.toBlob() EXIF не сохраняет, поэтому если отрисовать сырые пиксели, снимок
@@ -345,14 +424,21 @@ async function compressImage(file, maxSide = 1280, quality = 0.7) {
   if(file.type === 'image/gif') return file;
   try {
     const src = await loadOrientedImage(file);
+    // Доворачиваем сами ТОЛЬКО если браузер этого не сделал — иначе двойной поворот
+    const auto = await browserAppliesExif();
+    const o = auto ? 1 : ((await readExifOrientation(file)) || 1);
+
     let { width, height } = src;
     if(width > maxSide || height > maxSide) {
       if(width >= height) { height = Math.round(height * maxSide / width); width = maxSide; }
       else { width = Math.round(width * maxSide / height); height = maxSide; }
     }
     const canvas = document.createElement('canvas');
-    canvas.width = width; canvas.height = height;
+    const swap = orientationSwapsSides(o);
+    canvas.width = swap ? height : width;
+    canvas.height = swap ? width : height;
     const ctx = canvas.getContext('2d');
+    if(o > 1) applyOrientationTransform(ctx, o, width, height);
     ctx.drawImage(src, 0, 0, width, height);
     if(typeof src.close === 'function') src.close(); // освобождаем ImageBitmap
     const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));

@@ -137,3 +137,37 @@ test('compressImage применяет EXIF-ориентацию, а не зер
   expect(r.left[2], `слева должно стать синим, получено rgb(${r.left.slice(0,3)})`).toBeGreaterThan(r.left[0]);
   expect(r.right[0], `справа должно стать красным, получено rgb(${r.right.slice(0,3)})`).toBeGreaterThan(r.right[2]);
 });
+
+// Математика разворота — то, чем приложение доворачивает фото в браузерах,
+// которые не применяют EXIF сами (их в этом наборе тестов не воспроизвести).
+test('applyOrientationTransform разворачивает верно (зеркало и поворот)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.applyOrientationTransform === 'function');
+
+  const r = await page.evaluate(() => {
+    // Источник: слева красный, справа синий; 80×40
+    const s = document.createElement('canvas'); s.width = 80; s.height = 40;
+    const sx = s.getContext('2d');
+    sx.fillStyle = '#ff0000'; sx.fillRect(0, 0, 40, 40);
+    sx.fillStyle = '#0000ff'; sx.fillRect(40, 0, 40, 40);
+
+    const run = (o) => {
+      const swap = window.orientationSwapsSides(o);
+      const c = document.createElement('canvas');
+      c.width = swap ? 40 : 80; c.height = swap ? 80 : 40;
+      const cx = c.getContext('2d');
+      window.applyOrientationTransform(cx, o, 80, 40);
+      cx.drawImage(s, 0, 0, 80, 40);
+      const at = (x, y) => Array.from(cx.getImageData(x, y, 1, 1).data);
+      return { w: c.width, h: c.height, at };
+    };
+
+    const m = run(2);                                   // зеркало по горизонтали
+    const mirrored = m.at(4, 20)[2] > m.at(4, 20)[0];   // слева должен стать синий
+    const r6 = run(6);                                  // поворот на 90°
+    return { mirrored, swapped: r6.w === 40 && r6.h === 80 };
+  });
+
+  expect(r.mirrored, 'ориентация 2 должна отзеркалить фото').toBe(true);
+  expect(r.swapped, 'ориентация 6 должна поменять стороны местами').toBe(true);
+});
