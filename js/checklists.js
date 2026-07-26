@@ -310,21 +310,46 @@ async function uploadChecklistMedia() {
       uploaded.push({ url: urlData.publicUrl, type: isVideo?'video':'image' });
     }
 
+    // Сначала дописываем отложенные галочки. Иначе они терялись: ниже идёт запись
+    // строки и перезагрузка экрана, а отметки ждут своей очереди ещё полсекунды.
+    await flushChecklistSave();
+
     // Дописываем к уже прикреплённым (не затираем старые фото)
     let itemsMedia = currentChecklistLog?.items_media || {};
     itemsMedia[itemId] = clMediaList(itemsMedia[itemId]).concat(uploaded);
 
-    if(currentChecklistLog) {
-      await sb.from('checklist_logs').update({items_media: itemsMedia}).eq('id', currentChecklistLog.id);
+    // Проверять надо именно id: при свежем чек-листе объект уже создан галочками,
+    // но записи в базе ещё нет, и update уходил в никуда с id = undefined.
+    if(currentChecklistLog?.id) {
+      const { error: upErr } = await sb.from('checklist_logs')
+        .update({ items_media: itemsMedia }).eq('id', currentChecklistLog.id);
+      if(upErr) throw upErr;
       currentChecklistLog.items_media = itemsMedia;
     } else {
       const dateStr = today();
-      const { data: newLog } = await sb.from('checklist_logs').insert({
+      // Отметки берём локальные — раньше сюда уходил пустой список и стирал их
+      const localDone = currentChecklistLog?.items_done || [];
+      const localBy = currentChecklistLog?.items_by || {};
+      const { data: newLog, error: insErr } = await sb.from('checklist_logs').insert({
         template_id: templateId, date: dateStr, user_id: currentUser.id,
         user_name: currentProfile?.name || currentUser?.email,
-        items_done: [], items_media: itemsMedia, filial: currentFilial
+        items_done: localDone, items_by: localBy, items_media: itemsMedia, filial: currentFilial
       }).select().single();
-      currentChecklistLog = newLog;
+      if(insErr) {
+        if(insErr.code !== '23505') throw insErr;
+        // строку уже создал коллега — дописываем фото в неё, не теряя её галочки
+        const { data: ex } = await sb.from('checklist_logs').select('*')
+          .eq('template_id', templateId).eq('date', dateStr).eq('filial', currentFilial).limit(1).single();
+        if(!ex) throw insErr;
+        const mergedMedia = Object.assign({}, ex.items_media || {}, itemsMedia);
+        const { error: e2 } = await sb.from('checklist_logs')
+          .update({ items_media: mergedMedia }).eq('id', ex.id);
+        if(e2) throw e2;
+        currentChecklistLog = Object.assign({}, ex, { items_media: mergedMedia });
+      } else if(newLog) {
+        currentChecklistLog = newLog;
+      }
+      clBaseline = (currentChecklistLog?.items_done || []).slice();
     }
 
     bar.style.display = 'none';
@@ -388,6 +413,9 @@ function scheduleChecklistSave(templateId, date) {
 // Немедленно сохранить отложенные отметки (вызывается при уходе/смене чек-листа)
 async function flushChecklistSave() {
   if(clSaveTimer) { clearTimeout(clSaveTimer); clSaveTimer = null; await saveChecklistNow(); }
+  // Если запись уже шла, saveChecklistNow сразу вернётся, не дождавшись её. Ждём здесь,
+  // иначе вызывающий (загрузка фото, смена чек-листа) продолжит поверх незаконченной записи.
+  for(let i = 0; i < 40 && clSaving; i++) await new Promise(r => setTimeout(r, 50));
 }
 
 async function saveChecklistNow(templateId, date) {
