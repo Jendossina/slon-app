@@ -87,6 +87,7 @@ const I18N = {
     // Вход
     'login.title': 'Войти', 'login.login': 'Логин', 'login.password': 'Пароль', 'login.submit': 'Войти',
     'login.remember': 'Запомнить меня', 'login.error': 'Неверный логин или пароль',
+    'login.errNetwork': 'Нет связи с сервером. Пароль тут ни при чём — проверьте интернет или попробуйте Wi-Fi.',
     'login.subtitle': 'Система управления заведением',
     // Роли (приветствие на главной)
     'role.admin': '👑 Управляющий', 'role.manager': '📋 Менеджер', 'role.employee': '👤 Сотрудник', 'role.boss': '🦉 Владелец (наблюдатель)',
@@ -431,6 +432,7 @@ const I18N = {
     // Вход
     'login.title': 'Кириш', 'login.login': 'Логин', 'login.password': 'Парол', 'login.submit': 'Кириш',
     'login.remember': 'Мени эслаб қол', 'login.error': 'Логин ёки парол нотўғри',
+    'login.errNetwork': 'Сервер билан алоқа йўқ. Парол айбдор эмас — интернетни текширинг ёки Wi-Fi орқали уриниб кўринг.',
     'login.subtitle': 'Муассасани бошқариш тизими',
     // Роли (приветствие на главной)
     'role.admin': '👑 Бошқарувчи', 'role.manager': '📋 Менежер', 'role.employee': '👤 Ходим', 'role.boss': '🦉 Эга (кузатувчи)',

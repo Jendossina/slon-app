@@ -610,13 +610,38 @@ document.addEventListener('click', (e) => {
   setTimeout(() => ripple.remove(), 650);
 });
 
+// Сбой связи, а не отказ сервера. Признаки: браузер офлайн; ошибка вообще без
+// HTTP-статуса (запрос не дошёл); 5xx; supabase-js помечает такие как
+// AuthRetryableFetchError; либо характерный текст fetch/network.
+function isNetworkError(error) {
+  if(!error) return false;
+  if(typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  if(error.name === 'AuthRetryableFetchError' || error.name === 'TypeError') return true;
+  const status = Number(error.status);
+  if(!status || status === 0) return true;
+  if(status >= 500) return true;
+  return /failed to fetch|networkerror|load failed|network request failed|timeout|ecconn|aborted/i.test(error.message || '');
+}
+
 async function doLogin() {
   let login = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-password').value;
   document.getElementById('login-error').textContent = '';
   const email = login.includes('@') ? login : login + '@slon.uz';
-  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-  if(error) { document.getElementById('login-error').textContent = t('login.error'); return; }
+  const errEl = document.getElementById('login-error');
+  let data, error;
+  try {
+    ({ data, error } = await sb.auth.signInWithPassword({ email, password: pass }));
+  } catch(e) { error = e; }
+  if(error) {
+    // Раньше на ЛЮБУЮ ошибку показывали «неверный логин или пароль» — и человек
+    // на мобильном интернете перебирал пароли, хотя до сервера просто не доходило.
+    console.error('login failed', error);
+    errEl.textContent = isNetworkError(error)
+      ? t('login.errNetwork')
+      : t('login.error');
+    return;
+  }
   // Запомнить логин, если стоит галочка
   const remember = document.getElementById('login-remember')?.checked;
   if(remember) localStorage.setItem('slon-remember-login', login);

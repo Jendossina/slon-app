@@ -171,3 +171,16 @@ test('applyOrientationTransform разворачивает верно (зерк�
   expect(r.mirrored, 'ориентация 2 должна отзеркалить фото').toBe(true);
   expect(r.swapped, 'ориентация 6 должна поменять стороны местами').toBe(true);
 });
+
+// Регресс-тест: при обрыве связи показывали «Неверный логин или пароль», и человек
+// на мобильном интернете перебирал пароли вместо того, чтобы чинить сеть.
+test('при обрыве связи вход сообщает о сети, а не о пароле', async ({ page }) => {
+  await page.route('**/auth/v1/token**', (route) => route.abort('failed'));
+
+  await page.goto('/');
+  await page.fill('#login-email', 'someone@slon.uz');
+  await page.fill('#login-password', 'whatever');
+  await page.click('button:has-text("Войти")');
+
+  await expect(page.locator('#login-error')).toHaveText(/Нет связи с сервером/, { timeout: 15000 });
+});
