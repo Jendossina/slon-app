@@ -380,7 +380,9 @@ function updateChecklistProgress(doneCount) {
 
 function scheduleChecklistSave(templateId, date) {
   if(clSaveTimer) clearTimeout(clSaveTimer);
-  clSaveTimer = setTimeout(() => saveChecklistNow(templateId, date), 500);
+  // Таймер обязательно обнуляем при срабатывании: пока он «висит» непустым,
+  // фоновая синхронизация считает, что идут правки, и не обновляет чек-лист.
+  clSaveTimer = setTimeout(() => { clSaveTimer = null; saveChecklistNow(templateId, date); }, 500);
 }
 
 // Немедленно сохранить отложенные отметки (вызывается при уходе/смене чек-листа)
@@ -420,7 +422,21 @@ async function saveChecklistNow(templateId, date) {
       added.forEach(x => { mergedBy[x] = myName; });
       removed.forEach(x => { delete mergedBy[x]; });
       const completed = total > 0 && merged.length === total;
-      await sb.from('checklist_logs').update({ items_done: merged, items_by: mergedBy, completed, user_name: myName }).eq('id', currentChecklistLog.id);
+      // .select() обязателен: без него не видно ни ошибки, ни того, что строка не нашлась.
+      // Раньше обе ситуации проходили молча — галочки «сохранялись» и слетали при перезагрузке.
+      const { data: upd, error: updErr } = await sb.from('checklist_logs')
+        .update({ items_done: merged, items_by: mergedBy, completed, user_name: myName })
+        .eq('id', currentChecklistLog.id).select('id');
+      if(updErr) throw updErr;
+      if(!upd || upd.length === 0) {
+        // Строки с таким id больше нет (удалили, сменили филиал, протухла сессия) —
+        // не теряем отметки: сбрасываем id и заходим ещё раз через обычный путь,
+        // который сам решит, создать запись или подхватить чужую.
+        console.warn('checklist update matched no row, id=', currentChecklistLog.id);
+        currentChecklistLog.id = null;
+        scheduleChecklistSave(templateId, date);
+        return;
+      }
       currentChecklistLog.completed = completed;
       _handleChecklistDone(completed, date);
     } else {
@@ -431,7 +447,20 @@ async function saveChecklistNow(templateId, date) {
         template_id: templateId, date, user_id: currentUser.id, user_name: myName,
         items_done: merged, items_by: mergedBy, completed, filial: currentFilial
       }).select('id').single();
-      if(error) throw error;
+      if(error) {
+        // 23505 — строку на этот чек-лист/день уже создал коллега (уникальный индекс).
+        // Не ругаемся, а подхватываем её и досохраняем свои отметки следующим проходом.
+        if(error.code === '23505') {
+          const { data: ex } = await sb.from('checklist_logs').select('id')
+            .eq('template_id', templateId).eq('date', date).eq('filial', currentFilial).limit(1);
+          if(ex && ex.length) {
+            currentChecklistLog.id = ex[0].id;
+            scheduleChecklistSave(templateId, date);
+            return;
+          }
+        }
+        throw error;
+      }
       if(newLog) currentChecklistLog.id = newLog.id;
       _handleChecklistDone(completed, date);
     }
