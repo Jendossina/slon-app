@@ -310,6 +310,32 @@ function getFilialName(id) { return FILIALS.find(f=>f.id===id)?.name || id; }
 const PILOT_MODE = true;
 const PILOT_FILIAL = 'chekhov';
 
+// Картинка с УЖЕ применённой EXIF-ориентацией.
+// Телефон не поворачивает пиксели, а пишет в EXIF «показывать повёрнутым/зеркальным».
+// canvas.toBlob() EXIF не сохраняет, поэтому если отрисовать сырые пиксели, снимок
+// после отправки уезжает боком или зеркалится — с чем и столкнулись на фото Z-отчёта.
+// createImageBitmap с imageOrientation:'from-image' отдаёт пиксели уже развёрнутыми,
+// так что двойного поворота не будет. Где его нет — откатываемся на <img>, ему
+// современные браузеры применяют ориентацию сами.
+async function loadOrientedImage(file) {
+  if(typeof createImageBitmap === 'function') {
+    try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+    catch(e) { /* старый браузер или неподдерживаемый формат — идём запасным путём */ }
+  }
+  const dataUrl = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+  return await new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = rej;
+    i.src = dataUrl;
+  });
+}
+
 // Сжатие изображения перед загрузкой (экономит место в облаке и ускоряет отправку).
 // Видео не трогаем — их сжать в браузере надёжно нельзя. Возвращает File.
 async function compressImage(file, maxSide = 1280, quality = 0.7) {
@@ -318,19 +344,8 @@ async function compressImage(file, maxSide = 1280, quality = 0.7) {
   // gif не трогаем (потеряется анимация)
   if(file.type === 'image/gif') return file;
   try {
-    const dataUrl = await new Promise((res, rej) => {
-      const r = new FileReader();
-      r.onload = () => res(r.result);
-      r.onerror = rej;
-      r.readAsDataURL(file);
-    });
-    const img = await new Promise((res, rej) => {
-      const i = new Image();
-      i.onload = () => res(i);
-      i.onerror = rej;
-      i.src = dataUrl;
-    });
-    let { width, height } = img;
+    const src = await loadOrientedImage(file);
+    let { width, height } = src;
     if(width > maxSide || height > maxSide) {
       if(width >= height) { height = Math.round(height * maxSide / width); width = maxSide; }
       else { width = Math.round(width * maxSide / height); height = maxSide; }
@@ -338,7 +353,8 @@ async function compressImage(file, maxSide = 1280, quality = 0.7) {
     const canvas = document.createElement('canvas');
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, width, height);
+    ctx.drawImage(src, 0, 0, width, height);
+    if(typeof src.close === 'function') src.close(); // освобождаем ImageBitmap
     const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
     if(!blob) return file;
     // Если сжатие не дало выигрыша — оставляем оригинал

@@ -86,3 +86,54 @@ test('кнопка «Внести кассу» открывает модалку
   await expect(page.locator('#modal-kassa')).toHaveClass(/open/);
   expect(errors.filter((e) => /is not a function/.test(e)), JSON.stringify(errors)).toEqual([]);
 });
+
+// Проверяет контракт: фото с EXIF «показывать зеркально» после сжатия должно
+// выйти РАЗвёрнутым, потому что canvas.toBlob() EXIF не сохраняет.
+// ВАЖНО: Chromium применяет EXIF к <img> сам, поэтому здесь проходит и старый
+// код тоже — этот тест не воспроизводит жалобу, а сторожит поведение. Реально
+// ориентацию теряют WebView/Samsung Internet, где drawImage берёт сырые пиксели.
+test('compressImage применяет EXIF-ориентацию, а не зеркалит фото (регресс-тест)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.compressImage === 'function');
+
+  const r = await page.evaluate(async () => {
+    // Картинка: левая половина красная, правая синяя
+    const c = document.createElement('canvas');
+    c.width = 800; c.height = 400;
+    const cx = c.getContext('2d');
+    cx.fillStyle = '#ff0000'; cx.fillRect(0, 0, 400, 400);
+    cx.fillStyle = '#0000ff'; cx.fillRect(400, 0, 400, 400);
+    const plain = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.95));
+    const bytes = new Uint8Array(await plain.arrayBuffer());
+
+    // APP1 с Orientation = 2 («показывать зеркально по горизонтали»)
+    const exif = new Uint8Array([
+      0xFF,0xE1,0x00,0x22, 0x45,0x78,0x69,0x66,0x00,0x00,
+      0x49,0x49,0x2A,0x00, 0x08,0x00,0x00,0x00,
+      0x01,0x00,
+      0x12,0x01,0x03,0x00, 0x01,0x00,0x00,0x00, 0x02,0x00,0x00,0x00,
+      0x00,0x00,0x00,0x00,
+    ]);
+    const withExif = new Uint8Array(bytes.length + exif.length);
+    withExif.set(bytes.subarray(0, 2), 0);             // SOI
+    withExif.set(exif, 2);                             // APP1
+    withExif.set(bytes.subarray(2), 2 + exif.length);  // остальное
+    const file = new File([withExif], 'photo.jpg', { type: 'image/jpeg' });
+
+    const out = await window.compressImage(file, 400, 0.7);
+    const compressed = out !== file && out.size < file.size;
+
+    // Читаем СЫРЫЕ пиксели результата (EXIF в нём уже нет)
+    const bmp = await createImageBitmap(out, { imageOrientation: 'none' });
+    const c2 = document.createElement('canvas');
+    c2.width = bmp.width; c2.height = bmp.height;
+    c2.getContext('2d').drawImage(bmp, 0, 0);
+    const px = (x) => Array.from(c2.getContext('2d').getImageData(x, Math.round(bmp.height / 2), 1, 1).data);
+    return { compressed, left: px(Math.round(bmp.width * 0.1)), right: px(Math.round(bmp.width * 0.9)) };
+  });
+
+  expect(r.compressed, 'сжатие не сработало — сравнение пикселей не показательно').toBe(true);
+  // Orientation=2 => хранится [красный, синий], показывать надо [синий, красный]
+  expect(r.left[2], `слева должно стать синим, получено rgb(${r.left.slice(0,3)})`).toBeGreaterThan(r.left[0]);
+  expect(r.right[0], `справа должно стать красным, получено rgb(${r.right.slice(0,3)})`).toBeGreaterThan(r.right[2]);
+});
