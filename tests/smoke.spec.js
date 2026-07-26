@@ -66,3 +66,23 @@ test('страница логина проходит проверку досту
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
 });
+
+// Регресс-тест: локальная переменная с именем `t` затеняла функцию перевода t(),
+// из-за чего openKassaModal падал с "t is not a function" ДО открытия модалки —
+// кнопка «Внести кассу» выглядела мёртвой, без единого видимого признака ошибки.
+test('кнопка «Внести кассу» открывает модалку, а не падает (регресс-тест)', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.openKassaModal === 'function');
+
+  const threw = await page.evaluate(async () => {
+    try { await window.openKassaModal('2026-01-01'); return null; }
+    catch (e) { return String(e && e.message || e); }
+  });
+
+  expect(threw, 'openKassaModal бросил исключение').toBeNull();
+  await expect(page.locator('#modal-kassa')).toHaveClass(/open/);
+  expect(errors.filter((e) => /is not a function/.test(e)), JSON.stringify(errors)).toEqual([]);
+});

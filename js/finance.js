@@ -166,13 +166,15 @@ function updateAvgCheck() {
 
 let kassaEditDate = null; // день, для которого редактируется касса
 
+// Локальную дату НЕ называем `t` — это имя занято функцией перевода t(),
+// и её затенение здесь уже ломало кнопку «Внести кассу» (t is not a function).
 async function openKassaModal(date) {
-  const t = date || financeSelectedDate || businessToday();
-  const di = document.getElementById('kassa-date'); if(di) di.value = t;
+  const day = date || financeSelectedDate || businessToday();
+  const di = document.getElementById('kassa-date'); if(di) di.value = day;
   document.getElementById('kassa-filial-label').textContent = getFilialName(currentFilial);
-  document.getElementById('kassa-scan-status').textContent = t('fin.scanHint');
+  document.getElementById('kassa-scan-status').textContent = tr('fin.scanHint');
   openModal('modal-kassa');
-  await loadKassaForDate(t);
+  await loadKassaForDate(day);
 }
 
 // Смена даты прямо в модалке — подгружаем кассу за выбранное число (или чистим форму)
