@@ -114,14 +114,8 @@ async function loadProfile2() {
     }
 
     // Смена пароля (внизу всегда)
-    const bioOn = (typeof bioIsEnabled === 'function') && bioIsEnabled();
-    const bioBtn = bioOn
-      ? `<button onclick="disableBiometric()" style="width:100%;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;cursor:pointer;margin-top:8px">${t('pf.bioDisable')}</button>
-         <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center">${t('pf.bioOnHint')}</div>`
-      : `<button onclick="enableBiometric()" style="width:100%;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;cursor:pointer;margin-top:8px">${t('pf.bioEnable')}</button>
-         <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center">${t('pf.bioOffHint')}</div>`;
     const passwordBlock = `<div class="section-label">${t('pf.security')}</div>
-      <div class="card"><button onclick="openMyPasswordModal()" style="width:100%;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;cursor:pointer">${t('pf.changePassword')}</button>${bioBtn}</div>`;
+      <div class="card"><button onclick="openMyPasswordModal()" style="width:100%;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;cursor:pointer">${t('pf.changePassword')}</button></div>`;
 
     // Переключатель языка приложения (RU / UZ) — доступен всем
     const langBlock = `<div class="section-label">🌐 ${t('profile.language')}</div><div class="card">${langSwitcherHTML()}</div>`;
