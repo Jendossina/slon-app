@@ -109,6 +109,8 @@ async function saveDishwareIn() {
 // Бой
 async function openDishwareBreak(itemId) {
   const { data: it } = await sb.from('dishware_items').select('*').eq('id', itemId).single();
+  // См. openSupplyOut: без проверки обрыв связи давал падение на it.name и немую кнопку.
+  if(!it) return showToast(t('common.loadErrConn'));
   document.getElementById('dishware-break-item-id').value = itemId;
   document.getElementById('dishware-break-item-name').textContent = it.name;
   document.getElementById('dishware-break-stock').textContent = t('inv.remaining') + ' ' + dishwareFmt(it.qty) + ' ' + t('dish.pcs') + ' · ' + formatNum(it.cost) + ' ' + t('dish.perPcs');

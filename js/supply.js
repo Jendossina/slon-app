@@ -118,6 +118,9 @@ async function saveSupplyIn() {
 // --- Расход (списание по FIFO) ---
 async function openSupplyOut(itemId) {
   const { data: it } = await sb.from('supply_items').select('*').eq('id', itemId).single();
+  // Без этой проверки при обрыве связи было падение на it.name — окно не открывалось,
+  // и кнопка выглядела мёртвой, ничего не сообщая.
+  if(!it) return showToast(t('common.loadErrConn'));
   const { data: batches } = await sb.from('supply_batches').select('qty_left').eq('item_id', itemId).eq('filial', currentFilial);
   const stock = (batches||[]).reduce((s,b)=>s+Number(b.qty_left),0);
   document.getElementById('supply-out-item-id').value = itemId;
