@@ -34,14 +34,32 @@ function getToken() {
   process.exit(1);
 }
 
-async function q(token, sql) {
-  const r = await fetch(API, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: sql })
-  });
-  if (!r.ok) throw new Error(`API ${r.status}: ${await r.text()}`);
-  return r.json();
+// Запрос с повторами: соединение до api.supabase.com периодически отваливается
+// по таймауту, а бэкап делает десятки запросов подряд — без повторов он падал
+// на первом же сбое и не доходил до конца.
+async function q(token, sql, attempt = 1) {
+  const MAX = 4;
+  try {
+    const r = await fetch(API, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: sql })
+    });
+    // 4xx (кроме 429) — это ошибка запроса, повторять бессмысленно
+    if (!r.ok) {
+      const text = await r.text();
+      const retryable = r.status === 429 || r.status >= 500;
+      if (retryable && attempt < MAX) throw new Error(`retryable ${r.status}: ${text}`);
+      throw Object.assign(new Error(`API ${r.status}: ${text}`), { fatal: !retryable });
+    }
+    return await r.json();
+  } catch (e) {
+    if (e.fatal || attempt >= MAX) throw e;
+    const wait = 1000 * attempt;
+    console.log(`  ⏳ сбой связи (${e.message.slice(0, 60)}), повтор ${attempt + 1}/${MAX} через ${wait / 1000}с`);
+    await new Promise((r) => setTimeout(r, wait));
+    return q(token, sql, attempt + 1);
+  }
 }
 
 const token = getToken();
