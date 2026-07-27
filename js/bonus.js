@@ -189,19 +189,25 @@ function bonusAttestationLine(emp, row, manage) {
   } else {
     text = t('bonus.attSaturday');
   }
-  const retake = (manage && q) ? ` <span onclick="reopenQuiz(${emp.id},'${escJsAttr(emp.name)}')" style="color:var(--gold-dark);cursor:pointer;font-weight:600">${t('bonus.attRetake')}</span>` : '';
+  // Кнопка есть ВСЕГДА, пока управляющий смотрит: назначить тест можно и тому,
+  // кто на этой неделе ещё не начинал — раньше в этом случае она не показывалась,
+  // и открыть аттестацию вне субботы было нельзя.
+  const label = q ? t('bonus.attRetake') : t('bonus.attAssign');
+  const retake = manage ? ` <span onclick="reopenQuiz(${emp.id},'${escJsAttr(emp.name)}')" style="color:var(--gold-dark);cursor:pointer;font-weight:600">${label}</span>` : '';
   return `<div style="font-size:11px;margin-top:8px;color:${color}">🎓 ${text}${retake}</div>`;
 }
 
 // Открыть официанту пересдачу: старая попытка гасится, новая доступна сразу (не только в субботу)
 async function reopenQuiz(empId, empName) {
   if(!canEditData()) return showToast(t('bonus.onlyMgr'));
-  if(!await confirmDialog(t('bonus.attRetakeConfirm', {name: empName}))) return;
+  const had = !!((bonusData?.quiz || {})[empId]);
+  const ask = had ? t('bonus.attRetakeConfirm', {name: empName}) : t('bonus.attAssignConfirm', {name: empName});
+  if(!await confirmDialog(ask)) return;
   try {
     const { data, error } = await sb.rpc('quiz_reopen', { p_employee_id: empId, p_week_start: bonusWeek });
     if(error) return showToast(t('common.error')+error.message);
     if(data?.error) return showToast(t('common.error')+data.error);
-    showToast(t('bonus.attRetakeDone'));
+    showToast(data?.replaced ? t('bonus.attRetakeDone') : t('bonus.attAssignDone', {name: empName}));
     bonusData = null;
     switchBonusTab(bonusTab);
   } catch(e) { showToast(t('common.error')+e.message); }

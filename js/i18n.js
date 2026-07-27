@@ -236,6 +236,8 @@ const I18N = {
     'bonus.attMissed': 'Аттестация не пройдена — блок «Сервис» сгорел', 'bonus.attSaturday': 'Аттестация — в субботу',
     'bonus.attRetake': '· открыть пересдачу', 'bonus.attRetakeConfirm': 'Открыть пересдачу для {name}? Прошлый результат останется в истории, но перестанет учитываться.',
     'bonus.attRetakeDone': 'Пересдача открыта',
+    'bonus.attAssign': '· назначить тест', 'bonus.attAssignDone': 'Тест назначен: {name}',
+    'bonus.attAssignConfirm': 'Назначить {name} аттестацию по меню прямо сейчас? Тест станет доступен на Главной, не дожидаясь субботы.',
     // Аттестация по меню
     'quiz.title': '🎓 Аттестация по меню', 'quiz.progress': 'Вопрос {n} из {total}', 'quiz.back': 'Назад', 'quiz.next': 'Далее', 'quiz.finish': 'Завершить',
     'quiz.checking': 'Проверяю ответы…', 'quiz.passed': 'Сдал', 'quiz.failed': 'Не сдал — нужно было {need} правильных',
@@ -602,6 +604,8 @@ const I18N = {
     'bonus.attMissed': 'Аттестация топширилмаган — «Сервис» блоки куйди', 'bonus.attSaturday': 'Аттестация — шанба куни',
     'bonus.attRetake': '· қайта топшириш', 'bonus.attRetakeConfirm': '{name} учун қайта топшириш очилсинми? Аввалги натижа тарихда қолади, лекин ҳисобга олинмайди.',
     'bonus.attRetakeDone': 'Қайта топшириш очилди',
+    'bonus.attAssign': '· тест тайинлаш', 'bonus.attAssignDone': 'Тест тайинланди: {name}',
+    'bonus.attAssignConfirm': '{name} га меню бўйича аттестация ҳозир тайинлансинми? Тест шанбани кутмасдан Бош саҳифада очилади.',
     // Меню бўйича аттестация
     'quiz.title': '🎓 Меню бўйича аттестация', 'quiz.progress': '{total} тадан {n}-савол', 'quiz.back': 'Орқага', 'quiz.next': 'Кейинги', 'quiz.finish': 'Якунлаш',
     'quiz.checking': 'Жавоблар текширилмоқда…', 'quiz.passed': 'Топширди', 'quiz.failed': 'Топширмади — {need} та тўғри жавоб керак эди',
