@@ -468,10 +468,32 @@ async function loadDashChecklists() {
     }
 
     if(days.length) {
-      html += `<div class="card"><div style="font-size:12px;font-weight:700;color:var(--gold-dark);margin-bottom:6px">${t('dash.c.byDay')}</div>`
-        + days.map(([d, x]) => dashRow(fmtDateShort(d, { weekday:'short', day:'numeric', month:'short' }),
-            t('dash.c.daySub', { full:x.full, started:x.started }),
-            x.full + '/' + x.started, x.full === x.started ? '#3B6D11' : '#8a6a2f')).join('') + '</div>';
+      // День в день: внутри каждого дня каждый чек-лист отдельной строкой —
+      // открытие отдельно, закрытие отдельно, а не одна цифра «закрыто 2 из 3».
+      html += `<div class="card"><div style="font-size:12px;font-weight:700;color:var(--gold-dark);margin-bottom:6px">${t('dash.c.byDay')}</div>`;
+      html += days.map(([d, x]) => {
+        const dayLogs = logs.filter(l => l.date === d && tpl[l.template_id])
+          .sort((a, b) => (tpl[a.template_id].department || '').localeCompare(tpl[b.template_id].department || '')
+                       || tpl[a.template_id].name.localeCompare(tpl[b.template_id].name));
+        const dayMiss = misses.filter(m => m.date === d);
+        const head = `<div style="display:flex;justify-content:space-between;align-items:baseline;margin:10px 0 4px;padding-top:8px;border-top:1px solid var(--border)">
+            <span style="font-size:13px;font-weight:700;color:var(--text-primary)">${fmtDateShort(d, { weekday:'long', day:'numeric', month:'long' })}</span>
+            <span style="font-size:12px;font-weight:700;color:${x.full===x.started?'#3B6D11':'#8a6a2f'}">${t('dash.c.daySub', { full:x.full, started:x.started })}</span>
+          </div>`;
+        const rows = dayLogs.map(l => {
+          const counts = {};
+          Object.values(l.items_by || {}).forEach(n => { if(n) counts[n] = (counts[n] || 0) + 1; });
+          const who = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([n, c]) => `${escapeHtml(n)} — ${c}`).join(', ');
+          const p = pctOf(l);
+          return dashRow((l.completed ? '✅ ' : '') + tpl[l.template_id].name,
+            t('dash.c.doneOf', { done:(l.items_done || []).length, total:totalOf(l.template_id) }) + (who ? ' · ' + who : ''),
+            p + '%', p >= 100 ? '#3B6D11' : p >= 70 ? '#8a6a2f' : '#A32D2D');
+        }).join('');
+        // Не начатые в этот день чек-листы видны только как невыполнения
+        const missRows = dayMiss.map(m => dashRow('⚠️ ' + (m.template_name || '—'),
+          t('dash.c.notStarted') + ' · ' + escapeHtml(m.employee_names || '—'), '0%', '#A32D2D')).join('');
+        return head + rows + missRows;
+      }).join('') + '</div>';
     }
 
     html += `<div class="card"><div style="font-size:12px;font-weight:700;color:${misses.length?'#A32D2D':'#3B6D11'};margin-bottom:6px">${t('dash.c.misses', { n:misses.length })}</div>`;
