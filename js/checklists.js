@@ -13,7 +13,7 @@ const CHECKLIST_DEPT_ICONS = {'Официанты':'🍽️','Бармены':'�
 
 // Инициализация экрана чек-листов: определяем отдел и строим вкладки
 async function initChecklistScreen() {
-  document.getElementById('checklist-date').textContent = fmtLocale(new Date(), {weekday:'long', day:'numeric', month:'long'});
+  document.getElementById('checklist-date').textContent = fmtLocale(new Date(businessToday()), {weekday:'long', day:'numeric', month:'long'});
   const canSeeAll = canEditData() || isBoss();
 
   // Отдел по умолчанию — свой у сотрудника
@@ -74,7 +74,7 @@ async function loadChecklist(type) {
   await flushChecklistSave(); // досохраняем отметки предыдущего чек-листа перед перерисовкой
   const content = document.getElementById('checklist-content');
   content.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
-  document.getElementById('checklist-date').textContent = fmtLocale(new Date(), {weekday:'long', day:'numeric', month:'long'});
+  document.getElementById('checklist-date').textContent = fmtLocale(new Date(businessToday()), {weekday:'long', day:'numeric', month:'long'});
 
   try {
     // Get template
@@ -86,7 +86,10 @@ async function loadChecklist(type) {
 
     // Общий чек-лист на отдел/смену: берём лог по (шаблон + дата + филиал), без привязки к пользователю.
     // Если из-за старых персональных записей строк несколько — берём самую заполненную.
-    const todayStr = today();
+    // Кассовый день, а НЕ календарный: смена идёт до ~03:00, и чек-лист закрытия,
+    // заполненный после полуночи, относится к дню НАЧАЛА смены. Так же считает
+    // проверка просрочки в базе (business_today) — даты обязаны совпадать.
+    const todayStr = businessToday();
     const { data: logs } = await sb.from('checklist_logs')
       .select('*')
       .eq('template_id', template.id)
@@ -326,7 +329,7 @@ async function uploadChecklistMedia() {
       if(upErr) throw upErr;
       currentChecklistLog.items_media = itemsMedia;
     } else {
-      const dateStr = today();
+      const dateStr = businessToday();
       // Отметки берём локальные — раньше сюда уходил пустой список и стирал их
       const localDone = currentChecklistLog?.items_done || [];
       const localBy = currentChecklistLog?.items_by || {};
@@ -420,7 +423,7 @@ async function flushChecklistSave() {
 
 async function saveChecklistNow(templateId, date) {
   templateId = templateId || currentChecklistTemplate?.id;
-  date = date || today();
+  date = date || businessToday();
   if(!currentChecklistLog || !currentChecklistTemplate) return;
   if(clSaving) { scheduleChecklistSave(templateId, date); return; } // идёт запись — повторим позже
   clSaving = true;
