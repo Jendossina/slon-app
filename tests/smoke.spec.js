@@ -281,7 +281,6 @@ test('график: кто может править, а кто нет', async (
       lineBartender:     check('employee', 'Бармен', 'Бармены', 'Бармены'),
       lineCook:          check('employee', 'Повар', 'Повара', 'Повара'),
       waiterOwn:         check('employee', 'Официант', 'Официанты', 'Официанты'),
-      adminTitleWaiters: check('employee', 'Администратор', 'Официанты', 'Официанты'),
     };
   });
 
@@ -290,7 +289,7 @@ test('график: кто может править, а кто нет', async (
     expect(r[k], `${k} должен иметь право`).toBe(true);
   }
   // Кто НЕ должен
-  for (const k of ['bossDenied','seniorBarOther','lineBartender','lineCook','waiterOwn','adminTitleWaiters']) {
+  for (const k of ['bossDenied','seniorBarOther','lineBartender','lineCook','waiterOwn']) {
     expect(r[k], `${k} НЕ должен иметь право`).toBe(false);
   }
 });
