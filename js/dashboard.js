@@ -221,7 +221,7 @@ async function loadDashOverview() {
   }
 }
 
-function setDashPeriod(p) { dashPeriod = p; loadDashboard(); }
+function setDashPeriod(p) { dashPeriod = p; dashClTpl = null; loadDashboard(); }
 
 // ===== ВКЛАДКИ ДАШБОРДА =====
 // Управляющий видит подробную отчётность по вкладкам, владелец — только «Обзор»:
@@ -248,7 +248,7 @@ function renderDashTabs() {
   el.innerHTML = tabs.map(x => '<button onclick="setDashTab(\'' + x.id + '\')" class="chip' + (x.id===dashTab?' on':'') + '">' + x.label + '</button>').join('');
 }
 
-function setDashTab(id) { dashTab = id; renderDashTabs(); loadDashboardTab(); }
+function setDashTab(id) { dashTab = id; dashClTpl = null; renderDashTabs(); loadDashboardTab(); }
 
 async function loadDashboard() {
   if(!dashTabList().some(x => x.id === dashTab)) dashTab = 'overview';
@@ -380,7 +380,12 @@ async function loadDashTasks() {
   } catch(e) { content.innerHTML = dashEmpty(t('dash.loadErr') + (e?.message || e)); }
 }
 
-// ---- Чек-листы ----
+// ---- Чек-листы: сводка + разбивка по сотрудникам и по дням ----
+let dashClTpl = null;   // открыт разбор конкретного чек-листа
+
+function openDashChecklist(id) { dashClTpl = id; loadDashChecklists(); }
+function closeDashChecklist() { dashClTpl = null; loadDashChecklists(); }
+
 async function loadDashChecklists() {
   const content = document.getElementById('dashboard-content');
   content.innerHTML = `<div class="loading">${t('dash.collecting')}</div>`;
@@ -388,35 +393,86 @@ async function loadDashChecklists() {
   const { from, to } = dashDateRange();
   try {
     const [logRes, tplRes, missRes] = await Promise.all([
-      sb.from('checklist_logs').select('template_id,date,items_done,completed,user_name').in('filial', fids).gte('date', from).lte('date', to),
+      sb.from('checklist_logs').select('template_id,date,items_done,items_by,completed,user_name').in('filial', fids).gte('date', from).lte('date', to),
       sb.from('checklist_templates').select('id,name,department,items').eq('is_active', true),
       sb.from('checklist_misses').select('*').in('filial', fids).gte('date', from).lte('date', to).order('date', { ascending:false }),
     ]);
     const tpl = {}; (tplRes.data || []).forEach(x => { tpl[x.id] = x; });
     const logs = logRes.data || [];
     const misses = missRes.data || [];
+    const totalOf = id => ((tpl[id]?.items) || []).length || 1;
+    const pctOf = l => Math.min(100, Math.round(((l.items_done || []).length / totalOf(l.template_id)) * 100));
 
-    // Заполнение по чек-листам: сколько дней сдано полностью и средний процент
+    // ===== Разбор одного чек-листа: по дням =====
+    if(dashClTpl) {
+      const tt = tpl[dashClTpl];
+      const days = logs.filter(l => l.template_id === dashClTpl).sort((a, b) => b.date.localeCompare(a.date));
+      let html = `<button onclick="closeDashChecklist()" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;cursor:pointer;margin-bottom:10px">${t('dash.c.back')}</button>`;
+      html += dashHead(tt?.name || '—', tt?.department || '');
+      html += days.length ? '<div class="card">' + days.map(l => {
+        const counts = {};
+        Object.values(l.items_by || {}).forEach(n => { if(n) counts[n] = (counts[n] || 0) + 1; });
+        const who = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([n, c]) => `${escapeHtml(n)} — ${c}`).join(', ');
+        const p = pctOf(l);
+        return dashRow(fmtDateShort(l.date, { weekday:'short', day:'numeric', month:'short' }),
+          `${t('dash.c.doneOf', { done:(l.items_done||[]).length, total:totalOf(l.template_id) })}${who ? ' · ' + who : ''}`,
+          (l.completed ? '✅ ' : '') + p + '%', p >= 100 ? '#3B6D11' : p >= 70 ? '#8a6a2f' : '#A32D2D');
+      }).join('') + '</div>' : dashEmpty(t('dash.noPeriodData'));
+      content.innerHTML = html;
+      return;
+    }
+
+    // ===== По чек-листам =====
     const byTpl = {};
     logs.forEach(l => {
-      const tt = tpl[l.template_id];
-      if(!tt) return;
-      const total = (tt.items || []).length || 1;
-      const b = byTpl[l.template_id] = byTpl[l.template_id] || { name: tt.name, dept: tt.department, days:0, full:0, sum:0 };
+      if(!tpl[l.template_id]) return;
+      const b = byTpl[l.template_id] = byTpl[l.template_id] || { id:l.template_id, name:tpl[l.template_id].name, dept:tpl[l.template_id].department, days:0, full:0, sum:0 };
       b.days++;
       if(l.completed) b.full++;
-      b.sum += Math.min(100, Math.round(((l.items_done || []).length / total) * 100));
+      b.sum += pctOf(l);
     });
     const rows = Object.values(byTpl).sort((a, b) => (a.sum / a.days) - (b.sum / b.days));
 
+    // ===== По сотрудникам: сколько пунктов отметил каждый =====
+    const byPerson = {};
+    logs.forEach(l => {
+      Object.values(l.items_by || {}).forEach(n => { if(n) byPerson[n] = (byPerson[n] || 0) + 1; });
+    });
+    const persons = Object.entries(byPerson).sort((a, b) => b[1] - a[1]);
+
+    // ===== По дням: сколько чек-листов закрыто полностью =====
+    const byDay = {};
+    logs.forEach(l => {
+      const d = byDay[l.date] = byDay[l.date] || { started:0, full:0 };
+      d.started++;
+      if(l.completed) d.full++;
+    });
+    const days = Object.entries(byDay).sort((a, b) => b[0].localeCompare(a[0]));
+
     let html = dashHead(t('dash.tab.checklists'));
+
     html += rows.length
-      ? '<div class="card">' + rows.map(r => {
-          const avg = Math.round(r.sum / r.days);
-          return dashRow(r.name, escapeHtml(r.dept || '') + ' · ' + t('dash.c.daysFull', { full:r.full, days:r.days }),
-            avg + '%', avg >= 95 ? '#3B6D11' : avg >= 70 ? '#8a6a2f' : '#A32D2D');
-        }).join('') + '</div>'
+      ? `<div class="card"><div style="font-size:12px;font-weight:700;color:var(--gold-dark);margin-bottom:6px">${t('dash.c.byChecklist')}</div>`
+        + rows.map(r => {
+            const avg = Math.round(r.sum / r.days);
+            return `<div onclick="openDashChecklist(${r.id})" style="cursor:pointer">`
+              + dashRow(r.name + ' ›', escapeHtml(r.dept || '') + ' · ' + t('dash.c.daysFull', { full:r.full, days:r.days }),
+                  avg + '%', avg >= 95 ? '#3B6D11' : avg >= 70 ? '#8a6a2f' : '#A32D2D')
+              + '</div>';
+          }).join('') + '</div>'
       : dashEmpty(t('dash.noPeriodData'));
+
+    if(persons.length) {
+      html += `<div class="card"><div style="font-size:12px;font-weight:700;color:var(--gold-dark);margin-bottom:6px">${t('dash.c.byPerson')}</div>`
+        + persons.map(([n, c]) => dashRow(n, t('dash.c.itemsTicked', { n:c }), c)).join('') + '</div>';
+    }
+
+    if(days.length) {
+      html += `<div class="card"><div style="font-size:12px;font-weight:700;color:var(--gold-dark);margin-bottom:6px">${t('dash.c.byDay')}</div>`
+        + days.map(([d, x]) => dashRow(fmtDateShort(d, { weekday:'short', day:'numeric', month:'short' }),
+            t('dash.c.daySub', { full:x.full, started:x.started }),
+            x.full + '/' + x.started, x.full === x.started ? '#3B6D11' : '#8a6a2f')).join('') + '</div>';
+    }
 
     html += `<div class="card"><div style="font-size:12px;font-weight:700;color:${misses.length?'#A32D2D':'#3B6D11'};margin-bottom:6px">${t('dash.c.misses', { n:misses.length })}</div>`;
     html += misses.length

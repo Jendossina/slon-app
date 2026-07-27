@@ -528,8 +528,15 @@ async function saveChecklistNow(templateId, date) {
 function _handleChecklistDone(completed, date) {
   if(completed && !clNotified) {
     clNotified = true;
-    const typeLabels = { open:'Открытие смены', second:'2-й официант', close:'Закрытие смены' };
-    const msg = `☑️ <b>Чек-лист выполнен!</b>\n\n📋 ${typeLabels[currentChecklistType]||''} · ${currentChecklistDept||''}\n📅 ${date}`;
+    // Название берём из шаблона: прежний короткий список знал только зал,
+    // и бар/кухня/кальянная уходили в уведомление с пустым названием.
+    const clName = currentChecklistTemplate?.name || currentChecklistType || '';
+    // Кто отмечал и сколько пунктов — раньше имён в уведомлении не было вовсе
+    const counts = {};
+    Object.values(currentChecklistLog?.items_by || {}).forEach(n => { if(n) counts[n] = (counts[n] || 0) + 1; });
+    const who = Object.entries(counts).sort((a,b)=>b[1]-a[1])
+      .map(([n,c]) => `${tgEscape(n)} — ${c}`).join('\n');
+    const msg = `☑️ <b>Чек-лист выполнен</b>\n\n📋 ${tgEscape(clName)} · ${tgEscape(currentChecklistDept||'')}\n📅 ${date}\n\n👤 <b>Кто отмечал:</b>\n${who || '—'}`;
     // Старшие по цеху + все управляющие (и владелец) — вверх по иерархии
     if(typeof notifyDeptSeniors === 'function' && currentChecklistDept) notifyDeptSeniors(currentChecklistDept, 1, msg, 'checklist_done');
     if(typeof notifyAdminsAll === 'function') notifyAdminsAll(msg + `\n\nОткрой приложение: https://slon-app.vercel.app`, 'checklist_done');
