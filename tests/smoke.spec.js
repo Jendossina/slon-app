@@ -253,3 +253,44 @@ test('галочки, поставленные во время сохранен�
   expect(local, 'в приложении должны остаться все 5 отметок').toEqual([1, 2, 3, 4, 5]);
   expect(server.slice().sort((a, b) => a - b), 'в базу должны уйти все 5 отметок').toEqual([1, 2, 3, 4, 5]);
 });
+
+// Права на график по должности: старший цеха правит только свой цех.
+test('график: кто может править, а кто нет', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.canEditScheduleDept === 'function');
+
+  const r = await page.evaluate(() => {
+    const check = (role, empRole, empDept, dept) => {
+      eval(`
+        currentProfile = { role: ${JSON.stringify(role)}, employee_id: 1 };
+        currentEmployee = ${empRole ? `{ id:1, role: ${JSON.stringify(empRole)}, department: ${JSON.stringify(empDept)} }` : 'null'};
+      `);
+      return window.canEditScheduleDept(dept);
+    };
+    return {
+      adminAnyDept:      check('admin', null, null, 'Бармены'),
+      managerAnyDept:    check('manager', null, null, 'Повара'),
+      bossDenied:        check('boss', null, null, 'Бармены'),
+      seniorBarOwnDept:  check('employee', 'Старший бармен', 'Бармены', 'Бармены'),
+      seniorBarOther:    check('employee', 'Старший бармен', 'Бармены', 'Повара'),
+      barManagerOwn:     check('employee', 'Бар менеджер', 'Бармены', 'Бармены'),
+      sousChefOwn:       check('employee', 'Су-шеф', 'Повара', 'Повара'),
+      headChefOwn:       check('employee', 'Шеф повар', 'Повара', 'Повара'),
+      seniorHookahOwn:   check('employee', 'Старший кальянный мастер', 'Кальянные мастера', 'Кальянные мастера'),
+      hookahChefOwn:     check('employee', 'Шеф кальянной станции', 'Кальянные мастера', 'Кальянные мастера'),
+      lineBartender:     check('employee', 'Бармен', 'Бармены', 'Бармены'),
+      lineCook:          check('employee', 'Повар', 'Повара', 'Повара'),
+      waiterOwn:         check('employee', 'Официант', 'Официанты', 'Официанты'),
+      adminTitleWaiters: check('employee', 'Администратор', 'Официанты', 'Официанты'),
+    };
+  });
+
+  // Кто ДОЛЖЕН мочь
+  for (const k of ['adminAnyDept','managerAnyDept','seniorBarOwnDept','barManagerOwn','sousChefOwn','headChefOwn','seniorHookahOwn','hookahChefOwn']) {
+    expect(r[k], `${k} должен иметь право`).toBe(true);
+  }
+  // Кто НЕ должен
+  for (const k of ['bossDenied','seniorBarOther','lineBartender','lineCook','waiterOwn','adminTitleWaiters']) {
+    expect(r[k], `${k} НЕ должен иметь право`).toBe(false);
+  }
+});

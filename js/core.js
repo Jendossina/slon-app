@@ -99,6 +99,29 @@ function computeWaiterBonus(s) {
   return { cats, percent, amount: Math.round((Number(s.revenue) || 0) * percent / 100) };
 }
 
+// ===== КТО ПРАВИТ ГРАФИК СВОЕГО ЦЕХА =====
+// Помимо управляющего и менеджера, график своего отдела ведут старшие цеха.
+// Ключ — отдел, значение — должности (employees.role), а НЕ системные роли.
+// «Официанты» здесь намеренно нет: их график остаётся за руководством.
+const SCHEDULE_DEPT_EDITORS = {
+  'Бармены':            ['Старший бармен', 'Бар менеджер', 'Шеф бармен'],
+  'Повара':             ['Су-шеф', 'Шеф повар'],
+  'Кальянные мастера':  ['Старший кальянный мастер', 'Шеф кальянной станции'],
+};
+
+// Карточка сотрудника текущего пользователя (должность и цех) — нужна для прав
+// по должности. Заполняется при входе, чтобы не ходить в базу на каждый клик.
+let currentEmployee = null;
+
+// Может ли текущий пользователь править график этого отдела
+function canEditScheduleDept(dept) {
+  if(canEditData()) return true;            // управляющий и менеджер — любой отдел
+  if(isBoss()) return false;                // владелец только смотрит
+  if(!dept || !currentEmployee) return false;
+  if(currentEmployee.department !== dept) return false;  // только свой цех
+  return (SCHEDULE_DEPT_EDITORS[dept] || []).includes(currentEmployee.role);
+}
+
 // Единый вид секции цеха для списков сотрудников (HR и админ-панель)
 const DEPT_ICONS = { 'Менеджеры':'📋', 'Официанты':'🍽️', 'Бармены':'🍹', 'Кальянные мастера':'💨', 'Повара':'👨‍🍳', 'Техперсонал':'🔧', 'Без отдела':'👥' };
 function deptSection(dept, count, innerHtml) {
@@ -737,8 +760,14 @@ async function fullLogout() {
 
 async function loadProfile() {
   const { data } = await sb.from('profiles').select('*').eq('user_id', currentUser.id).single();
-  if(data) { 
-    currentProfile = data; 
+  if(data) {
+    currentProfile = data;
+    // Должность и цех — от них зависят права старших цеха (см. canEditScheduleDept)
+    currentEmployee = null;
+    if(data.employee_id) {
+      const { data: emp } = await sb.from('employees').select('id,name,role,department').eq('id', data.employee_id).single();
+      if(emp) currentEmployee = emp;
+    }
   } else {
     // No profile found - check if this is the first admin
     const { data: adminCount } = await sb.from('profiles').select('id').eq('role','admin');

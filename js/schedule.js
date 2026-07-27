@@ -63,7 +63,8 @@ async function loadSchedule() {
   const role = currentProfile?.role;
   const fabBtn = document.getElementById('fab-schedule-btn');
   const fabWeekBtn = document.getElementById('fab-week-btn');
-  const canEdit = canEditData();
+  // Права считаем на ТЕКУЩИЙ отдел: старший цеха правит только свой
+  const canEdit = canEditScheduleDept(currentDept);
   if(fabBtn) fabBtn.style.display = canEdit ? 'block' : 'none';
   if(fabWeekBtn) fabWeekBtn.style.display = canEdit ? 'block' : 'none';
 
@@ -138,7 +139,7 @@ async function loadScheduleGrid() {
     (schedR.data||[]).forEach(s => { schedMap[s.date+'_'+s.employee_id] = s; });
 
     const dayNames = getLang()==='uz' ? ['Ду','Се','Чо','Па','Жу','Ша','Як'] : ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-    const isAdmin = canEditData();
+    const isAdmin = canEditScheduleDept(dept);
 
     let html = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <div style="display:flex;gap:6px;margin-bottom:8px">
@@ -408,7 +409,7 @@ function applyToAllDays() {
 }
 
 async function saveWeekFill() {
-  if(!canEditData()) return showToast(t('common.observerMode'));
+  if(!canEditScheduleDept(currentDept)) return showToast(t('sch.noRightsDept'));
   const sel = document.getElementById('week-employee');
   const empId = sel.value;
   const empName = sel.options[sel.selectedIndex]?.getAttribute('data-name') || '';
@@ -453,7 +454,7 @@ async function saveWeekFill() {
 }
 
 async function addSchedule() {
-  if(!canEditData()) return showToast(t('common.observerMode'));
+  if(!canEditScheduleDept(currentDept)) return showToast(t('sch.noRightsDept'));
   const empId = quickEditEmpId;
   const empName = quickEditEmpName;
   const date = quickEditDate || businessToday();
@@ -487,7 +488,7 @@ async function addSchedule() {
 }
 
 async function deleteSchedule(id) {
-  if(!canEditData()) return showToast(t('common.observerMode'));
+  if(!canEditScheduleDept(currentDept)) return showToast(t('sch.noRightsDept'));
   await sb.from('schedules').delete().eq('id', id);
   showToast(t('sch.deleted'));
   loadScheduleGrid();
