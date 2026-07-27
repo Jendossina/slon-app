@@ -55,7 +55,7 @@ function dashDelta(cur, prev, inverse) {
   return ` <span style="font-size:12px;font-weight:600;color:${color}">${up?'↑':'↓'}${sign}${pct}%</span>`;
 }
 
-async function loadDashboard() {
+async function loadDashOverview() {
   const sw = document.getElementById('dash-period-switcher');
   const periods = [{id:'today',label:t('dash.periodToday')},{id:'week',label:t('dash.periodWeek')},{id:'month',label:t('dash.periodMonth')}];
   if(sw) sw.innerHTML = periods.map(p=>`<button onclick="setDashPeriod('${p.id}')" style="flex:1;padding:9px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:${p.id===dashPeriod?'var(--gold-dark)':'var(--surface-2)'};color:${p.id===dashPeriod?'#fff':'var(--text-primary)'}">${p.label}</button>`).join('');
@@ -222,3 +222,264 @@ async function loadDashboard() {
 }
 
 function setDashPeriod(p) { dashPeriod = p; loadDashboard(); }
+
+// ===== ВКЛАДКИ ДАШБОРДА =====
+// Управляющий видит подробную отчётность по вкладкам, владелец — только «Обзор»:
+// он в приложении наблюдатель, ему нужна сводка, а не разбор по людям.
+let dashTab = 'overview';
+
+function dashTabList() {
+  const all = [
+    { id:'overview',   label:t('dash.tab.overview') },
+    { id:'attendance', label:t('dash.tab.attendance') },
+    { id:'tasks',      label:t('dash.tab.tasks') },
+    { id:'checklists', label:t('dash.tab.checklists') },
+    { id:'people',     label:t('dash.tab.people') },
+  ];
+  return isBoss() ? all.slice(0, 1) : all;
+}
+
+function renderDashTabs() {
+  const el = document.getElementById('dash-tabs');
+  if(!el) return;
+  const tabs = dashTabList();
+  if(tabs.length < 2) { el.innerHTML = ''; el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  el.innerHTML = tabs.map(x => '<button onclick="setDashTab(\'' + x.id + '\')" class="chip' + (x.id===dashTab?' on':'') + '">' + x.label + '</button>').join('');
+}
+
+function setDashTab(id) { dashTab = id; renderDashTabs(); loadDashboardTab(); }
+
+async function loadDashboard() {
+  if(!dashTabList().some(x => x.id === dashTab)) dashTab = 'overview';
+  renderDashTabs();
+  await loadDashboardTab();
+}
+
+async function loadDashboardTab() {
+  if(dashTab === 'attendance') return loadDashAttendance();
+  if(dashTab === 'tasks')      return loadDashTasks();
+  if(dashTab === 'checklists') return loadDashChecklists();
+  if(dashTab === 'people')     return loadDashPeople();
+  return loadDashOverview();
+}
+
+// Шапка вкладки: период и охват — чтобы цифры нельзя было прочитать не за тот срок
+function dashHead(title, extra) {
+  return `<div class="card" style="padding:10px 12px;margin-bottom:10px">
+    <div style="font-size:13px;font-weight:700;color:var(--gold-dark)">${title}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${dashPeriodLabel()}${extra ? ' · ' + extra : ''}</div>
+  </div>`;
+}
+function dashEmpty(text) { return `<div class="card"><div class="empty"><div class="empty-text">${text}</div></div></div>`; }
+function dashRow(name, sub, right, rightColor) {
+  return `<div class="list-item">
+    <div class="item-info"><div class="item-name">${escapeHtml(name)}</div>${sub ? `<div class="item-sub">${sub}</div>` : ''}</div>
+    <div style="font-weight:700;white-space:nowrap;color:${rightColor || 'var(--text-primary)'}">${right}</div>
+  </div>`;
+}
+
+// ---- Явка и опоздания ----
+async function loadDashAttendance() {
+  const content = document.getElementById('dashboard-content');
+  content.innerHTML = `<div class="loading">${t('dash.collecting')}</div>`;
+  const fids = dashActiveFilials().map(f => f.id);
+  const { from, to } = dashDateRange();
+  try {
+    const [attRes, schedRes, empRes] = await Promise.all([
+      sb.from('attendance').select('employee_id,date,check_in_time,is_late,late_minutes,penalty').in('filial', fids).gte('date', from).lte('date', to),
+      sb.from('schedules').select('employee_id,date,is_day_off').in('filial', fids).gte('date', from).lte('date', to),
+      sb.from('employees').select('id,name,department'),
+    ]);
+    const emp = {}; (empRes.data || []).forEach(e => { emp[e.id] = e; });
+    const stat = {};
+    const touch = id => (stat[id] = stat[id] || { planned:0, came:0, late:0, lateMin:0, penalty:0 });
+    (schedRes.data || []).forEach(s => { if(!s.is_day_off) touch(s.employee_id).planned++; });
+    (attRes.data || []).forEach(a => {
+      const x = touch(a.employee_id);
+      if(a.check_in_time) x.came++;
+      if(a.is_late) { x.late++; x.lateMin += Number(a.late_minutes) || 0; }
+      x.penalty += Number(a.penalty) || 0;
+    });
+
+    const rows = Object.entries(stat)
+      .map(([id, x]) => Object.assign({ id, name: emp[id]?.name || ('#' + id), dept: emp[id]?.department || '' }, x))
+      .filter(r => r.planned > 0 || r.came > 0)
+      .sort((a, b) => (b.late - a.late) || (a.name > b.name ? 1 : -1));
+
+    if(rows.length === 0) { content.innerHTML = dashHead(t('dash.tab.attendance')) + dashEmpty(t('dash.noPeriodData')); return; }
+
+    const totPlanned = rows.reduce((s, r) => s + r.planned, 0);
+    const totCame = rows.reduce((s, r) => s + r.came, 0);
+    const totLate = rows.reduce((s, r) => s + r.late, 0);
+    const pct = totPlanned ? Math.round(totCame / totPlanned * 100) : 0;
+
+    content.innerHTML = dashHead(t('dash.tab.attendance'))
+      + `<div class="card" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;margin-bottom:10px">
+          <div><div style="font-size:20px;font-weight:800;color:${pct>=90?'#3B6D11':pct>=70?'#8a6a2f':'#A32D2D'}">${totPlanned?pct+'%':'—'}</div><div style="font-size:11px;color:var(--text-muted)">${t('dash.attend')}</div></div>
+          <div><div style="font-size:20px;font-weight:800">${totCame}/${totPlanned}</div><div style="font-size:11px;color:var(--text-muted)">${t('dash.a.shifts')}</div></div>
+          <div><div style="font-size:20px;font-weight:800;color:${totLate?'#A32D2D':'#3B6D11'}">${totLate}</div><div style="font-size:11px;color:var(--text-muted)">${t('dash.lates')}</div></div>
+        </div>`
+      + '<div class="card">' + rows.map(r => {
+          const miss = r.planned - r.came;
+          const sub = [
+            t('dash.a.came', { came:r.came, planned:r.planned }),
+            r.late ? `<span style="color:#A32D2D">${t('dash.a.late', { n:r.late, m:Math.round(r.lateMin/r.late) })}</span>` : '',
+            miss > 0 ? `<span style="color:#A32D2D">${t('dash.a.missed', { n:miss })}</span>` : '',
+            (r.penalty > 0 && canSeeFinance()) ? t('dash.a.penalty', { n:formatNum(r.penalty) }) : '',
+          ].filter(Boolean).join(' · ');
+          return dashRow(r.name, sub, r.late ? r.late : '✓', r.late ? '#A32D2D' : '#3B6D11');
+        }).join('') + '</div>';
+  } catch(e) { content.innerHTML = dashEmpty(t('dash.loadErr') + (e?.message || e)); }
+}
+
+// ---- Задачи ----
+async function loadDashTasks() {
+  const content = document.getElementById('dashboard-content');
+  content.innerHTML = `<div class="loading">${t('dash.collecting')}</div>`;
+  const fids = dashActiveFilials().map(f => f.id);
+  const { from, to } = dashDateRange();
+  try {
+    const { data } = await sb.from('tasks').select('id,title,status,due_date,assigned_to_name')
+      .in('filial', fids).gte('due_date', from).lte('due_date', to).order('due_date');
+    const tasks = data || [];
+    if(tasks.length === 0) { content.innerHTML = dashHead(t('dash.tab.tasks')) + dashEmpty(t('dash.noPeriodData')); return; }
+
+    const todayStr = today();
+    const done = tasks.filter(x => x.status === 'done');
+    const overdue = tasks.filter(x => x.status !== 'done' && x.due_date < todayStr);
+    const open = tasks.filter(x => x.status !== 'done' && x.due_date >= todayStr);
+    const pct = Math.round(done.length / tasks.length * 100);
+
+    const byPerson = {};
+    tasks.forEach(x => {
+      const k = x.assigned_to_name || t('dash.t.nobody');
+      const b = byPerson[k] = byPerson[k] || { all:0, done:0, overdue:0 };
+      b.all++;
+      if(x.status === 'done') b.done++;
+      else if(x.due_date < todayStr) b.overdue++;
+    });
+    const people = Object.entries(byPerson).sort((a, b) => b[1].overdue - a[1].overdue || b[1].all - a[1].all);
+
+    content.innerHTML = dashHead(t('dash.tab.tasks'))
+      + `<div class="card" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;margin-bottom:10px">
+          <div><div style="font-size:20px;font-weight:800;color:${pct>=80?'#3B6D11':'#8a6a2f'}">${pct}%</div><div style="font-size:11px;color:var(--text-muted)">${t('dash.t.doneShort')}</div></div>
+          <div><div style="font-size:20px;font-weight:800">${done.length}/${tasks.length}</div><div style="font-size:11px;color:var(--text-muted)">${t('dash.tasks')}</div></div>
+          <div><div style="font-size:20px;font-weight:800;color:${overdue.length?'#A32D2D':'#3B6D11'}">${overdue.length}</div><div style="font-size:11px;color:var(--text-muted)">${t('dash.t.overdue')}</div></div>
+        </div>`
+      + `<div class="card"><div style="font-size:12px;font-weight:700;color:var(--gold-dark);margin-bottom:6px">${t('dash.t.byPerson')}</div>`
+      + people.map(([name, b]) => dashRow(name,
+          t('dash.t.personSub', { done:b.done, all:b.all }) + (b.overdue ? ` · <span style="color:#A32D2D">${t('dash.t.overdueN', { n:b.overdue })}</span>` : ''),
+          Math.round(b.done / b.all * 100) + '%', b.done / b.all >= 0.8 ? '#3B6D11' : '#8a6a2f')).join('')
+      + '</div>'
+      + (overdue.length ? `<div class="card"><div style="font-size:12px;font-weight:700;color:#A32D2D;margin-bottom:6px">${t('dash.t.overdueList')}</div>`
+          + overdue.slice(0, 20).map(x => dashRow(x.title || '—',
+              fmtDateShort(x.due_date, { day:'numeric', month:'short' }) + ' · ' + escapeHtml(x.assigned_to_name || t('dash.t.nobody')),
+              '', '')).join('') + '</div>' : '')
+      + (open.length ? `<div style="font-size:11px;color:var(--text-muted);padding:0 4px">${t('dash.t.stillOpen', { n:open.length })}</div>` : '');
+  } catch(e) { content.innerHTML = dashEmpty(t('dash.loadErr') + (e?.message || e)); }
+}
+
+// ---- Чек-листы ----
+async function loadDashChecklists() {
+  const content = document.getElementById('dashboard-content');
+  content.innerHTML = `<div class="loading">${t('dash.collecting')}</div>`;
+  const fids = dashActiveFilials().map(f => f.id);
+  const { from, to } = dashDateRange();
+  try {
+    const [logRes, tplRes, missRes] = await Promise.all([
+      sb.from('checklist_logs').select('template_id,date,items_done,completed,user_name').in('filial', fids).gte('date', from).lte('date', to),
+      sb.from('checklist_templates').select('id,name,department,items').eq('is_active', true),
+      sb.from('checklist_misses').select('*').in('filial', fids).gte('date', from).lte('date', to).order('date', { ascending:false }),
+    ]);
+    const tpl = {}; (tplRes.data || []).forEach(x => { tpl[x.id] = x; });
+    const logs = logRes.data || [];
+    const misses = missRes.data || [];
+
+    // Заполнение по чек-листам: сколько дней сдано полностью и средний процент
+    const byTpl = {};
+    logs.forEach(l => {
+      const tt = tpl[l.template_id];
+      if(!tt) return;
+      const total = (tt.items || []).length || 1;
+      const b = byTpl[l.template_id] = byTpl[l.template_id] || { name: tt.name, dept: tt.department, days:0, full:0, sum:0 };
+      b.days++;
+      if(l.completed) b.full++;
+      b.sum += Math.min(100, Math.round(((l.items_done || []).length / total) * 100));
+    });
+    const rows = Object.values(byTpl).sort((a, b) => (a.sum / a.days) - (b.sum / b.days));
+
+    let html = dashHead(t('dash.tab.checklists'));
+    html += rows.length
+      ? '<div class="card">' + rows.map(r => {
+          const avg = Math.round(r.sum / r.days);
+          return dashRow(r.name, escapeHtml(r.dept || '') + ' · ' + t('dash.c.daysFull', { full:r.full, days:r.days }),
+            avg + '%', avg >= 95 ? '#3B6D11' : avg >= 70 ? '#8a6a2f' : '#A32D2D');
+        }).join('') + '</div>'
+      : dashEmpty(t('dash.noPeriodData'));
+
+    html += `<div class="card"><div style="font-size:12px;font-weight:700;color:${misses.length?'#A32D2D':'#3B6D11'};margin-bottom:6px">${t('dash.c.misses', { n:misses.length })}</div>`;
+    html += misses.length
+      ? misses.map(m => dashRow(m.template_name || '—',
+          fmtDateShort(m.date, { day:'numeric', month:'short' }) + ' · ' + t('cld.wasDue', { time:(m.due_time || '').slice(0, 5) }) + ' · ' + escapeHtml(m.employee_names || '—'),
+          m.points_given > 0 ? '−' + m.points_given : '', '#A32D2D')).join('')
+      : `<div style="font-size:12px;color:var(--text-muted)">${t('dash.c.noMisses')}</div>`;
+    html += '</div>';
+    content.innerHTML = html;
+  } catch(e) { content.innerHTML = dashEmpty(t('dash.loadErr') + (e?.message || e)); }
+}
+
+// ---- Люди и зарплата ----
+async function loadDashPeople() {
+  const content = document.getElementById('dashboard-content');
+  content.innerHTML = `<div class="loading">${t('dash.collecting')}</div>`;
+  if(!canSeeSalaryRole()) { content.innerHTML = dashEmpty(t('dash.p.noAccess')); return; }
+  const fids = dashActiveFilials().map(f => f.id);
+  const { from, to } = dashDateRange();
+  try {
+    const [attRes, schedRes, empRes, pointRes] = await Promise.all([
+      sb.from('attendance').select('employee_id,date,check_in_time,penalty').in('filial', fids).gte('date', from).lte('date', to),
+      sb.from('schedules').select('employee_id,date,shift_start,is_day_off').in('filial', fids).gte('date', from).lte('date', to),
+      sb.from('employees').select('id,name,role,department,salary,status'),
+      sb.from('waiter_points').select('employee_id,points,category').in('filial', fids).gte('date', from).lte('date', to),
+    ]);
+    const emp = {}; (empRes.data || []).forEach(e => { emp[e.id] = e; });
+    const shiftAt = {};
+    const bartendersByDate = {};
+    (schedRes.data || []).forEach(s => {
+      if(s.is_day_off) return;
+      shiftAt[s.employee_id + '_' + s.date] = s.shift_start;
+      if(emp[s.employee_id]?.department === 'Бармены') bartendersByDate[s.date] = (bartendersByDate[s.date] || 0) + 1;
+    });
+
+    const stat = {};
+    (attRes.data || []).forEach(a => {
+      const e = emp[a.employee_id];
+      if(!e) return;
+      const x = stat[a.employee_id] = stat[a.employee_id] || { name:e.name, role:e.role, shifts:0, earned:0, penalty:0, pts:0 };
+      x.penalty += Number(a.penalty) || 0;
+      if(a.check_in_time) {
+        x.shifts++;
+        const alone = e.department === 'Бармены' && bartendersByDate[a.date] === 1;
+        x.earned += computeShiftPay(e.role, e.salary, shiftAt[a.employee_id + '_' + a.date], alone).amount;
+      }
+    });
+    (pointRes.data || []).forEach(p => { if(stat[p.employee_id]) stat[p.employee_id].pts += Number(p.points) || 0; });
+
+    const rows = Object.values(stat).filter(r => r.shifts > 0).sort((a, b) => b.earned - a.earned);
+    if(rows.length === 0) { content.innerHTML = dashHead(t('dash.tab.people')) + dashEmpty(t('dash.noPeriodData')); return; }
+    const fot = rows.reduce((s, r) => s + r.earned - r.penalty, 0);
+
+    content.innerHTML = dashHead(t('dash.tab.people'))
+      + `<div class="card" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;margin-bottom:10px">
+          <div><div style="font-size:20px;font-weight:800;color:var(--gold-dark)">${formatNum(fot)}</div><div style="font-size:11px;color:var(--text-muted)">${t('dash.p.fot')}</div></div>
+          <div><div style="font-size:20px;font-weight:800">${rows.reduce((s, r) => s + r.shifts, 0)}</div><div style="font-size:11px;color:var(--text-muted)">${t('dash.p.shifts')}</div></div>
+        </div>`
+      + '<div class="card">' + rows.map(r => dashRow(r.name,
+          [t('dash.p.sub', { n:r.shifts, role:escapeHtml(r.role || '') }),
+           r.penalty > 0 ? `<span style="color:#A32D2D">${t('dash.p.penalty', { n:formatNum(r.penalty) })}</span>` : '',
+           r.pts > 0 ? `<span style="color:#A32D2D">${t('dash.p.points', { n:r.pts })}</span>` : ''].filter(Boolean).join(' · '),
+          formatNum(r.earned - r.penalty))).join('') + '</div>'
+      + `<div style="font-size:11px;color:var(--text-muted);padding:0 4px">${t('dash.p.hint')}</div>`;
+  } catch(e) { content.innerHTML = dashEmpty(t('dash.loadErr') + (e?.message || e)); }
+}

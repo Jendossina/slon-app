@@ -511,13 +511,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <!-- CHECKLISTS TAB -->
       <div id="admin-tab-checklists" style="display:none">
         <button onclick="openChecklistDeadlines()" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg,#2d2416,#4a3a1f);color:#f0e9db;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="cld.openBtn">⏰ Сроки сдачи и невыполнения</button>
-        <div id="admin-checklist-emp-btn" style="margin-bottom:10px"></div>
-        <div class="form-group">
-          <select class="form-select" id="admin-checklist-date-filter" onchange="loadAdminChecklists()">
-            <option value="" data-i18n="adm.allDates">Все даты</option>
-          </select>
-        </div>
-        <div id="admin-checklists-list"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
+        <div class="card"><div style="font-size:13px;color:var(--text-secondary);line-height:1.6" data-i18n="adm.checklistsMoved">Отчёт по заполнению чек-листов переехал в Дашборд → вкладка «Чек-листы». Здесь остались только настройки сроков.</div></div>
       </div>
       <!-- STORAGE TAB -->
       <div id="admin-tab-storage" style="display:none">
@@ -754,6 +748,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <p id="dash-subtitle" data-i18n="dash.subtitle">Сводка по сети</p>
     </div>
     <div style="display:flex;gap:6px;padding:10px 12px 0" id="dash-period-switcher"></div>
+    <div class="hscroll" style="display:flex;gap:6px;padding:10px 12px 0;overflow-x:auto" id="dash-tabs"></div>
     <div class="content" id="dashboard-content" style="padding:12px">
       <div class="loading" data-i18n="common.loading">Загрузка...</div>
     </div>

@@ -12,7 +12,6 @@ function switchAdminTab(tab, btn) {
   if(tab==='tasks') loadAdminTasks();
   if(tab==='analytics') loadAnalytics();
   if(tab==='activity') loadActivityLog();
-  if(tab==='checklists') loadAdminChecklists();
   if(tab==='storage') { loadStorageStats(); renderCleanupSections(); resetCleanupPreview();
     const cc = document.getElementById('cleanup-card'); if(cc) cc.style.display = isAdmin() ? 'block' : 'none'; }
 }
@@ -60,81 +59,7 @@ async function cleanupMedia(days) {
   } catch(e) { showToast(t('common.error')+e.message); }
 }
 
-let adminChecklistEmp = ''; // '' = все сотрудники
 
-async function loadAdminChecklists() {
-  try {
-    // Кнопка фильтра по сотруднику (по цехам)
-    const empBtn = document.getElementById('admin-checklist-emp-btn');
-    if(empBtn) empBtn.innerHTML = `<button onclick="openAdminChecklistEmpFilter()" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary);font-size:14px;cursor:pointer">
-      <span>${adminChecklistEmp ? '👤 '+escapeHtml(adminChecklistEmp) : t('common.allEmployees')}</span>
-      <span style="color:var(--text-muted);font-size:12px">${t('common.byDept')}</span>
-    </button>`;
-
-    const dateSel = document.getElementById('admin-checklist-date-filter');
-    const dateFilter = dateSel.value;
-
-    // Список дат для выпадашки строим ОТДЕЛЬНЫМ запросом — без фильтра по дате,
-    // иначе после выбора даты в списке остаётся только она одна.
-    let datesQuery = sb.from('checklist_logs').select('date').eq('filial', currentFilial);
-    if(adminChecklistEmp) datesQuery = datesQuery.eq('user_name', adminChecklistEmp);
-    const { data: dateRows } = await datesQuery;
-    const uniqueDates = [...new Set((dateRows||[]).map(l=>l.date))].sort().reverse();
-    dateSel.innerHTML = `<option value="">${t('adm.allDates')}</option>` + uniqueDates.map(d=>`<option value="${d}" ${d===dateFilter?'selected':''}>${fmtLocale(new Date(d), {day:'numeric',month:'long'})}</option>`).join('');
-
-    // Сами логи для отображения — уже с учётом выбранной даты
-    let query = sb.from('checklist_logs').select('*').eq('filial', currentFilial).order('date',{ascending:false}).order('created_at',{ascending:false});
-    if(dateFilter) query = query.eq('date', dateFilter);
-    if(adminChecklistEmp) query = query.eq('user_name', adminChecklistEmp);
-    const { data: logs } = await query;
-
-    const list = document.getElementById('admin-checklists-list');
-    if(!logs || logs.length===0) { list.innerHTML=`<div class="card"><div class="empty"><div class="empty-icon">☑️</div><div class="empty-text">${t('adm.clNone')}</div></div></div>`; return; }
-
-    // Get template names
-    const templateIds = [...new Set(logs.map(l=>l.template_id))];
-    const { data: templates } = await sb.from('checklist_templates').select('id,name,items').in('id', templateIds);
-    const templateMap = {};
-    (templates||[]).forEach(t => templateMap[t.id] = t);
-
-    list.innerHTML = logs.map(log => {
-      const template = templateMap[log.template_id];
-      const totalItems = template?.items?.length || 0;
-      const doneCount = (log.items_done||[]).length;
-      const pct = totalItems ? Math.round(doneCount/totalItems*100) : 0;
-      const mediaCount = Object.values(log.items_media||{}).reduce((n,m)=> n + (Array.isArray(m) ? m.length : (m?1:0)), 0);
-
-      return `<div class="card" style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div>
-            <div style="font-size:14px;font-weight:600;color:var(--text-primary)">${escapeHtml(template?.name||'Чек-лист')}</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">👤 ${escapeHtml(log.user_name||'')} · ${new Date(log.date).toLocaleDateString('ru-RU')}</div>
-          </div>
-          <span class="badge ${pct===100?'badge-green':'badge-amber'}">${pct}%</span>
-        </div>
-        <div class="progress-track" style="margin-top:8px"><div class="progress-fill" style="width:${pct}%"></div></div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${t('adm.clItemsMedia',{done:doneCount,total:totalItems,n:mediaCount})}</div>
-        ${mediaCount>0?`<button onclick='viewChecklistMedia(${JSON.stringify(log.items_media).replace(/'/g,"&#39;")}, ${JSON.stringify(template?.items||[]).replace(/'/g,"&#39;")})' style="margin-top:8px;background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer;width:100%">${t('adm.clWatchAll',{n:mediaCount})}</button>`:''}
-      </div>`;
-    }).join('');
-  } catch(e) { console.error(e); document.getElementById('admin-checklists-list').innerHTML = `<div class="card"><div class="empty"><div class="empty-text">${t('common.loadErrConn')}</div></div></div>`; }
-}
-
-// Пикер сотрудника по цехам для истории чек-листов
-async function openAdminChecklistEmpFilter() {
-  const body = document.getElementById('checklist-emp-filter-list');
-  body.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
-  openModal('modal-checklist-emp-filter');
-  const { data: allEmps } = await sb.from('employees').select('id,name,department,filials,status').order('name');
-  const emps = (allEmps||[]).filter(e => (e.status!=='Уволен') && (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
-  const counts = await taskCountByName();
-  body.innerHTML = empDeptPickerHTML(emps, adminChecklistEmp, 'selectAdminChecklistEmp', counts);
-}
-function selectAdminChecklistEmp(name) {
-  closeModal('modal-checklist-emp-filter');
-  adminChecklistEmp = name;
-  loadAdminChecklists();
-}
 
 function viewChecklistMedia(itemsMedia, items) {
   const content = document.getElementById('view-report-content');

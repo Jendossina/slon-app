@@ -504,7 +504,6 @@ function switchFilial(id) {
   if(document.getElementById('screen-calendar')?.classList.contains('active') && typeof loadCalendar === 'function') loadCalendar();
   if(document.getElementById('screen-admin')?.classList.contains('active')) {
     if(currentAdminTab==='tasks' && typeof loadAdminTasks === 'function') loadAdminTasks(taskFilters||{});
-    if(currentAdminTab==='checklists' && typeof loadAdminChecklists === 'function') loadAdminChecklists();
   }
 }
 
