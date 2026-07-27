@@ -293,3 +293,55 @@ test('график: кто может править, а кто нет', async (
     expect(r[k], `${k} НЕ должен иметь право`).toBe(false);
   }
 });
+
+// Регресс-тест: красная точка о новом сообщении горела каждый день, хотя никто
+// не писал. Непрочитанным считалось всё с 2000 года, а отметка «просмотрено»
+// живёт только в этом браузере — на новом устройстве вся история становилась
+// непрочитанной навсегда.
+test('точка о непрочитанном не горит от старых сообщений (регресс-тест)', async ({ page }) => {
+  let rows = [];
+  // Заглушка обязана уважать фильтр created_at=gt.<дата>, иначе тест ничего не проверяет:
+  // отбор по дате делает сервер, и именно его вычисляет исправленный код.
+  await page.route('**/rest/v1/team_chat**', (route) => {
+    const url = new URL(route.request().url());
+    const gt = (url.searchParams.get('created_at') || '').replace(/^gt\./, '');
+    const out = gt ? rows.filter((r) => r.created_at > gt) : rows;
+    return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(out) });
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.checkUnreadMessages === 'function');
+
+  const setup = async () => page.evaluate(() => {
+    localStorage.clear();
+    eval(`
+      currentUser = { id: 'u1', email: 't@slon.uz' };
+      currentProfile = { role: 'admin', name: 'Тест' };
+      hasUnreadChat = false;
+    `);
+  });
+
+  // 1. Сообщение десятидневной давности — точки быть не должно
+  rows = [{ id: 1, created_at: new Date(Date.now() - 10 * 864e5).toISOString(), channel: 'Официанты' }];
+  await setup();
+  await page.evaluate(() => window.checkUnreadMessages());
+  const onOld = await page.evaluate(() => eval('hasUnreadChat'));
+
+  // 2. Сообщение часовой давности на чистом устройстве — тоже нет: до первого
+  //    запуска всё считается прочитанным, иначе точка загорится «из ниоткуда»
+  rows = [{ id: 2, created_at: new Date(Date.now() - 3600e3).toISOString(), channel: 'Официанты' }];
+  await setup();
+  await page.evaluate(() => window.checkUnreadMessages());
+  const onFirstRun = await page.evaluate(() => eval('hasUnreadChat'));
+
+  // 3. Сообщение, пришедшее ПОСЛЕ того, как чат уже смотрели — точка нужна
+  await page.evaluate(() => {
+    localStorage.setItem('slon-lastseen-u1', new Date(Date.now() - 2 * 3600e3).toISOString());
+  });
+  await page.evaluate(() => window.checkUnreadMessages());
+  const onFresh = await page.evaluate(() => eval('hasUnreadChat'));
+
+  expect(onOld, 'сообщение 10-дневной давности не должно зажигать точку').toBe(false);
+  expect(onFirstRun, 'на новом устройстве история не должна считаться непрочитанной').toBe(false);
+  expect(onFresh, 'новое сообщение после просмотра должно зажигать точку').toBe(true);
+});

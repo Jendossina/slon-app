@@ -173,7 +173,18 @@ async function checkUnreadMessages() {
   if(!currentUser || !currentProfile) return;
   try {
     const lastSeenKey = 'slon-lastseen-' + currentUser.id;
-    const lastSeen = localStorage.getItem(lastSeenKey) || '2000-01-01';
+    let lastSeen = localStorage.getItem(lastSeenKey);
+    if(!lastSeen) {
+      // Первый запуск на этом устройстве. Раньше отсчёт начинался с 2000 года,
+      // и вся история чата разом объявлялась непрочитанной — точка горела, хотя
+      // никто ничего не писал. Считаем прочитанным всё, что было до этого момента.
+      lastSeen = new Date().toISOString();
+      localStorage.setItem(lastSeenKey, lastSeen);
+    }
+    // Непрочитанным считаем только свежее: сообщение недельной давности не должно
+    // жечь точку бесконечно, если в чат так и не заходили.
+    const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+    const since = lastSeen > weekAgo ? lastSeen : weekAgo;
 
     const role = currentProfile?.role;
     let myDept = null;
@@ -182,7 +193,7 @@ async function checkUnreadMessages() {
       myDept = emp?.department;
     }
 
-    let query = sb.from('team_chat').select('id,created_at,channel').gt('created_at', lastSeen).neq('user_id', currentUser.id);
+    let query = sb.from('team_chat').select('id,created_at,channel').gt('created_at', since).neq('user_id', currentUser.id);
     if(role !== 'admin') {
       const channels = role === 'manager' ? [myDept, 'Управляющий состав', PUBLIC_CHANNEL].filter(Boolean) : [myDept, PUBLIC_CHANNEL].filter(Boolean);
       query = query.in('channel', channels);
