@@ -51,7 +51,7 @@ const WAITER_BONUS = {
   dessertsPerCheck: 0.7,    // 70 десертов на 100 чеков
   attestationPass: 80,      // балл еженедельной аттестации из 100 (null = не проводилась, не штрафуем)
   servicePointsLimit: 2,    // штрафных баллов за неделю; больше — 0,5% сгорает
-  disciplinePointsLimit: 2,
+  disciplinePointsLimit: 4,   // 2 было почти гарантированным сгоранием: чек-листов 2-3 в день плюс опоздания
 };
 // Причины штрафных баллов (коды). Подписи — в i18n: bonus.reason.<код>.
 const WAITER_POINT_REASONS = {
@@ -87,13 +87,19 @@ function computeWaiterBonus(s) {
   const svcPts   = Number(s.servicePoints) || 0;
   const discPts  = Number(s.disciplinePoints) || 0;
   const EPS = 1e-9; // чтобы ровно 70 десертов на 100 чеков не срезалось на дробной погрешности
+  // Нет выгрузки iiko за неделю — блок НЕ сгорает. Это недоработка тех, кто вносит
+  // данные, а не официанта: наказывать его за это нельзя. Такой блок помечается
+  // как «не оценено» и засчитывается, пока данные не появятся.
+  const hasStats = (s.hasStats !== undefined) ? !!s.hasStats : checks > 0;
   const cats = [
-    { key:'fill',       ok: checks > 0 && perCheck >= c.dishesPerCheck - EPS, value: perCheck, target: c.dishesPerCheck },
+    { key:'fill',       ok: !hasStats || perCheck >= c.dishesPerCheck - EPS, notRated: !hasStats,
+                        value: perCheck, target: c.dishesPerCheck },
     // аттестацию учитываем, только если её проводили: не наказываем за бездействие администратора
     { key:'service',    ok: svcPts <= c.servicePointsLimit && (att === null || att >= c.attestationPass),
                         value: svcPts, target: c.servicePointsLimit, att },
     { key:'discipline', ok: discPts <= c.disciplinePointsLimit,          value: discPts,  target: c.disciplinePointsLimit },
-    { key:'dessert',    ok: checks > 0 && dessPer >= c.dessertsPerCheck - EPS, value: dessPer, target: c.dessertsPerCheck },
+    { key:'dessert',    ok: !hasStats || dessPer >= c.dessertsPerCheck - EPS, notRated: !hasStats,
+                        value: dessPer, target: c.dessertsPerCheck },
   ];
   const percent = cats.filter(x => x.ok).length * c.stepPercent;
   return { cats, percent, amount: Math.round((Number(s.revenue) || 0) * percent / 100) };

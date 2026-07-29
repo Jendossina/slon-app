@@ -107,6 +107,7 @@ function bonusRowFor(empId, d) {
   const attestation = attestationForWeek(quiz, bonusWeek, st.attestation_score);
   const res = computeWaiterBonus({
     revenue: st.revenue, checks: st.checks, dishes: st.dishes, desserts: st.desserts,
+    hasStats: !!d.stats[empId],   // строки за неделю нет — блоки iiko не оцениваем
     attestation, servicePoints: svc, disciplinePoints: disc + late,
   });
   return { st, pts, svc, disc, late, quiz, attestation, res };
@@ -118,6 +119,14 @@ function fmtRatio(n) { return (Math.round(n*100)/100).toFixed(2).replace(/\.?0+$
 function bonusCatChip(cat, row) {
   const ok = cat.ok;
   const label = t('bonus.cat.'+cat.key);
+  // «Не оценено» — данных iiko за неделю нет. Блок засчитан, но помечен отдельно:
+  // зелёным его показывать нельзя, иначе не видно, что цифру никто не вносил.
+  if(cat.notRated) {
+    return `<div style="flex:1 1 46%;min-width:150px;background:rgba(138,106,47,0.12);border-radius:10px;padding:8px 10px">
+      <div style="font-size:11px;color:var(--text-muted)">◻ ${label}</div>
+      <div style="font-size:13px;font-weight:700;color:#8a6a2f">${t('bonus.notRated')}</div>
+    </div>`;
+  }
   let val;
   if(cat.key==='fill' || cat.key==='dessert') val = `${fmtRatio(cat.value)} / ${fmtRatio(cat.target)}`;
   else val = t('bonus.pointsOf', {n: cat.value, max: cat.target});
@@ -162,13 +171,22 @@ async function renderBonusResults() {
       </div>`;
     }).join('');
 
+    // Если по кому-то нет выгрузки iiko — говорим об этом прямо: два блока
+    // засчитаны автоматически, и цифры в них ничего не значат, пока их не внесут.
+    const noStats = d.emps.filter(e => !d.stats[e.id]).length;
+    const iikoWarn = (noStats && bonusCanManage())
+      ? `<div class="card" style="padding:10px 12px;margin-bottom:10px;background:rgba(138,106,47,0.12);border:1px solid rgba(138,106,47,0.3)">
+           <div style="font-size:12px;color:#8a6a2f;line-height:1.5">⚠️ ${t('bonus.iikoWarn')}</div>
+         </div>`
+      : '';
+
     const totalCard = (bonusSeesAll() && d.emps.length>1)
       ? `<div class="card" style="padding:12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
            <div style="font-size:13px;font-weight:700;color:var(--text-primary)">${t('bonus.weekTotal')}</div>
            <div style="font-size:16px;font-weight:800;color:var(--gold-dark)">${formatNum(totalAmount)}</div>
          </div>` : '';
 
-    c.innerHTML = totalCard + cards + bonusRulesCard();
+    c.innerHTML = iikoWarn + totalCard + cards + bonusRulesCard();
   } catch(e) {
     c.innerHTML = `<div class="card"><div class="empty"><div class="empty-text">${t('bonus.loadErr')}</div></div></div>`;
   }
