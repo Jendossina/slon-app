@@ -55,10 +55,17 @@ function dashDelta(cur, prev, inverse) {
   return ` <span style="font-size:12px;font-weight:600;color:${color}">${up?'↑':'↓'}${sign}${pct}%</span>`;
 }
 
-async function loadDashOverview() {
+// Кнопки периода рисуем ОТДЕЛЬНО от содержимого вкладки. Раньше это делал только
+// «Обзор», поэтому на других вкладках подсветка оставалась на старом периоде:
+// данные уже за «сегодня», а горит «месяц».
+function renderDashPeriods() {
   const sw = document.getElementById('dash-period-switcher');
+  if(!sw) return;
   const periods = [{id:'today',label:t('dash.periodToday')},{id:'week',label:t('dash.periodWeek')},{id:'month',label:t('dash.periodMonth')}];
-  if(sw) sw.innerHTML = periods.map(p=>`<button onclick="setDashPeriod('${p.id}')" style="flex:1;padding:9px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:${p.id===dashPeriod?'var(--gold-dark)':'var(--surface-2)'};color:${p.id===dashPeriod?'#fff':'var(--text-primary)'}">${p.label}</button>`).join('');
+  sw.innerHTML = periods.map(p=>`<button onclick="setDashPeriod('${p.id}')" style="flex:1;padding:9px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:${p.id===dashPeriod?'var(--gold-dark)':'var(--surface-2)'};color:${p.id===dashPeriod?'#fff':'var(--text-primary)'}">${p.label}</button>`).join('');
+}
+
+async function loadDashOverview() {
 
   const content = document.getElementById('dashboard-content');
   content.innerHTML = `<div class="loading">${t('dash.collecting')}</div>`;
@@ -248,10 +255,11 @@ function renderDashTabs() {
   el.innerHTML = tabs.map(x => '<button onclick="setDashTab(\'' + x.id + '\')" class="chip' + (x.id===dashTab?' on':'') + '">' + x.label + '</button>').join('');
 }
 
-function setDashTab(id) { dashTab = id; dashClTpl = null; renderDashTabs(); loadDashboardTab(); }
+function setDashTab(id) { dashTab = id; dashClTpl = null; renderDashPeriods(); renderDashTabs(); loadDashboardTab(); }
 
 async function loadDashboard() {
   if(!dashTabList().some(x => x.id === dashTab)) dashTab = 'overview';
+  renderDashPeriods();
   renderDashTabs();
   await loadDashboardTab();
 }

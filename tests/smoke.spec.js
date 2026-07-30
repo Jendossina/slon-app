@@ -345,3 +345,38 @@ test('точка о непрочитанном не горит от старых
   expect(onFirstRun, 'на новом устройстве история не должна считаться непрочитанной').toBe(false);
   expect(onFresh, 'новое сообщение после просмотра должно зажигать точку').toBe(true);
 });
+
+// Регресс-тест: кнопки периода рисовались только «Обзором», поэтому на вкладке
+// «Чек-листы» подсветка застревала — данные уже за «сегодня», а горит «месяц».
+test('переключатель периода подсвечивается и вне «Обзора» (регресс-тест)', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) =>
+    route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: '[]' }));
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.setDashPeriod === 'function');
+
+  const active = () => page.evaluate(() => {
+    const btns = Array.from(document.querySelectorAll('#dash-period-switcher button'));
+    const lit = btns.filter((b) => b.style.background.includes('gold-dark')).map((b) => b.textContent.trim());
+    return { count: btns.length, lit };
+  });
+
+  // Стоим на «Чек-листах» с периодом «месяц»
+  await page.evaluate(() => {
+    eval(`
+      currentProfile = { role: 'admin', name: 'Тест' };
+      currentFilial = 'chekhov';
+      dashPeriod = 'month';
+      dashTab = 'checklists';
+    `);
+    window.renderDashPeriods();
+  });
+  const before = await active();
+
+  // Переключаем период, НЕ уходя с вкладки
+  await page.evaluate(async () => { await window.setDashPeriod('today'); });
+  const after = await active();
+
+  expect(before.lit, 'сначала должен гореть «Месяц»').toEqual(['Месяц']);
+  expect(after.lit, 'после переключения должен гореть «Сегодня», а не «Месяц»').toEqual(['Сегодня']);
+});
