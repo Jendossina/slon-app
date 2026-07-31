@@ -182,6 +182,11 @@ const I18N = {
     'dish.newItemTitle': 'Новая позиция посуды', 'dish.name': 'Название', 'dish.cost': 'Стоимость за штуку (сум)', 'dish.qtyStart': 'Начальный остаток (шт)', 'dish.create': 'Создать',
     'dish.inTitle': '📥 Приход посуды', 'dish.qtyPcs': 'Количество (шт)', 'dish.costOpt': 'Стоимость за шт (необязательно)', 'dish.addIn': 'Оприходовать',
     'dish.breakTitle': '💥 Записать бой', 'dish.who': 'Кто разбил', 'dish.note': 'Комментарий', 'dish.recordBreak': 'Записать бой',
+    'dish.search': 'Поиск позиции', 'dish.nothingFound': 'Ничего не найдено', 'dish.moves': 'Движения',
+    'dish.catHall': 'Зал', 'dish.catBar': 'Бар', 'dish.catKitchen': 'Кухня', 'dish.catOther': 'Прочее', 'dish.category': 'Зона',
+    'dish.editTitle': 'Позиция посуды', 'dish.edit': '✏️ Изменить', 'dish.save': 'Сохранить', 'dish.itemUpdated': '✅ Позиция обновлена',
+    'dish.photo': '📷 Фото', 'dish.uploading': '📷 Загружаю фото…', 'dish.photoUpdated': '✅ Фото обновлено',
+    'dish.dupName': '⚠️ Позиция с таким названием в этом филиале уже есть',
     // Очистка старых данных
     'clp.label': 'СТАРЫЕ ДАННЫЕ',
     'clp.desc': 'Удаляет старые записи оперативных разделов. Финансы, график, явка, премии, баллы, аттестации и склад не трогаются — на них держится зарплата и отчётность.',
@@ -558,6 +563,11 @@ const I18N = {
     'dish.newItemTitle': 'Янги идиш позицияси', 'dish.name': 'Номи', 'dish.cost': 'Донаси нархи (сўм)', 'dish.qtyStart': 'Бошланғич қолдиқ (дона)', 'dish.create': 'Яратиш',
     'dish.inTitle': '📥 Идиш кирими', 'dish.qtyPcs': 'Миқдор (дона)', 'dish.costOpt': 'Дона нархи (ихтиёрий)', 'dish.addIn': 'Кирим қилиш',
     'dish.breakTitle': '💥 Синишни ёзиш', 'dish.who': 'Ким синдирди', 'dish.note': 'Изоҳ', 'dish.recordBreak': 'Синишни ёзиш',
+    'dish.search': 'Позиция қидириш', 'dish.nothingFound': 'Ҳеч нарса топилмади', 'dish.moves': 'Ҳаракатлар',
+    'dish.catHall': 'Зал', 'dish.catBar': 'Бар', 'dish.catKitchen': 'Ошхона', 'dish.catOther': 'Бошқа', 'dish.category': 'Зона',
+    'dish.editTitle': 'Идиш позицияси', 'dish.edit': '✏️ Ўзгартириш', 'dish.save': 'Сақлаш', 'dish.itemUpdated': '✅ Позиция янгиланди',
+    'dish.photo': '📷 Расм', 'dish.uploading': '📷 Расм юкланмоқда…', 'dish.photoUpdated': '✅ Расм янгиланди',
+    'dish.dupName': '⚠️ Бу филиалда шундай номли позиция аллақачон бор',
     // Эски маълумотларни тозалаш
     'clp.label': 'ЭСКИ МАЪЛУМОТЛАР',
     'clp.desc': 'Оператив бўлимлардаги эски ёзувларни ўчиради. Молия, график, давомат, мукофотлар, баллар, аттестация ва склад тегилмайди — уларга иш ҳақи ва ҳисобот боғлиқ.',

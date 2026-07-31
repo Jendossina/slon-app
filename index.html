@@ -820,12 +820,13 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-dishware-item">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-dishware-item')">✕</button>
-    <div class="modal-title" data-i18n="dish.newItemTitle">Новая позиция посуды</div>
+    <div class="modal-title" id="dishware-item-title">Новая позиция посуды</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="dishware-item-filial">—</div>
     <div class="form-group"><label class="form-label" for="dishware-item-name" data-i18n="dish.name">Название</label><input class="form-input" id="dishware-item-name" placeholder="Например: Роксы 300мл"></div>
+    <div class="form-group"><label class="form-label" for="dishware-item-category" data-i18n="dish.category">Зона</label><select class="form-select" id="dishware-item-category"></select></div>
     <div class="form-group"><label class="form-label" for="dishware-item-cost" data-i18n="dish.cost">Себестоимость за штуку (сум)</label><input class="form-input" id="dishware-item-cost" type="number" step="any" placeholder="15000"></div>
     <div class="form-group"><label class="form-label" for="dishware-item-qty" data-i18n="dish.qtyStart">Сколько сейчас на складе (шт)</label><input class="form-input" id="dishware-item-qty" type="number" step="any" placeholder="20"></div>
-    <button class="btn btn-primary" onclick="saveDishwareItem()" data-i18n="dish.create">Создать</button>
+    <button class="btn btn-primary" id="dishware-item-save" onclick="saveDishwareItem()">Создать</button>
   </div>
 </div>
 
@@ -850,9 +851,12 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <button class="modal-close" onclick="closeModal('modal-dishware-break')">✕</button>
     <div class="modal-title" data-i18n="dish.breakTitle">💥 Записать бой</div>
     <input type="hidden" id="dishware-break-item-id">
-    <div class="card" style="background:var(--surface-2);margin-bottom:12px">
-      <div style="font-weight:600;color:var(--text-primary)" id="dishware-break-item-name">—</div>
-      <div style="font-size:13px;color:var(--text-muted);margin-top:2px" id="dishware-break-stock">—</div>
+    <div class="card" style="background:var(--surface-2);margin-bottom:12px;display:flex;align-items:center;gap:10px">
+      <div id="dishware-break-thumb"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;color:var(--text-primary)" id="dishware-break-item-name">—</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-top:2px" id="dishware-break-stock">—</div>
+      </div>
     </div>
     <div class="form-group"><label class="form-label" for="dishware-break-qty" data-i18n="dish.qtyPcs">Сколько разбито (шт)</label><input class="form-input" id="dishware-break-qty" type="number" step="any" placeholder="1"></div>
     <div class="form-group"><label class="form-label" for="dishware-break-who" data-i18n="dish.who">Кто разбил</label>
@@ -863,7 +867,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </div>
 </div>
 
-<!-- DISHWARE: история позиции -->
+<!-- DISHWARE: карточка позиции (фото, остаток, история) -->
 <div class="modal-overlay" id="modal-dishware-history">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-dishware-history')">✕</button>
@@ -871,6 +875,9 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div id="dishware-history-body"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
   </div>
 </div>
+
+<!-- DISHWARE: скрытый выбор фото для позиции -->
+<input type="file" id="dishware-photo-input" accept="image/*" style="display:none" onchange="onDishwarePhotoPicked(this)">
 
 <!-- DIRECTORY MODAL -->
 <div class="modal-overlay" id="modal-directory">
