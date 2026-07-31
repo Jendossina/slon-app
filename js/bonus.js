@@ -67,8 +67,13 @@ function weekSaturdayPassed(weekStart) {
 }
 // Балл аттестации за неделю: сначала пройденный в приложении тест, потом ручной ввод,
 // потом — «не сдавал»: 0, если суббота прошла, и null, если ещё нет.
+// Балл из 100: вопросов в тесте может быть не десять (руководство назначает число),
+// поэтому считаем долю правильных, а не score × 10.
 function attestationForWeek(attempt, weekStart, manualScore) {
-  if(attempt && attempt.finished_at != null) return (Number(attempt.score) || 0) * 10;
+  if(attempt && attempt.finished_at != null) {
+    const total = Number(attempt.q_total) || 10;
+    return Math.round((Number(attempt.score) || 0) / total * 100);
+  }
   if(manualScore != null) return manualScore;
   return weekSaturdayPassed(weekStart) ? 0 : null;
 }
@@ -82,7 +87,8 @@ async function loadBonusWeek() {
     sb.from('waiter_week_stats').select('*').eq('filial', currentFilial).eq('week_start', from),
     sb.from('waiter_points').select('*').eq('filial', currentFilial).gte('date', from).lte('date', to).order('created_at', {ascending:false}),
     sb.from('attendance').select('employee_id,date,is_late').eq('filial', currentFilial).gte('date', from).lte('date', to),
-    sb.from('quiz_attempts').select('employee_id,score,passed,finished_at').eq('week_start', from).eq('superseded', false),
+    // practice = тренировочный прогон: в проценты не идёт, поэтому не берём его вовсе
+    sb.from('quiz_attempts').select('employee_id,score,passed,finished_at,q_total').eq('week_start', from).eq('superseded', false).eq('practice', false),
   ]);
   let emps = (empR.data||[]).filter(e =>
     (e.filials && e.filials.length ? e.filials : ['istikbol','chekhov']).includes(currentFilial) && e.status !== 'Уволен');
@@ -197,7 +203,7 @@ function bonusAttestationLine(emp, row, manage) {
   const q = row.quiz;
   let text, color = 'var(--text-muted)';
   if(q && q.finished_at) {
-    text = t('bonus.attResult', {score: q.score, total: 10});
+    text = t('bonus.attResult', {score: q.score, total: q.q_total || 10});
     color = q.passed ? '#3B6D11' : '#A13C3C';
   } else if(row.st.attestation_score != null) {
     text = t('bonus.attManual', {n: row.st.attestation_score});
@@ -389,7 +395,7 @@ async function loadWaiterBonusForMonth(firstStr, lastStr) {
       sb.from('waiter_week_stats').select('*').eq('filial', currentFilial).gte('week_start', firstStr).lte('week_start', lastStr),
       sb.from('waiter_points').select('employee_id,date,category,points').eq('filial', currentFilial).gte('date', weekFrom).lte('date', weekEndOf(weekTo)),
       sb.from('attendance').select('employee_id,date,is_late').eq('filial', currentFilial).gte('date', weekFrom).lte('date', weekEndOf(weekTo)),
-      sb.from('quiz_attempts').select('employee_id,week_start,score,passed,finished_at').gte('week_start', weekFrom).lte('week_start', weekTo).eq('superseded', false),
+      sb.from('quiz_attempts').select('employee_id,week_start,score,passed,finished_at,q_total').gte('week_start', weekFrom).lte('week_start', weekTo).eq('superseded', false).eq('practice', false),
     ]);
     const quizByWeek = {}; (quizR.data||[]).forEach(q => { quizByWeek[q.employee_id+'_'+q.week_start] = q; });
     // баллы и опоздания раскладываем по неделям

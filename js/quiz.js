@@ -1,12 +1,19 @@
 // ============ АТТЕСТАЦИЯ ПО МЕНЮ (QUIZ) ============
-// 10 случайных вопросов, 8 правильных = сдал. Проходится по субботам.
+// 10 случайных вопросов, 8 правильных (80%) = сдал. Проходится по субботам.
 // Вопросы и проверку ответов выдаёт сервер (функции quiz_start/quiz_submit),
 // поэтому правильные ответы физически не попадают в телефон до конца теста.
+//
+// Руководство может назначить тест с другим числом вопросов и пометкой
+// «тренировочная» — такая попытка не идёт в проценты и не расходует субботнюю.
+// Поэтому число вопросов и порог сдачи берём из ответа сервера, а константы
+// ниже — только значения по умолчанию для текстов.
 
 const QUIZ_TOTAL = 10;
 const QUIZ_PASS = 8;
+const quizPassFor = total => Math.max(1, Math.ceil((total || QUIZ_TOTAL) * 0.8));
 
 let quizAttemptId = null, quizQuestions = [], quizAnswers = {}, quizIndex = 0;
+let quizTotal = QUIZ_TOTAL, quizPass = QUIZ_PASS, quizPractice = false;
 
 // ===== Сторона официанта =====
 
@@ -20,6 +27,9 @@ async function openQuiz() {
     if(data?.error) return quizFail(quizErrorText(data));
     quizAttemptId = data.attempt_id;
     quizQuestions = data.questions || [];
+    quizTotal = data.total || quizQuestions.length || QUIZ_TOTAL;
+    quizPass = data.pass || quizPassFor(quizTotal);
+    quizPractice = !!data.practice;
     quizAnswers = {}; quizIndex = 0;
     renderQuizQuestion();
   } catch(e) { quizFail(t('quiz.errStart') + e.message); }
@@ -29,7 +39,7 @@ function quizErrorText(d) {
   if(d.error === 'not_saturday')          return t('quiz.errNotSaturday');
   if(d.error === 'already_done')          return t('quiz.errAlreadyDone');
   if(d.error === 'no_employee')           return t('quiz.errNoEmployee');
-  if(d.error === 'not_enough_questions')  return t('quiz.errNoQuestions', {have: d.have || 0, need: QUIZ_TOTAL});
+  if(d.error === 'not_enough_questions')  return t('quiz.errNoQuestions', {have: d.have || 0, need: d.need || QUIZ_TOTAL});
   return t('common.error') + d.error;
 }
 function quizFail(msg) {
@@ -43,6 +53,7 @@ function renderQuizQuestion() {
   const chosen = quizAnswers[q.id];
   const last = quizIndex === quizQuestions.length - 1;
   document.getElementById('quiz-body').innerHTML = `
+    ${quizPractice?`<div style="font-size:11px;font-weight:600;color:#8a6a2f;background:rgba(138,106,47,0.12);border-radius:8px;padding:6px 9px;margin-bottom:10px">🏋️ ${t('quiz.practiceBadge')}</div>`:''}
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
       <div style="flex:1;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden">
         <div style="height:100%;width:${Math.round((quizIndex+1)/quizQuestions.length*100)}%;background:var(--gold-dark)"></div>
@@ -80,12 +91,18 @@ async function finishQuiz() {
 
 function renderQuizResult(r) {
   const wrong = (r.details||[]).filter(d => !d.ok);
+  const total = r.total || quizTotal;
+  const pass  = r.pass  || quizPassFor(total);
+  const practice = r.practice ?? quizPractice;
+  // У тренировочной попытки итог тот же, а вот приписки про проценты быть не должно:
+  // она в них не идёт, и обещать «блок засчитан» или пугать «сгорел» здесь нельзя.
+  const hint = practice ? t('quiz.practiceHint') : (r.passed?t('quiz.passedHint'):t('quiz.failedHint'));
   document.getElementById('quiz-body').innerHTML = `
     <div style="text-align:center;padding:10px 0 16px">
       <div style="font-size:44px">${r.passed?'🎓':'📕'}</div>
-      <div style="font-size:26px;font-weight:800;color:${r.passed?'#3B6D11':'#A13C3C'};margin-top:6px">${r.score} / ${QUIZ_TOTAL}</div>
-      <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-top:4px">${r.passed?t('quiz.passed'):t('quiz.failed',{need:QUIZ_PASS})}</div>
-      <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${r.passed?t('quiz.passedHint'):t('quiz.failedHint')}</div>
+      <div style="font-size:26px;font-weight:800;color:${r.passed?'#3B6D11':'#A13C3C'};margin-top:6px">${r.score} / ${total}</div>
+      <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-top:4px">${r.passed?t('quiz.passed'):t('quiz.failed',{need:pass})}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:6px">${hint}</div>
     </div>
     ${wrong.length?`
       <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:8px">${t('quiz.mistakes',{n:wrong.length})}</div>
@@ -101,6 +118,7 @@ function renderQuizResult(r) {
 function closeQuizAndRefresh() {
   closeModal('modal-quiz');
   quizAttemptId = null; quizQuestions = []; quizAnswers = {};
+  quizTotal = QUIZ_TOTAL; quizPass = QUIZ_PASS; quizPractice = false;
   if(typeof loadHome === 'function' && document.getElementById('screen-home')?.classList.contains('active')) loadHome();
   if(typeof bonusData !== 'undefined' && document.getElementById('screen-bonus')?.classList.contains('active')) { bonusData = null; switchBonusTab(bonusTab); }
 }
@@ -118,28 +136,43 @@ async function loadQuizCard() {
     if(emp?.department !== 'Официанты') return;
 
     const week = weekStartOf();
+    const today = businessToday();
     const { data: attempts } = await sb.from('quiz_attempts')
-      .select('score,passed,finished_at,superseded').eq('employee_id', empId).eq('week_start', week);
-    const active = (attempts||[]).find(a => !a.superseded);
-    const retakeOpen = (attempts||[]).some(a => a.superseded) && !active;
-    const isSaturday = new Date(businessToday()).getDay() === 6;
+      .select('score,passed,finished_at,superseded,practice,q_total,question_ids,date')
+      .eq('employee_id', empId).eq('week_start', week);
+    const all = attempts || [];
+    const qn = a => (a.question_ids || []).length;
+    // Назначение от руководства — погашенная строка без вопросов; израсходованное закрыто finished_at
+    const assign  = all.find(a => a.superseded && !qn(a) && !a.finished_at);
+    // Зачётная попытка недели (тренировочные её не занимают)
+    const active  = all.find(a => !a.superseded && !a.practice && qn(a));
+    const started = all.find(a => !a.finished_at && qn(a) && (!a.practice || a.date === today));
+    const donePractice = all.find(a => a.practice && a.finished_at && a.date === today);
+    const isSaturday = new Date(today).getDay() === 6;
 
-    if(active && active.finished_at) {
-      if(!isSaturday) return; // результат показываем только в день сдачи, дальше не мозолим глаза
-      el.innerHTML = `<div class="card" style="margin-bottom:12px;background:${active.passed?'linear-gradient(135deg,#EAF3DE,#d4edda)':'linear-gradient(135deg,#F6E7E7,#f5d9d9)'};border:none">
+    // Итог показываем в день сдачи: зачётный — в субботу, тренировочный — в свой день
+    const done = (active && active.finished_at && isSaturday) ? active : (!assign && !started ? donePractice : null);
+    if(done) {
+      const total = done.q_total || QUIZ_TOTAL;
+      el.innerHTML = `<div class="card" style="margin-bottom:12px;background:${done.passed?'linear-gradient(135deg,#EAF3DE,#d4edda)':'linear-gradient(135deg,#F6E7E7,#f5d9d9)'};border:none">
         <div style="text-align:center;padding:6px">
-          <div style="font-size:26px">${active.passed?'🎓':'📕'}</div>
-          <div style="font-size:15px;font-weight:700;color:${active.passed?'#3B6D11':'#A13C3C'};margin-top:4px">${t('quiz.cardDone',{score:active.score,total:QUIZ_TOTAL})}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${active.passed?t('quiz.passed'):t('quiz.failed',{need:QUIZ_PASS})}</div>
+          <div style="font-size:26px">${done.passed?'🎓':'📕'}</div>
+          <div style="font-size:15px;font-weight:700;color:${done.passed?'#3B6D11':'#A13C3C'};margin-top:4px">${t('quiz.cardDone',{score:done.score,total})}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${done.practice?t('quiz.practiceBadge'):(done.passed?t('quiz.passed'):t('quiz.failed',{need:quizPassFor(total)}))}</div>
         </div></div>`;
       return;
     }
-    if(!isSaturday && !retakeOpen) return;
+    if(active && active.finished_at && !assign && !started) return; // сдал раньше — не мозолим глаза
+    if(!isSaturday && !assign && !started) return;
 
+    const run = started || assign || null;
+    const practice = !!(run && run.practice);
+    const total = (run && run.q_total) || QUIZ_TOTAL;
+    const label = practice ? t('quiz.cardPractice') : (assign||started ? t('quiz.cardRetake') : t('quiz.cardSaturday'));
     el.innerHTML = `<div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#2d2416,#4a3a1f);border:none;color:#f0e9db">
-      <div style="font-size:11px;opacity:0.75;margin-bottom:4px">${retakeOpen?t('quiz.cardRetake'):t('quiz.cardSaturday')}</div>
-      <div style="font-size:17px;font-weight:700;margin-bottom:10px">🎓 ${t('quiz.cardTitle')}</div>
-      <div style="font-size:12px;opacity:0.8;margin-bottom:12px">${t('quiz.cardHint',{total:QUIZ_TOTAL,pass:QUIZ_PASS})}</div>
+      <div style="font-size:11px;opacity:0.75;margin-bottom:4px">${label}</div>
+      <div style="font-size:17px;font-weight:700;margin-bottom:10px">${practice?'🏋️':'🎓'} ${practice?t('quiz.practiceTitle'):t('quiz.cardTitle')}</div>
+      <div style="font-size:12px;opacity:0.8;margin-bottom:12px">${practice?t('quiz.practiceCardHint',{total,pass:quizPassFor(total)}):t('quiz.cardHint',{total,pass:quizPassFor(total)})}</div>
       <button onclick="openQuiz()" style="width:100%;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">${t('quiz.cardBtn')}</button>
     </div>`;
   } catch(e) { /* таблиц ещё нет — карточку просто не показываем */ }
