@@ -198,7 +198,7 @@ async function openDailyPayroll() {
     const [schedR, empR, attR, premR] = await Promise.all([
       sb.from('schedules').select('employee_id,employee_name,shift_start,shift_end,is_day_off').eq('filial',currentFilial).eq('date',t),
       sb.from('employees_view').select('id,name,salary,filials,role,department'),
-      sb.from('attendance').select('employee_id,check_in_time,is_late,late_minutes,penalty').eq('filial',currentFilial).eq('date',t),
+      sb.from('attendance').select('employee_id,check_in_time,is_late,late_minutes,penalty,checkin_video').eq('filial',currentFilial).eq('date',t),
       sb.from('premiums').select('*').eq('filial',currentFilial).eq('date',t)
     ]);
     const sched = (schedR.data||[]).filter(s=>!s.is_day_off);
@@ -228,6 +228,11 @@ async function openDailyPayroll() {
       if(!a || !a.check_in_time) status = `<span style="color:#A13C3C">${tr('hr.notCheckedIn')}</span>`;
       else if(a.is_late) status = tr('hr.arrivedLate',{time:a.check_in_time,m:a.late_minutes||''});
       else status = tr('hr.arrivedOnTime',{time:a.check_in_time});
+      // Видео прихода — здесь его смотрит управляющий и менеджер: ведомость за день
+      // и есть то место, где разбирают, кто во сколько пришёл.
+      if(a && a.checkin_video) {
+        status += ` <button onclick="viewReport('${escJsAttr(a.checkin_video)}','video')" title="${tr('hr.checkinVideo')}" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:6px;padding:2px 6px;font-size:11px;cursor:pointer">🎥</button>`;
+      }
       html += `<div class="list-item" style="flex-wrap:wrap;align-items:flex-start">
         <div class="item-info" style="flex:1 1 100%">
           <div class="item-name">${escapeHtml(s.employee_name||emp?.name||'—')}</div>
