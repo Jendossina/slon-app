@@ -124,16 +124,28 @@ async function toggleChatPin(msgId, isPinned) {
   loadTeamChat();
 }
 
-let teamChatMediaFile = null;
+// К сообщению можно приложить несколько файлов. Больше десятка за раз — это
+// уже не сообщение, а выгрузка галереи: и грузиться будет минуту, и место съест.
+const CHAT_MEDIA_MAX = 10;
+
+let teamChatMediaFiles = [];
 function pickTeamChatMedia() {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*,video/*';
+  input.multiple = true;
   input.onchange = (e) => {
-    teamChatMediaFile = e.target.files[0];
-    if(teamChatMediaFile) {
-      document.getElementById('teamchat-input').placeholder = '📎 ' + teamChatMediaFile.name;
+    let files = Array.from(e.target.files || []);
+    if(files.length > CHAT_MEDIA_MAX) {
+      files = files.slice(0, CHAT_MEDIA_MAX);
+      showToast(t('chat.tooManyFiles', {n: CHAT_MEDIA_MAX}));
     }
+    teamChatMediaFiles = files;
+    const ph = document.getElementById('teamchat-input');
+    if(!files.length) { ph.placeholder = t('chat.inputPh'); return; }
+    ph.placeholder = files.length === 1
+      ? '📎 ' + files[0].name
+      : '📎 ' + t('chat.filesPicked', {n: files.length});
   };
   input.click();
 }
@@ -142,27 +154,38 @@ async function sendTeamChat() {
   if(isBoss()) return showToast(t('chat.observerRead'));
   const input = document.getElementById('teamchat-input');
   const text = input.value.trim();
-  if(!text && !teamChatMediaFile) return;
+  if(!text && !teamChatMediaFiles.length) return;
   try {
-    let mediaUrl = null, mediaType = null;
-    if(teamChatMediaFile) {
-      const fileToUpload = await compressImage(teamChatMediaFile);
-      const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : teamChatMediaFile.name.split('.').pop());
-      const path = `chat-${Date.now()}.${ext}`;
-      const { error: upErr } = await sb.storage.from('task-reports').upload(path, fileToUpload);
-      if(upErr) { showToast(t('common.uploadErr')+upErr.message); return; }
-      const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
-      mediaUrl = urlData.publicUrl;
-      mediaType = teamChatMediaFile.type.startsWith('video') ? 'video' : 'image';
+    const uploaded = [];
+    if(teamChatMediaFiles.length) {
+      // Грузим по одному: параллельная загрузка десятка файлов с телефона
+      // чаще рвётся, чем ускоряет. Пока идёт — показываем, сколько осталось.
+      for(let i = 0; i < teamChatMediaFiles.length; i++) {
+        const file = teamChatMediaFiles[i];
+        if(teamChatMediaFiles.length > 1) showToast(t('chat.uploading', {i: i+1, n: teamChatMediaFiles.length}));
+        const isVideo = file.type.startsWith('video');
+        const fileToUpload = await compressImage(file);
+        const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : file.name.split('.').pop());
+        const path = `chat-${Date.now()}-${i}.${ext}`;
+        const { error: upErr } = await sb.storage.from('task-reports').upload(path, fileToUpload);
+        if(upErr) { showToast(t('common.uploadErr')+upErr.message); return; }
+        const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
+        uploaded.push({ url: urlData.publicUrl, type: isVideo ? 'video' : 'image' });
+      }
     }
 
     await sb.from('team_chat').insert({
       user_id: currentUser.id, user_name: currentProfile?.name || currentUser?.email,
-      text, channel: currentChatChannel, media_url: mediaUrl, media_type: mediaType
+      text, channel: currentChatChannel,
+      media: uploaded.length ? uploaded : null,
+      // media_url/media_type — дубль первого файла для телефонов со старой,
+      // ещё не обновившейся версией приложения: иначе у них пустой пузырь
+      media_url: uploaded[0]?.url || null,
+      media_type: uploaded[0]?.type || null,
     });
     input.value = '';
     input.placeholder = t('chat.inputPh');
-    teamChatMediaFile = null;
+    teamChatMediaFiles = [];
     lastTeamChatCount = 0;
     await loadTeamChat();
   } catch(e) { showToast(t('common.error')+e.message); }

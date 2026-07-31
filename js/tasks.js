@@ -336,20 +336,36 @@ function viewReport(url, type) {
 
 // TASK COMMENTS
 let currentCommentsTaskId = null;
+// Вложения сообщения: новые лежат массивом в media, старые — одним media_url.
+// Приводим к массиву, чтобы показ был один на оба случая.
+function chatMediaList(c) {
+  if(Array.isArray(c.media) && c.media.length) return c.media;
+  if(c.media_url) return [{ url: c.media_url, type: c.media_type === 'video' ? 'video' : 'image' }];
+  return [];
+}
+
 function chatBubbleHTML(c, isMine, showPinBtn) {
   const time = new Date(c.created_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+  const media = chatMediaList(c);
   let mediaHTML = '';
-  if(c.media_url) {
-    if(c.media_type === 'video') {
-      mediaHTML = `<video src="${escapeHtml(c.media_url)}" controls style="max-width:100%;border-radius:10px;margin-bottom:${c.text?'6px':'0'};display:block"></video>`;
-    } else {
-      mediaHTML = `<img src="${escapeHtml(c.media_url)}" style="max-width:100%;border-radius:10px;margin-bottom:${c.text?'6px':'0'};display:block;cursor:pointer" onclick="viewReport('${escJsAttr(c.media_url)}','image')">`;
-    }
+  if(media.length === 1) {
+    const m = media[0];
+    mediaHTML = m.type === 'video'
+      ? `<video src="${escapeHtml(m.url)}" controls style="max-width:100%;border-radius:10px;margin-bottom:${c.text?'6px':'0'};display:block"></video>`
+      : `<img src="${escapeHtml(m.url)}" style="max-width:100%;border-radius:10px;margin-bottom:${c.text?'6px':'0'};display:block;cursor:pointer" onclick="viewReport('${escJsAttr(m.url)}','image')">`;
+  } else if(media.length > 1) {
+    // Несколько файлов — плиткой по два в ряд, каждый открывается по нажатию.
+    // Видео среди них не автозапускаем: в ленте это шумно, играет по кнопке.
+    mediaHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:${c.text?'6px':'0'}">`
+      + media.map(m => m.type === 'video'
+        ? `<video src="${escapeHtml(m.url)}" controls preload="metadata" style="width:100%;aspect-ratio:1;border-radius:8px;object-fit:cover;background:#000"></video>`
+        : `<img src="${escapeHtml(m.url)}" loading="lazy" style="width:100%;aspect-ratio:1;border-radius:8px;object-fit:cover;cursor:pointer" onclick="viewReport('${escJsAttr(m.url)}','image')">`
+      ).join('') + `</div>`;
   }
   const pinBtn = showPinBtn ? `<button onclick="event.stopPropagation();toggleChatPin(${c.id},${c.is_pinned})" style="background:none;border:none;cursor:pointer;font-size:11px;opacity:0.6;margin-left:6px">${c.is_pinned?'📌':'📍'}</button>` : '';
   return `<div style="align-self:${isMine?'flex-end':'flex-start'};max-width:80%">
     ${c.is_pinned?`<div style="font-size:10px;color:var(--gold-dark);font-weight:600;margin-bottom:2px">${t('tasks.pinned')}</div>`:''}
-    <div style="background:${isMine?'var(--gold-dark)':'var(--surface-2)'};color:${isMine?'#fff':'var(--text-primary)'};border-radius:14px;padding:${c.media_url?'8px':'10px 14px'};font-size:14px;${isMine?'border-bottom-right-radius:4px':'border-bottom-left-radius:4px'}">
+    <div style="background:${isMine?'var(--gold-dark)':'var(--surface-2)'};color:${isMine?'#fff':'var(--text-primary)'};border-radius:14px;padding:${media.length?'8px':'10px 14px'};font-size:14px;${isMine?'border-bottom-right-radius:4px':'border-bottom-left-radius:4px'}">
       ${!isMine?`<div style="font-size:11px;font-weight:600;opacity:0.7;margin-bottom:3px">${escapeHtml(c.user_name||'')}</div>`:''}
       ${mediaHTML}
       ${escapeHtml(c.text||'')}

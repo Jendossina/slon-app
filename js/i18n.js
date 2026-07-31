@@ -357,6 +357,7 @@ const I18N = {
     'hr.shiftsRate': '{n} смен · ставка {r} = {e}', 'hr.penalty': 'штраф −{p}', 'hr.totalFund': 'ИТОГО фонд оплаты', 'hr.noMonthData': 'Нет данных за месяц',
     'hr.dailyLedgerTitle': '💵 Ведомость на сегодня · {date} · {f}', 'hr.nobodyToday': 'На сегодня в смене никого нет',
     'hr.dailyHint': 'Оплата по смене − штрафы + премии. По графику на сегодня, филиал «{f}».',
+    'hr.checkinVideo': 'Видео прихода',
     'hr.notCheckedIn': 'не отметился', 'hr.arrivedLate': 'пришёл <b>{time}</b> · <span style="color:#A13C3C">опоздал {m}м</span>', 'hr.arrivedOnTime': 'пришёл <b>{time}</b> · <span style="color:#3B6D11">вовремя</span>',
     'hr.rate': 'Ставка {r}', 'hr.premiumPlus': 'премия +{s}', 'hr.premiumFallback': 'премия', 'hr.addPremiumBtn': '+ Премия', 'hr.toPay': 'К выплате: {t}', 'hr.totalToday': 'ИТОГО к выплате за сегодня',
     'hr.premiumOnlyMgr': 'Премии может давать менеджер или управляющий', 'hr.enterPremium': 'Введите сумму премии', 'hr.premiumAdded': '✅ Премия добавлена', 'hr.removePremium': 'Убрать эту премию?',
@@ -423,6 +424,8 @@ const I18N = {
     'chat.title': '💬 Чат команды', 'chat.noMessages': 'Пока нет сообщений.<br>Начни общение первым!',
     'chat.onlyAdminPin': 'Только управляющий может закреплять', 'chat.observerRead': 'Режим наблюдателя — вы можете только читать чат',
     'chat.inputPh': 'Написать сообщение...', 'chat.pinned': '📌 Закреплённые',
+    'chat.filesPicked': 'файлов: {n}', 'chat.tooManyFiles': 'За раз можно отправить не больше {n} файлов',
+    'chat.uploading': '⏳ Загружаю {i} из {n}...',
     // График
     'sch.title': '📅 Расписание', 'sch.week': '📆 На неделю', 'sch.addShift': '+ Смена', 'sch.dayHeader': 'День',
     'sch.prevWeek': '← Пред. неделя', 'sch.nextWeek': 'След. неделя →', 'sch.dayOffShort': 'Вых',
@@ -730,6 +733,7 @@ const I18N = {
     'hr.shiftsRate': '{n} смена · ставка {r} = {e}', 'hr.penalty': 'жарима −{p}', 'hr.totalFund': 'ЖАМИ тўлов фонди', 'hr.noMonthData': 'Ой учун маълумот йўқ',
     'hr.dailyLedgerTitle': '💵 Бугунги ведомость · {date} · {f}', 'hr.nobodyToday': 'Бугунга сменада ҳеч ким йўқ',
     'hr.dailyHint': 'Смена бўйича тўлов − жарималар + мукофотлар. Бугунги график, «{f}» филиали.',
+    'hr.checkinVideo': 'Келиш видеоси',
     'hr.notCheckedIn': 'белгиламади', 'hr.arrivedLate': 'келди <b>{time}</b> · <span style="color:#A13C3C">{m}д кечикди</span>', 'hr.arrivedOnTime': 'келди <b>{time}</b> · <span style="color:#3B6D11">ўз вақтида</span>',
     'hr.rate': 'Ставка {r}', 'hr.premiumPlus': 'мукофот +{s}', 'hr.premiumFallback': 'мукофот', 'hr.addPremiumBtn': '+ Мукофот', 'hr.toPay': 'Тўлашга: {t}', 'hr.totalToday': 'ЖАМИ бугунга тўлашга',
     'hr.premiumOnlyMgr': 'Мукофотни менежер ёки бошқарувчи бера олади', 'hr.enterPremium': 'Мукофот суммасини киритинг', 'hr.premiumAdded': '✅ Мукофот қўшилди', 'hr.removePremium': 'Бу мукофотни олиб ташлайсизми?',
@@ -796,6 +800,8 @@ const I18N = {
     'chat.title': '💬 Жамоа чати', 'chat.noMessages': 'Ҳали хабарлар йўқ.<br>Мулоқотни биринчи бўлиб бошланг!',
     'chat.onlyAdminPin': 'Фақат бошқарувчи қадай олади', 'chat.observerRead': 'Кузатувчи режими — чатни фақат ўқий оласиз',
     'chat.inputPh': 'Хабар ёзиш...', 'chat.pinned': '📌 Қадалганлар',
+    'chat.filesPicked': 'файл: {n} та', 'chat.tooManyFiles': 'Бир вақтда {n} тадан кўп файл юборилмайди',
+    'chat.uploading': '⏳ {n} тадан {i} таси юкланмоқда...',
     // График
     'sch.title': '📅 Жадвал', 'sch.week': '📆 Ҳафтага', 'sch.addShift': '+ Смена', 'sch.dayHeader': 'Кун',
     'sch.prevWeek': '← Олдинги ҳафта', 'sch.nextWeek': 'Кейинги ҳафта →', 'sch.dayOffShort': 'Дам',

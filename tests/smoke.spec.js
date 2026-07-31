@@ -380,3 +380,40 @@ test('переключатель периода подсвечивается и 
   expect(before.lit, 'сначала должен гореть «Месяц»').toEqual(['Месяц']);
   expect(after.lit, 'после переключения должен гореть «Сегодня», а не «Месяц»').toEqual(['Сегодня']);
 });
+
+// В сообщение чата можно вложить несколько фото (media = массив). Старые
+// сообщения хранят одно вложение в media_url — они обязаны показываться так же.
+test('в пузыре чата видно все вложения, и старые сообщения не ломаются', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.chatBubbleHTML === 'function');
+
+  const r = await page.evaluate(() => {
+    const count = (html) => ({
+      img: (html.match(/<img /g) || []).length,
+      video: (html.match(/<video /g) || []).length,
+    });
+    const base = { id: 1, created_at: new Date().toISOString(), user_name: 'Тест', text: 'привет' };
+    return {
+      three: count(window.chatBubbleHTML({ ...base, media: [
+        { url: 'https://x/1.jpg', type: 'image' },
+        { url: 'https://x/2.jpg', type: 'image' },
+        { url: 'https://x/3.mp4', type: 'video' },
+      ] }, false, false)),
+      one: count(window.chatBubbleHTML({ ...base, media: [{ url: 'https://x/1.jpg', type: 'image' }] }, false, false)),
+      legacy: count(window.chatBubbleHTML({ ...base, media_url: 'https://x/old.jpg', media_type: 'image' }, false, false)),
+      legacyVideo: count(window.chatBubbleHTML({ ...base, media_url: 'https://x/old.mp4', media_type: 'video' }, false, false)),
+      noMedia: count(window.chatBubbleHTML(base, false, false)),
+      // текст обязан уцелеть рядом с вложениями
+      keepsText: window.chatBubbleHTML({ ...base, media: [
+        { url: 'https://x/1.jpg', type: 'image' }, { url: 'https://x/2.jpg', type: 'image' },
+      ] }, false, false).includes('привет'),
+    };
+  });
+
+  expect(r.three, 'три вложения — три элемента, видео отдельно от картинок').toEqual({ img: 2, video: 1 });
+  expect(r.one, 'одно вложение показывается как раньше').toEqual({ img: 1, video: 0 });
+  expect(r.legacy, 'старое сообщение с media_url должно показываться').toEqual({ img: 1, video: 0 });
+  expect(r.legacyVideo, 'старое видео тоже').toEqual({ img: 0, video: 1 });
+  expect(r.noMedia, 'без вложений — ничего лишнего').toEqual({ img: 0, video: 0 });
+  expect(r.keepsText, 'текст сообщения не должен теряться').toBe(true);
+});
