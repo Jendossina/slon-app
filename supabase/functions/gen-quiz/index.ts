@@ -55,6 +55,22 @@ const SYSTEM = `Ты составляешь вопросы для еженеде
 - Не повторяй вопросы: каждый — про своё блюдо, напиток или правило.
 - В поле topic укажи тему вопроса — по ней мы следим, чтобы в один тест не попали два похожих вопроса. Вопросы одного шаблона должны получить ОДНУ тему, даже если они про разные блюда: все «Сколько готовится...» → «время приготовления», все про аллергены → «аллергены». Остальным ставь темой блюдо или правило, о котором спрашиваешь («том ям», «цезарь», «расчёт гостя»). Пиши тему коротко и в нижнем регистре.`;
 
+// Область вопроса (kitchen / bar / service) — по книге, из которой он взят.
+// По ней руководство назначает аттестацию «только по бару и кухне».
+async function bookArea(bookId: number): Promise<string | null> {
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return null;
+  const r = await fetch(`${url}/rest/v1/kb_books?select=title&id=eq.${bookId}`,
+    { headers: { apikey: key, Authorization: `Bearer ${key}` } });
+  if (!r.ok) return null;
+  const rows = await r.json();
+  const title = Array.isArray(rows) && rows[0] ? String(rows[0].title || "") : "";
+  if (title === "Bar Book") return "bar";
+  if (title === "Food Book") return "kitchen";
+  return title ? "service" : null;
+}
+
 async function fetchBookArticles(bookId: number): Promise<{ text: string; count: number }> {
   const url = Deno.env.get("SUPABASE_URL");
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -110,6 +126,7 @@ Deno.serve(async (req) => {
 
     const kb = await fetchBookArticles(bookId);
     if (!kb.text) return json({ error: "В этой книге пока нет статей" }, 200);
+    const area = await bookArea(bookId);
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -175,6 +192,7 @@ Deno.serve(async (req) => {
         correct_index: q.correct_index,
         source: (q.source || "").toString().slice(0, 200) || null,
         topic: (q.topic || "").toString().trim().toLowerCase().slice(0, 100) || null,
+        area,
         status: "draft",
         created_by_name: "ИИ по Базе знаний"
       }));

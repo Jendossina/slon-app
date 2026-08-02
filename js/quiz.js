@@ -13,7 +13,17 @@ const QUIZ_PASS = 8;
 const quizPassFor = total => Math.max(1, Math.ceil((total || QUIZ_TOTAL) * 0.8));
 
 let quizAttemptId = null, quizQuestions = [], quizAnswers = {}, quizIndex = 0;
-let quizTotal = QUIZ_TOTAL, quizPass = QUIZ_PASS, quizPractice = false;
+let quizTotal = QUIZ_TOTAL, quizPass = QUIZ_PASS, quizPractice = false, quizAreas = null;
+
+// Тест может быть сужен до областей (бар / кухня / сервис) — говорим об этом вслух,
+// иначе официант не поймёт, почему вопросы только про одно.
+const QUIZ_AREAS = ['kitchen', 'bar', 'service'];
+function quizAreaName(a) { return t('quiz.area.' + a); }
+function quizScopeText(areas) {
+  const list = (areas || []).filter(a => QUIZ_AREAS.includes(a));
+  return list.length && list.length < QUIZ_AREAS.length
+    ? t('quiz.scopeOnly', { areas: list.map(quizAreaName).join(t('quiz.scopeAnd')) }) : '';
+}
 
 // ===== Сторона официанта =====
 
@@ -30,6 +40,7 @@ async function openQuiz() {
     quizTotal = data.total || quizQuestions.length || QUIZ_TOTAL;
     quizPass = data.pass || quizPassFor(quizTotal);
     quizPractice = !!data.practice;
+    quizAreas = data.areas || null;
     quizAnswers = {}; quizIndex = 0;
     renderQuizQuestion();
   } catch(e) { quizFail(t('quiz.errStart') + e.message); }
@@ -52,8 +63,9 @@ function renderQuizQuestion() {
   if(!q) return;
   const chosen = quizAnswers[q.id];
   const last = quizIndex === quizQuestions.length - 1;
+  const scope = quizScopeText(quizAreas);
   document.getElementById('quiz-body').innerHTML = `
-    ${quizPractice?`<div style="font-size:11px;font-weight:600;color:#8a6a2f;background:rgba(138,106,47,0.12);border-radius:8px;padding:6px 9px;margin-bottom:10px">🏋️ ${t('quiz.practiceBadge')}</div>`:''}
+    ${quizPractice||scope?`<div style="font-size:11px;font-weight:600;color:#8a6a2f;background:rgba(138,106,47,0.12);border-radius:8px;padding:6px 9px;margin-bottom:10px">${quizPractice?`🏋️ ${t('quiz.practiceBadge')}`:''}${quizPractice&&scope?' · ':''}${scope}</div>`:''}
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
       <div style="flex:1;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden">
         <div style="height:100%;width:${Math.round((quizIndex+1)/quizQuestions.length*100)}%;background:var(--gold-dark)"></div>
@@ -118,7 +130,7 @@ function renderQuizResult(r) {
 function closeQuizAndRefresh() {
   closeModal('modal-quiz');
   quizAttemptId = null; quizQuestions = []; quizAnswers = {};
-  quizTotal = QUIZ_TOTAL; quizPass = QUIZ_PASS; quizPractice = false;
+  quizTotal = QUIZ_TOTAL; quizPass = QUIZ_PASS; quizPractice = false; quizAreas = null;
   if(typeof loadHome === 'function' && document.getElementById('screen-home')?.classList.contains('active')) loadHome();
   if(typeof bonusData !== 'undefined' && document.getElementById('screen-bonus')?.classList.contains('active')) { bonusData = null; switchBonusTab(bonusTab); }
 }
@@ -138,7 +150,7 @@ async function loadQuizCard() {
     const week = weekStartOf();
     const today = businessToday();
     const { data: attempts } = await sb.from('quiz_attempts')
-      .select('score,passed,finished_at,superseded,practice,q_total,question_ids,date')
+      .select('score,passed,finished_at,superseded,practice,q_total,question_ids,date,areas')
       .eq('employee_id', empId).eq('week_start', week);
     const all = attempts || [];
     const qn = a => (a.question_ids || []).length;
@@ -150,8 +162,12 @@ async function loadQuizCard() {
     const donePractice = all.find(a => a.practice && a.finished_at && a.date === today);
     const isSaturday = new Date(today).getDay() === 6;
 
-    // Итог показываем в день сдачи: зачётный — в субботу, тренировочный — в свой день
-    const done = (active && active.finished_at && isSaturday) ? active : (!assign && !started ? donePractice : null);
+    // Итог показываем в день сдачи: зачётный — в субботу, тренировочный — в свой день.
+    // Но в субботу тренировка не должна закрывать собой зачётную аттестацию:
+    // пока она не сдана, карточка с итогом тренировки уступает ей место.
+    const saturdayPending = isSaturday && !(active && active.finished_at);
+    const done = (active && active.finished_at && isSaturday) ? active
+               : (!assign && !started && !saturdayPending ? donePractice : null);
     if(done) {
       const total = done.q_total || QUIZ_TOTAL;
       el.innerHTML = `<div class="card" style="margin-bottom:12px;background:${done.passed?'linear-gradient(135deg,#EAF3DE,#d4edda)':'linear-gradient(135deg,#F6E7E7,#f5d9d9)'};border:none">
@@ -169,10 +185,11 @@ async function loadQuizCard() {
     const practice = !!(run && run.practice);
     const total = (run && run.q_total) || QUIZ_TOTAL;
     const label = practice ? t('quiz.cardPractice') : (assign||started ? t('quiz.cardRetake') : t('quiz.cardSaturday'));
+    const scope = quizScopeText(run && run.areas);
     el.innerHTML = `<div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#2d2416,#4a3a1f);border:none;color:#f0e9db">
       <div style="font-size:11px;opacity:0.75;margin-bottom:4px">${label}</div>
       <div style="font-size:17px;font-weight:700;margin-bottom:10px">${practice?'🏋️':'🎓'} ${practice?t('quiz.practiceTitle'):t('quiz.cardTitle')}</div>
-      <div style="font-size:12px;opacity:0.8;margin-bottom:12px">${practice?t('quiz.practiceCardHint',{total,pass:quizPassFor(total)}):t('quiz.cardHint',{total,pass:quizPassFor(total)})}</div>
+      <div style="font-size:12px;opacity:0.8;margin-bottom:12px">${practice?t('quiz.practiceCardHint',{total,pass:quizPassFor(total)}):t('quiz.cardHint',{total,pass:quizPassFor(total)})}${scope?` ${scope}`:''}</div>
       <button onclick="openQuiz()" style="width:100%;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">${t('quiz.cardBtn')}</button>
     </div>`;
   } catch(e) { /* таблиц ещё нет — карточку просто не показываем */ }
@@ -211,6 +228,9 @@ async function renderQuizBank() {
         <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
           ${q.source?`${t('quiz.source')}: ${escapeHtml(q.source)}`:''}${q.source&&q.topic?' · ':''}${q.topic?`${t('quiz.topic')}: ${escapeHtml(q.topic)}`:''}
         </div>
+        <div style="font-size:11px;margin-top:4px;color:${q.area?'var(--gold-dark)':'#A13C3C'}">
+          ${q.area?`${t('quiz.area')}: ${quizAreaName(q.area)}`:t('quiz.noArea')}
+        </div>
         ${manage?`<div style="display:flex;gap:6px;margin-top:10px">
           ${isDraft?`<button onclick="approveQuizQuestion(${q.id})" style="flex:1;background:#EAF3DE;color:#3B6D11;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer">${t('quiz.approve')}</button>`:''}
           <button onclick="openQuizQuestion(${q.id})" style="flex:0 0 auto;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer">${t('quiz.edit')}</button>
@@ -237,6 +257,7 @@ async function openQuizQuestion(id) {
   document.getElementById('qq-text').value = q?.question || '';
   for(let i=0;i<4;i++) document.getElementById('qq-opt-'+i).value = q?.options?.[i] || '';
   document.getElementById('qq-topic').value = q?.topic || '';
+  document.getElementById('qq-area').value = q?.area || '';
   quizCorrectIndex = q?.correct_index ?? 0;
   renderQuizCorrectPicker();
   openModal('modal-quiz-question');
@@ -255,13 +276,14 @@ async function saveQuizQuestion() {
   if(!question) return showToast(t('quiz.enterQuestion'));
   if(options.some(o=>!o)) return showToast(t('quiz.enterOptions'));
   const topic = document.getElementById('qq-topic').value.trim().toLowerCase() || null;
+  const area = document.getElementById('qq-area').value || null;
   const row = {
-    department: quizBankDept, question, options, correct_index: quizCorrectIndex, topic, status: 'active',
+    department: quizBankDept, question, options, correct_index: quizCorrectIndex, topic, area, status: 'active',
     created_by: currentUser?.id, created_by_name: currentProfile?.name || currentUser?.email,
   };
   try {
     const { error } = quizEditId
-      ? await sb.from('quiz_questions').update({ question, options, correct_index: quizCorrectIndex, topic }).eq('id', quizEditId)
+      ? await sb.from('quiz_questions').update({ question, options, correct_index: quizCorrectIndex, topic, area }).eq('id', quizEditId)
       : await sb.from('quiz_questions').insert(row);
     if(error) return showToast(t('common.error')+error.message);
     closeModal('modal-quiz-question');
