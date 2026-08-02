@@ -18,6 +18,14 @@ function isIOSDevice() {
   return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
 }
 
+// Встроенный браузер другого приложения (Telegram, Instagram, VK...). Оттуда
+// иконку на главный экран не добавить вообще ничем — сначала надо открыть
+// ссылку в обычном браузере. Это самая частая причина «кнопка не работает».
+function isInAppBrowser() {
+  const ua = navigator.userAgent || '';
+  return /Telegram|Instagram|FBAN|FBAV|VKAndroidApp|OKApp|Line\/|MicroMessenger/i.test(ua);
+}
+
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   _installPrompt = e;
@@ -30,11 +38,13 @@ window.addEventListener('appinstalled', () => {
   showToast(t('install.done'));
 });
 
-// Кнопку показываем, только если установка реально возможна: либо браузер дал
-// prompt, либо это iOS (там ставится вручную по инструкции).
+// Карточку показываем всем, кто открыл приложение не с иконки. Раньше она
+// требовала beforeinstallprompt, и сотрудник, у которого браузер это событие
+// не шлёт (Firefox, Яндекс, встроенный браузер Telegram, а также Chrome, если
+// он считает приложение уже установленным), не видел вообще ничего. Установка
+// руками через меню браузера возможна почти везде — на неё и уводим.
 function canInstallApp() {
-  if(isStandaloneApp()) return false;
-  return !!_installPrompt || isIOSDevice();
+  return !isStandaloneApp();
 }
 
 function renderInstallCard() {
@@ -62,13 +72,21 @@ async function installApp() {
     renderInstallCard();
     return;
   }
-  // iOS: своего диалога нет — показываем, куда нажимать
-  document.getElementById('install-help-steps').innerHTML = isIOSDevice()
-    ? `<ol style="margin:0 0 0 18px;padding:0;line-height:1.8;font-size:13px;color:var(--text-secondary)">
-         <li>${t('install.help.ios1')}</li>
-         <li>${t('install.help.ios2')}</li>
-         <li>${t('install.help.ios3')}</li>
-       </ol>`
-    : `<div style="font-size:13px;color:var(--text-secondary);line-height:1.6">${t('install.help.other')}</div>`;
+  // Своего диалога нет (iOS вообще без такого API, часть Android-браузеров тоже
+  // не даёт prompt) — показываем, куда нажимать руками.
+  const steps = isIOSDevice()
+    ? [t('install.help.ios1'), t('install.help.ios2'), t('install.help.ios3')]
+    : [t('install.help.android1'), t('install.help.android2'), t('install.help.android3')];
+
+  // Из встроенного браузера Telegram/Instagram не поможет никакая инструкция,
+  // пока ссылку не открыли в настоящем браузере — говорим об этом первым делом.
+  const inApp = isInAppBrowser()
+    ? `<div style="background:rgba(212,175,55,0.12);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;line-height:1.6;color:var(--gold-light)">${t('install.help.inapp')}</div>`
+    : '';
+
+  document.getElementById('install-help-steps').innerHTML = inApp
+    + `<ol style="margin:0 0 0 18px;padding:0;line-height:1.8;font-size:13px;color:var(--text-secondary)">`
+    + steps.map((s) => `<li>${s}</li>`).join('')
+    + `</ol>`;
   openModal('modal-install-help');
 }
