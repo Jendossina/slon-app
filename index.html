@@ -401,6 +401,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
         <h2 id="home-welcome-text" data-i18n="home.welcomeDefault">Добро пожаловать!</h2>
         <p id="home-role-text"></p>
       </div>
+      <div id="install-app-card"></div>
       <div id="home-announcements"></div>
       <div id="home-quiz-card"></div>
       <div id="home-shift-card"></div>
@@ -1137,6 +1138,15 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <input class="form-input" id="qq-topic" placeholder="Например: время приготовления" data-i18n-ph="quiz.qTopicPh">
       <div style="font-size:11px;color:var(--text-muted);margin-top:4px" data-i18n="quiz.qTopicHint">Вопросы с одной темой не попадут в один тест вместе. Ставьте одну тему похожим по формулировке вопросам.</div>
     </div>
+    <div class="form-group"><label class="form-label" for="qq-area" data-i18n="quiz.qArea">Область</label>
+      <select class="form-select" id="qq-area">
+        <option value="" data-i18n="quiz.qAreaNone">Не указана</option>
+        <option value="kitchen" data-i18n="quiz.area.kitchen">кухня</option>
+        <option value="bar" data-i18n="quiz.area.bar">бар</option>
+        <option value="service" data-i18n="quiz.area.service">сервис</option>
+      </select>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px" data-i18n="quiz.qAreaHint">Нужна, чтобы назначать аттестацию по отдельным областям — например только по бару и кухне. Вопрос без области в такой тест не попадёт.</div>
+    </div>
     <button class="btn btn-primary" onclick="saveQuizQuestion()" data-i18n="quiz.qSave">Сохранить вопрос</button>
   </div>
 </div>
@@ -1449,6 +1459,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <script src="js/feed.js"></script>
 <script src="js/reviews.js"></script>
 <script src="js/teamchat.js"></script>
+<script src="js/install.js"></script>
 <script>
 
 // Переводим статический HTML после полного парсинга DOM — иначе модалки,
@@ -1487,6 +1498,14 @@ if('serviceWorker' in navigator) {
     <button class="modal-close" onclick="closeModal('modal-checklist-emp-filter')">✕</button>
     <div class="modal-title">👥 Чек-листы по сотруднику</div>
     <div id="checklist-emp-filter-list"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-install-help">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-install-help')">✕</button>
+    <div class="modal-title" data-i18n="install.help.title">📲 Как добавить иконку</div>
+    <div id="install-help-steps"></div>
   </div>
 </div>
 

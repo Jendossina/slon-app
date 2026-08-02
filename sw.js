@@ -3,7 +3,7 @@
 // Данные (Supabase API) НЕ кешируются — только сеть, чтобы никогда
 // не показывать устаревшие задачи/чат/финансы как актуальные.
 
-const CACHE_VERSION = 'slon-shell-v50';
+const CACHE_VERSION = 'slon-shell-v52';
 
 const SHELL_FILES = [
   '/',
@@ -36,6 +36,7 @@ const SHELL_FILES = [
   '/js/feed.js',
   '/js/reviews.js',
   '/js/teamchat.js',
+  '/js/install.js',
 ];
 
 self.addEventListener('install', (event) => {

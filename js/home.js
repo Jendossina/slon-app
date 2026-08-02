@@ -8,6 +8,7 @@ async function loadHome() {
   const roleLabels = { admin: t('role.admin'), manager: t('role.manager'), employee: t('role.employee'), boss: t('role.boss') };
   document.getElementById('home-role-text').textContent = roleLabels[role] || '';
   loadHomeAnnouncements();
+  if(typeof renderInstallCard === 'function') renderInstallCard();
   try {
     const todayStr = today();
     const shiftDay = businessToday(); // смена 12:00–03:00 = один кассовый день (ночью = вчера)
