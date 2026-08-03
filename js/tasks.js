@@ -90,6 +90,7 @@ function taskHTML(t) {
       <div class="task-text" style="${isDone?'text-decoration:line-through;color:var(--text-muted)':''}">${escapeHtml(t.title)}</div>
       ${t.description?`<div style="font-size:12px;color:#666;margin-top:2px">${escapeHtml(t.description)}</div>`:''}
       <div class="task-meta">👤 ${escapeHtml(t.assigned_to_name||'—')} ${t.due_date?'· '+tr('tasks.due')+' '+fmtDateShort(t.due_date):''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">'+tr('tasks.mine')+'</span>':''}</div>
+      ${t.photo_url?`<img src="${escapeHtml(t.photo_url)}" loading="lazy" alt="" onclick="event.stopPropagation();viewReport('${escJsAttr(t.photo_url)}','image')" style="margin-top:6px;width:84px;height:84px;object-fit:cover;border-radius:8px;cursor:zoom-in;background:var(--surface-2);display:block">`:''}
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
         ${reportSection}
         <button class="report-btn" onclick="event.stopPropagation();openTaskComments(${t.id},'${escJsAttr(t.title||'')}')">💬 ${tr('tasks.discuss')}<span id="taskunread-${t.id}" style="display:${taskUnreadMap[t.id]?'inline-block':'none'};width:8px;height:8px;border-radius:50%;background:#A32D2D;margin-left:5px;vertical-align:middle"></span></button>
@@ -202,9 +203,43 @@ async function toggleTask(id, status, isMyTask) {
   loadTasks(); loadHome();
 }
 
+// Снимок, который ставящий задачу прикладывает к постановке («вот эта полка»).
+// Это не фотоотчёт о выполнении — тот живёт в report_url.
+let taskPhotoFile = null;
+
+function previewTaskPhoto(input) {
+  taskPhotoFile = input.files && input.files[0] ? input.files[0] : null;
+  renderTaskPhotoPreview();
+}
+
+function clearTaskPhoto() {
+  taskPhotoFile = null;
+  const inp = document.getElementById('task-photo-file');
+  if(inp) inp.value = '';
+  renderTaskPhotoPreview();
+}
+
+function renderTaskPhotoPreview() {
+  const box = document.getElementById('task-photo-preview');
+  const btn = document.getElementById('task-photo-btn');
+  if(!box) return;
+  if(!taskPhotoFile) {
+    box.innerHTML = '';
+    if(btn) btn.textContent = '📷 ' + t('tasks.photoPick');
+    return;
+  }
+  if(btn) btn.textContent = '🔄 ' + t('tasks.photoReplace');
+  const url = URL.createObjectURL(taskPhotoFile);
+  box.innerHTML = `<div style="position:relative;display:inline-block">
+    <img src="${url}" style="max-width:100%;max-height:180px;border-radius:10px;display:block">
+    <button type="button" onclick="clearTaskPhoto()" aria-label="${t('tasks.photoRemove')}" style="position:absolute;top:6px;right:6px;width:28px;height:28px;border:none;border-radius:50%;background:rgba(0,0,0,0.55);color:#fff;font-size:14px;cursor:pointer">✕</button>
+  </div>`;
+}
+
 async function loadTaskEmployees() {
   const el = document.getElementById('task-filial-display');
   if(el) el.textContent = t('tasks.forFilial') + getFilialName(currentFilial);
+  clearTaskPhoto(); // модалка открывается заново — снимок от прошлой задачи не тянем
   const { data: allEmps } = await sb.from('employees').select('id,name,department,filials').order('name');
   const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
   const list = document.getElementById('task-assigned-list');
@@ -239,6 +274,18 @@ async function addTask() {
   let successCount = 0;
 
   try {
+    // Снимок грузим один раз на всю постановку, даже если сотрудников несколько:
+    // задача одна и та же, незачем класть в хранилище пять копий.
+    let photoUrl = null;
+    if(taskPhotoFile) {
+      showToast(t('tasks.photoUploading'));
+      const fileToUpload = await compressImage(taskPhotoFile);
+      const path = `task-photo-${Date.now()}.jpg`;
+      const { error: upErr } = await sb.storage.from('task-reports').upload(path, fileToUpload);
+      if(upErr) return showToast(t('common.uploadErr') + upErr.message);
+      photoUrl = sb.storage.from('task-reports').getPublicUrl(path).data.publicUrl;
+    }
+
     for(const cb of checked) {
       const empId = cb.value;
       const empName = cb.getAttribute('data-name');
@@ -248,13 +295,13 @@ async function addTask() {
         title, description, assigned_to_name: empName,
         assigned_to_id: profile?.user_id||null,
         due_date: dueDate, status:'pending', created_by: currentUser.id,
-        filial: currentFilial
+        filial: currentFilial, photo_url: photoUrl
       });
 
       await logActivity('add_task', title + ' → ' + empName);
 
       if(profile?.user_id) {
-        await notifyEmployee(profile.user_id, `🐘 <b>Новая задача от управляющего</b>\n\n📋 ${title}${description?'\n📝 '+description:''}\n📅 Срок: ${dueDate}\n\nОткрой приложение: https://slon-app.vercel.app`, 'task_new');
+        await notifyEmployee(profile.user_id, `🐘 <b>Новая задача от управляющего</b>\n\n📋 ${title}${description?'\n📝 '+description:''}${photoUrl?'\n📷 К задаче приложено фото':''}\n📅 Срок: ${dueDate}\n\nОткрой приложение: https://slon-app.vercel.app`, 'task_new');
       }
       successCount++;
     }
@@ -262,6 +309,7 @@ async function addTask() {
     closeModal('modal-add-task');
     ['task-title','task-description','task-due'].forEach(id=>document.getElementById(id).value='');
     document.querySelectorAll('.task-emp-checkbox').forEach(cb=>cb.checked=false);
+    clearTaskPhoto();
     showToast(t('tasks.assigned',{n:successCount}));
     tasksSelectedDay = dueDate; // показать день, на который создали задачу
     loadTasks();
