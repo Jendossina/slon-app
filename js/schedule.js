@@ -408,6 +408,15 @@ function applyToAllDays() {
   document.querySelectorAll('[class^="wf-dash-"]').forEach(el => el.style.display = 'inline');
 }
 
+// База отклоняет запись кодом 42501 (нарушение политики RLS). Раньше результат
+// insert/delete вообще не проверялся: старший цеха видел «Сохранено», а в базу
+// ничего не уходило. Показываем причину человеческим языком.
+function schedErrMsg(err) {
+  if(!err) return '';
+  if(err.code === '42501' || /row-level security/i.test(err.message||'')) return t('sch.noRightsSave');
+  return t('common.error') + err.message;
+}
+
 async function saveWeekFill() {
   if(!canEditScheduleDept(currentDept)) return showToast(t('sch.noRightsDept'));
   const sel = document.getElementById('week-employee');
@@ -434,12 +443,16 @@ async function saveWeekFill() {
         end = document.querySelector(`.wf-end[data-idx="${i}"]`).value;
       }
 
-      await sb.from('schedules').delete().eq('employee_id', empId).eq('date', dateStr).eq('filial', currentFilial);
-      await sb.from('schedules').insert({
+      const { error: delErr } = await sb.from('schedules').delete().eq('employee_id', empId).eq('date', dateStr).eq('filial', currentFilial);
+      if(delErr) return showToast(schedErrMsg(delErr));
+      const { error: insErr } = await sb.from('schedules').insert({
         employee_id: parseInt(empId), employee_name: empName, date: dateStr,
         shift_start: isOff ? null : start, shift_end: isOff ? null : end,
         is_day_off: isOff, filial: currentFilial
       });
+      // Прерываемся на первом же дне: молча дописывать остаток недели, когда
+      // база отказала, — это и есть «сохранил, а графика нет».
+      if(insErr) return showToast(schedErrMsg(insErr));
     }
 
     const { data: profile } = await sb.from('profiles').select('telegram_id,notify_prefs').eq('employee_id', empId).single();
@@ -466,12 +479,14 @@ async function addSchedule() {
   if(!empId) return showToast(t('sch.selectCell'));
 
   try {
-    await sb.from('schedules').delete().eq('employee_id', empId).eq('date', date).eq('filial', currentFilial);
-    await sb.from('schedules').insert({
+    const { error: delErr } = await sb.from('schedules').delete().eq('employee_id', empId).eq('date', date).eq('filial', currentFilial);
+    if(delErr) return showToast(schedErrMsg(delErr));
+    const { error: insErr } = await sb.from('schedules').insert({
       employee_id: parseInt(empId), employee_name: empName, date,
       shift_start: isDayOff ? null : start, shift_end: isDayOff ? null : end,
       is_day_off: isDayOff, note, filial: currentFilial
     });
+    if(insErr) return showToast(schedErrMsg(insErr));
 
     const { data: profile } = await sb.from('profiles').select('telegram_id,notify_prefs').eq('employee_id', empId).single();
     if(profile?.telegram_id && _wantsNotif(profile.notify_prefs, 'schedule')) {
@@ -489,7 +504,8 @@ async function addSchedule() {
 
 async function deleteSchedule(id) {
   if(!canEditScheduleDept(currentDept)) return showToast(t('sch.noRightsDept'));
-  await sb.from('schedules').delete().eq('id', id);
+  const { error } = await sb.from('schedules').delete().eq('id', id);
+  if(error) return showToast(schedErrMsg(error));
   showToast(t('sch.deleted'));
   loadScheduleGrid();
 }
