@@ -126,7 +126,7 @@ const I18N = {
     'att.checkoutBtn': '🚪 Отметить уход', 'att.shiftDone': 'Смена завершена', 'att.came': 'Пришёл', 'att.left': 'Ушёл',
     'att.loadErr': 'Не удалось загрузить. Проверьте соединение и обновите страницу.',
     'att.needVideo': 'Нужно именно видео с камеры', 'att.checkGeo': '📍 Проверяю геопозицию...', 'att.uploadingVideo': '⏳ Загружаю видео...',
-    'att.videoErr': 'Ошибка загрузки видео: ', 'att.lateToast': '⏰ Опоздание {min} мин · штраф {pen} сум', 'att.onTimeToast': '✅ Отмечено вовремя!',
+    'att.videoErr': 'Ошибка загрузки видео: ', 'att.lateToast': '⏰ Опоздание {min} мин · штраф {pen} сум', 'att.onTimeToast': '✅ Отмечено вовремя!', 'att.already': 'Ты уже отметился сегодня',
     'att.checkoutToast': '✅ Уход отмечен',
     // Зарплата (карточка на главной)
     'salary.todayTitle': 'Моя зарплата · сегодня', 'salary.rate': 'Ставка', 'salary.notMarked': 'Смена сегодня ещё не отмечена', 'salary.penalty': 'Штраф',
@@ -546,7 +546,7 @@ const I18N = {
     'att.checkoutBtn': '🚪 Кетишни белгилаш', 'att.shiftDone': 'Смена тугади', 'att.came': 'Келди', 'att.left': 'Кетди',
     'att.loadErr': 'Юклаб бўлмади. Уланишни текширинг ва саҳифани янгиланг.',
     'att.needVideo': 'Айнан камерадан видео олиш керак', 'att.checkGeo': '📍 Геопозицияни текшираяпман...', 'att.uploadingVideo': '⏳ Видео юкланмоқда...',
-    'att.videoErr': 'Видео юклашда хато: ', 'att.lateToast': '⏰ Кечикиш {min} дақиқа · жарима {pen} сўм', 'att.onTimeToast': '✅ Ўз вақтида белгиланди!',
+    'att.videoErr': 'Видео юклашда хато: ', 'att.lateToast': '⏰ Кечикиш {min} дақиқа · жарима {pen} сўм', 'att.onTimeToast': '✅ Ўз вақтида белгиланди!', 'att.already': 'Сен бугун аллақачон белгилагансан',
     'att.checkoutToast': '✅ Кетиш белгиланди',
     // Зарплата (карточка на главной)
     'salary.todayTitle': 'Менинг маошим · бугун', 'salary.rate': 'Ставка', 'salary.notMarked': 'Бугунги смена ҳали белгиланмаган', 'salary.penalty': 'Жарима',

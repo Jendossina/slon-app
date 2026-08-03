@@ -104,12 +104,6 @@ function getCurrentTimeStr() {
   return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
 }
 
-function minutesFromStr(t) {
-  if(!t) return 0;
-  const [h,m] = t.split(':').map(Number);
-  return h*60+m;
-}
-
 async function loadAttendanceCard(dateStr, myShift) {
   const attEl = document.getElementById('home-attendance-card');
   if(!attEl) return;
@@ -171,12 +165,9 @@ async function loadSalaryCard() {
     </div>`;
   } catch(e) { console.error('salary card', e); }
 }
-function calcLatePenalty(lateMin) {
-  if(lateMin <= 5) return 0;
-  if(lateMin <= 15) return 30000;
-  if(lateMin <= 60) return 50000;
-  return 100000;
-}
+// Опоздание и штраф больше не считаются на клиенте — это делает триггер
+// attendance_guard() в базе (миграция 2026-08-03_attendance_server_time.sql).
+// Лестница штрафов живёт только там, иначе телефон снова станет источником правды.
 
 function startCheckIn() {
   const input = document.getElementById('checkin-video-file');
@@ -216,19 +207,23 @@ async function checkIn(videoFile) {
     if(upErr) { showToast(t('att.videoErr')+upErr.message); return; }
     const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
     videoUrl = urlData.publicUrl;
-    const lateMin = myShift ? Math.max(0, minutesFromStr(timeStr) - minutesFromStr(myShift.shift_start)) : 0;
-    const penalty = myShift ? calcLatePenalty(lateMin) : 0;
-    const isLate = penalty > 0;
-
-    await sb.from('attendance').insert({
+    // Время прихода, опоздание и штраф проставляет триггер в базе по часам
+    // сервера: часы телефона можно перевести назад, и раньше это давало отметку
+    // «вовремя». Клиент их больше не считает и не шлёт — только читает результат.
+    const { data: rec, error: attErr } = await sb.from('attendance').insert({
       employee_id: currentProfile.employee_id, user_id: currentUser.id,
       user_name: currentProfile?.name || currentUser?.email,
-      date: todayStr, check_in_time: timeStr, is_late: isLate,
-      late_minutes: lateMin, penalty: penalty,
+      date: todayStr, check_in_time: timeStr,
       filial: myShift?.filial || currentFilial,
       checkin_video: videoUrl,
       checkin_geo: geoCheck.geo
-    });
+    }).select().single();
+    if(attErr) { showToast(attErr.code === '23505' ? t('att.already') : t('common.error') + attErr.message); return; }
+
+    const lateMin = Number(rec?.late_minutes) || 0;
+    const penalty = Number(rec?.penalty) || 0;
+    const isLate = !!rec?.is_late;
+    const timeIn = rec?.check_in_time || timeStr;
 
     showToast(isLate ? t('att.lateToast',{min:lateMin,pen:formatNum(penalty)}) : t('att.onTimeToast'));
     // Уведомляем вверх по иерархии: старшие по цеху + все управляющие (и владелец)
@@ -236,7 +231,7 @@ async function checkIn(videoFile) {
       const { data: me } = await sb.from('employees').select('department,role,name').eq('id', currentProfile.employee_id).single();
       const myLevel = (typeof JOB_TITLE_LEVEL !== 'undefined' ? (JOB_TITLE_LEVEL[me?.role]||0) : 0);
       const lateTxt = isLate ? `⏰ опоздал ${lateMin} мин · штраф ${formatNum(penalty)} сум` : 'вовремя';
-      const msg = `🎥 <b>Отметка прихода</b>\n\n👤 ${tgEscape(me?.name||currentProfile?.name||'')} · ${tgEscape(me?.role||'')}\n🕐 Пришёл в ${timeStr} — ${lateTxt}\n📍 ${getFilialName(myShift?.filial||currentFilial)}`;
+      const msg = `🎥 <b>Отметка прихода</b>\n\n👤 ${tgEscape(me?.name||currentProfile?.name||'')} · ${tgEscape(me?.role||'')}\n🕐 Пришёл в ${timeIn} — ${lateTxt}\n📍 ${getFilialName(myShift?.filial||currentFilial)}`;
       if(me?.department) await notifyDeptSeniors(me.department, myLevel, msg, 'checkin'); // старшим по цеху — все отметки
       if(isLate) await notifyAdminsAll(msg, 'late');                                       // управляющим — только опоздания
     } catch(e) { console.error('notify checkin', e); }
@@ -246,8 +241,10 @@ async function checkIn(videoFile) {
 
 async function checkOut(recordId) {
   try {
+    // Как и приход, время ухода переставляет триггер на серверное
     const timeStr = getCurrentTimeStr();
-    await sb.from('attendance').update({check_out_time: timeStr}).eq('id', recordId);
+    const { error } = await sb.from('attendance').update({check_out_time: timeStr}).eq('id', recordId);
+    if(error) { showToast(t('common.error') + error.message); return; }
     showToast(t('att.checkoutToast'));
     loadHome();
   } catch(e) { showToast(t('common.error')+e.message); }
