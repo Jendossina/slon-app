@@ -3,7 +3,7 @@
 // Данные (Supabase API) НЕ кешируются — только сеть, чтобы никогда
 // не показывать устаревшие задачи/чат/финансы как актуальные.
 
-const CACHE_VERSION = 'slon-shell-v53';
+const CACHE_VERSION = 'slon-shell-v54';
 
 const SHELL_FILES = [
   '/',
@@ -26,6 +26,7 @@ const SHELL_FILES = [
   '/js/kb.js',
   '/js/supply.js',
   '/js/dishware.js',
+  '/js/stoplist.js',
   '/js/bonus.js',
   '/js/quiz.js',
   '/js/directory.js',

@@ -526,6 +526,7 @@ function switchFilial(id) {
   if(document.getElementById('screen-hr')?.classList.contains('active') && typeof loadHR === 'function') loadHR();
   if(document.getElementById('screen-supply')?.classList.contains('active') && typeof loadSupply === 'function') loadSupply();
   if(document.getElementById('screen-dishware')?.classList.contains('active') && typeof loadDishware === 'function') loadDishware();
+  if(document.getElementById('screen-stoplist')?.classList.contains('active') && typeof loadStopList === 'function') loadStopList();
   if(document.getElementById('screen-bonus')?.classList.contains('active') && typeof loadBonus === 'function') { bonusData = null; loadBonus(); }
   if(document.getElementById('screen-crm')?.classList.contains('active') && typeof loadCRM === 'function') loadCRM();
   if(document.getElementById('screen-reviews')?.classList.contains('active') && typeof loadReviews === 'function') loadReviews();
@@ -841,6 +842,7 @@ function openMoreMenu() {
     ]},
     { title:t('more.group.work'), items:[
       {id:'knowledge', label:'📚 '+t('more.knowledge'), show:true},
+      {id:'stoplist', label:'🚦 '+t('more.stoplist'), show:true},
       {id:'supply', label:'🧴 '+t('more.supply'), show:true},
       {id:'dishware', label:'🍽️ '+t('more.dishware'), show:true},
       {id:'calendar', label:'📅 '+t('more.calendar'), show:true},
@@ -897,6 +899,7 @@ function showScreen(name, btn) {
   if(name==='knowledge') loadKnowledgeBase();
   if(name==='supply') loadSupply();
   if(name==='dishware') loadDishware();
+  if(name==='stoplist') loadStopList();
   if(name==='bonus') loadBonus();
   if(name==='directory') loadDirectory();
   if(name==='reviews') loadReviews();

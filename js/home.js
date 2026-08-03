@@ -9,6 +9,7 @@ async function loadHome() {
   document.getElementById('home-role-text').textContent = roleLabels[role] || '';
   loadHomeAnnouncements();
   if(typeof renderInstallCard === 'function') renderInstallCard();
+  if(typeof renderStopListCard === 'function') renderStopListCard();
   try {
     const todayStr = today();
     const shiftDay = businessToday(); // смена 12:00–03:00 = один кассовый день (ночью = вчера)

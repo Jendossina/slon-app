@@ -161,6 +161,7 @@ const NOTIF_TYPES = [
   { key:'task_comment',   label:t('pf.n.taskComment'), desc:t('pf.n.taskCommentD') },
   { key:'task_due',       label:t('pf.n.taskDue'),     desc:t('pf.n.taskDueD') },
   { key:'schedule',       label:t('pf.n.schedule'),    desc:t('pf.n.scheduleD') },
+  { key:'stoplist',       label:t('pf.n.stoplist'),    desc:t('pf.n.stoplistD') },
 ];
 
 async function saveNotifPrefs() {

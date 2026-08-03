@@ -402,6 +402,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
         <p id="home-role-text"></p>
       </div>
       <div id="install-app-card"></div>
+      <div id="home-stoplist-card"></div>
       <div id="home-announcements"></div>
       <div id="home-quiz-card"></div>
       <div id="home-shift-card"></div>
@@ -656,6 +657,23 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     </div>
   </div>
 
+  <!-- ГО/СТОП ЛИСТ SCREEN -->
+  <div class="screen" id="screen-stoplist">
+    <div class="header">
+      <div class="header-row">
+        <div><h1 data-i18n="sl.title">🚦 Го/стоп лист</h1><p id="stoplist-subtitle">—</p></div>
+        <button id="stoplist-add-btn" onclick="openStopItemModal('stop')" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="sl.addBtn">+ Позиция</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;padding:10px 12px 0">
+      <button id="stoplist-tab-now" onclick="switchStopListTab('now')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--gold-dark);color:#fff" data-i18n="sl.tabNow">Сейчас</button>
+      <button id="stoplist-tab-history" onclick="switchStopListTab('history')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)" data-i18n="sl.tabHistory">История</button>
+    </div>
+    <div class="content" id="stoplist-content" style="padding:12px">
+      <div class="loading" data-i18n="common.loading">Загрузка...</div>
+    </div>
+  </div>
+
   <!-- BONUS (ПРОЦЕНТЫ ОФИЦИАНТОВ) SCREEN -->
   <div class="screen" id="screen-bonus">
     <div class="header">
@@ -828,6 +846,24 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="form-group"><label class="form-label" for="dishware-item-cost" data-i18n="dish.cost">Себестоимость за штуку (сум)</label><input class="form-input" id="dishware-item-cost" type="number" step="any" placeholder="15000"></div>
     <div class="form-group"><label class="form-label" for="dishware-item-qty" data-i18n="dish.qtyStart">Сколько сейчас на складе (шт)</label><input class="form-input" id="dishware-item-qty" type="number" step="any" placeholder="20"></div>
     <button class="btn btn-primary" id="dishware-item-save" onclick="saveDishwareItem()">Создать</button>
+  </div>
+</div>
+
+<!-- ГО/СТОП ЛИСТ: новая позиция -->
+<div class="modal-overlay" id="modal-stoplist-item">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-stoplist-item')">✕</button>
+    <div class="modal-title" data-i18n="sl.newTitle">🚦 Новая позиция</div>
+    <div class="form-group"><label class="form-label" for="stoplist-item-state" data-i18n="sl.state">Что с позицией</label>
+      <select class="form-select" id="stoplist-item-state">
+        <option value="stop" data-i18n="sl.stateStop">🛑 Стоп — закончилось, не предлагать</option>
+        <option value="go" data-i18n="sl.stateGo">⚡ Продать в первую очередь</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label" for="stoplist-item-area" data-i18n="sl.area">Область</label><select class="form-select" id="stoplist-item-area"></select></div>
+    <div class="form-group"><label class="form-label" for="stoplist-item-name" data-i18n="sl.name">Название</label><input class="form-input" id="stoplist-item-name" placeholder="Например: Цезарь с курицей" data-i18n-ph="sl.namePh"></div>
+    <div class="form-group"><label class="form-label" for="stoplist-item-note" data-i18n="sl.note">Комментарий (необязательно)</label><input class="form-input" id="stoplist-item-note" placeholder="Осталось 3 порции" data-i18n-ph="sl.notePh"></div>
+    <button class="btn btn-primary" onclick="saveStopItem()" data-i18n="sl.save">Добавить в лист</button>
   </div>
 </div>
 
@@ -1459,6 +1495,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <script src="js/feed.js"></script>
 <script src="js/reviews.js"></script>
 <script src="js/teamchat.js"></script>
+<script src="js/stoplist.js"></script>
 <script src="js/install.js"></script>
 <script>
 
