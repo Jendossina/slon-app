@@ -127,7 +127,10 @@ const I18N = {
     'install.diag.title': 'Не помогло? Открой и пришли скриншот',
     'install.diag.prompt': 'Браузер предлагает установку', 'install.diag.yes': 'да', 'install.diag.no': 'нет',
     'install.diag.mode': 'Режим', 'install.diag.desktop': 'версия для ПК', 'install.diag.mobile': 'мобильный',
-    'install.diag.system': 'Система',
+    'install.diag.system': 'Система', 'install.diag.installed': 'Уже установлено',
+    'install.diag.sw': 'Служебный процесс',
+    'install.diag.sw.ok': 'управляет страницей', 'install.diag.sw.noctl': 'есть, но не управляет — нужна перезагрузка',
+    'install.diag.sw.none': 'не зарегистрирован', 'install.diag.sw.err': 'ошибка регистрации',
     // Отметка на смену (явка)
     'att.title': 'Отметка на смену', 'att.startsAt': 'Смена начинается в {time}. Для отметки нужно снять короткое видео на месте.',
     'att.recordBtn': '🎥 Снять видео и отметить приход', 'att.arrivedAt': 'Пришёл в', 'att.late': 'Опоздание', 'att.onTime': 'Вовремя',
@@ -557,7 +560,10 @@ const I18N = {
     'install.diag.title': 'Ёрдам бермадими? Очиб, скриншот юбор',
     'install.diag.prompt': 'Браузер ўрнатишни таклиф қиляпти', 'install.diag.yes': 'ҳа', 'install.diag.no': 'йўқ',
     'install.diag.mode': 'Режим', 'install.diag.desktop': 'компьютер версияси', 'install.diag.mobile': 'мобил',
-    'install.diag.system': 'Тизим',
+    'install.diag.system': 'Тизим', 'install.diag.installed': 'Аллақачон ўрнатилган',
+    'install.diag.sw': 'Хизмат жараёни',
+    'install.diag.sw.ok': 'саҳифани бошқаряпти', 'install.diag.sw.noctl': 'бор, лекин бошқармаяпти — янгилаш керак',
+    'install.diag.sw.none': 'рўйхатдан ўтмаган', 'install.diag.sw.err': 'рўйхатдан ўтишда хато',
     // Отметка на смену (явка)
     'att.title': 'Сменага белги', 'att.startsAt': 'Смена {time} да бошланади. Белгилаш учун жойда қисқа видео олиш керак.',
     'att.recordBtn': '🎥 Видео олиб, келишни белгилаш', 'att.arrivedAt': 'Келди:', 'att.late': 'Кечикди', 'att.onTime': 'Ўз вақтида',

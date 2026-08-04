@@ -72,6 +72,16 @@ function canInstallApp() {
 // выглядит как «кнопки нет нигде». Спрашиваем систему напрямую: в манифесте
 // приложение указано в related_applications как webapp, поэтому браузер отвечает,
 // установлено ли оно. Работает только в Chromium — в остальных просто false.
+// Состояние service worker для диагностики. Без него Chrome не считает сайт
+// приложением, а ошибка регистрации в index.html глушится молча — по этой
+// строке видно, дошло ли дело до него вообще.
+let _swState = 'none';
+if(navigator.serviceWorker) {
+  navigator.serviceWorker.getRegistration()
+    .then(r => { _swState = !r ? 'none' : (navigator.serviceWorker.controller ? 'ok' : 'noctl'); })
+    .catch(() => { _swState = 'err'; });
+}
+
 let _alreadyInstalled = false;
 async function checkAlreadyInstalled() {
   try {
@@ -157,6 +167,8 @@ function installDiagnosticsHTML() {
     [t('install.diag.prompt'), _installPrompt ? t('install.diag.yes') : t('install.diag.no')],
     [t('install.diag.mode'), isDesktopModeOnMobile() ? t('install.diag.desktop') : t('install.diag.mobile')],
     [t('install.diag.system'), isIOSDevice() ? 'iOS' : (/Android/i.test(ua) || navigator.userAgentData ? 'Android' : '—')],
+    [t('install.diag.sw'), t('install.diag.sw.' + _swState)],
+    [t('install.diag.installed'), _alreadyInstalled ? t('install.diag.yes') : t('install.diag.no')],
   ];
   return `<details style="margin-top:14px">
     <summary style="font-size:12px;color:var(--text-muted);cursor:pointer">${t('install.diag.title')}</summary>
