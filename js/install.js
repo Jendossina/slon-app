@@ -14,8 +14,28 @@ function isStandaloneApp() {
 
 function isIOSDevice() {
   const ua = navigator.userAgent || '';
+  // На Android с включённой «версией для ПК» браузер подменяет User-Agent на
+  // десктопный, и проверка «Macintosh + тач-экран» принимала Redmi за iPad —
+  // человеку показывали инструкцию для айфона. Поэтому сначала отсекаем всё,
+  // что заведомо не Apple:
+  // 1) userAgentData есть только в Chromium, а Chromium на iOS не существует —
+  //    там любой браузер работает на WebKit, и этого свойства у него нет;
+  // 2) прямое упоминание Android в UA.
+  if(navigator.userAgentData) return false;
+  if(/Android/i.test(ua)) return false;
   // iPadOS с 13-й версии представляется Macintosh — отличаем по тач-экрану
   return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+}
+
+// Браузер выдаёт себя за настольный («версия для ПК» в меню). В этом режиме
+// Chrome не предлагает установку вообще и прячет пункт меню — самая частая
+// причина «нет кнопки добавить на экран» на Android.
+function isDesktopModeOnMobile() {
+  const ua = navigator.userAgent || '';
+  if(/Mobile/i.test(ua)) return false;                       // обычный мобильный режим
+  if(navigator.userAgentData && navigator.userAgentData.mobile) return true;
+  // Тач-экран есть, а браузер называет себя настольным — значит, режим ПК
+  return navigator.maxTouchPoints > 1 && /Macintosh|Windows NT|X11|Linux x86_64/i.test(ua);
 }
 
 // Встроенный браузер другого приложения (Telegram, Instagram, VK...). Оттуда
@@ -78,15 +98,37 @@ async function installApp() {
     ? [t('install.help.ios1'), t('install.help.ios2'), t('install.help.ios3')]
     : [t('install.help.android1'), t('install.help.android2'), t('install.help.android3')];
 
+  const notice = (text) => `<div style="background:rgba(212,175,55,0.12);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;line-height:1.6;color:var(--gold-light)">${text}</div>`;
+
   // Из встроенного браузера Telegram/Instagram не поможет никакая инструкция,
   // пока ссылку не открыли в настоящем браузере — говорим об этом первым делом.
-  const inApp = isInAppBrowser()
-    ? `<div style="background:rgba(212,175,55,0.12);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;line-height:1.6;color:var(--gold-light)">${t('install.help.inapp')}</div>`
-    : '';
+  let head = isInAppBrowser() ? notice(t('install.help.inapp')) : '';
+  // «Версия для ПК» прячет установку в самом браузере — сначала её выключить
+  if(isDesktopModeOnMobile()) head += notice(t('install.help.desktopMode'));
 
-  document.getElementById('install-help-steps').innerHTML = inApp
+  document.getElementById('install-help-steps').innerHTML = head
     + `<ol style="margin:0 0 0 18px;padding:0;line-height:1.8;font-size:13px;color:var(--text-secondary)">`
     + steps.map((s) => `<li>${s}</li>`).join('')
-    + `</ol>`;
+    + `</ol>`
+    + installDiagnosticsHTML();
   openModal('modal-install-help');
+}
+
+// Если инструкция не помогла, сотрудник присылает скриншот этого блока — по нему
+// видно, каким браузером он открыл и почему установка недоступна. Тот же приём,
+// что и в диагностике связи на экране входа.
+function installDiagnosticsHTML() {
+  const ua = navigator.userAgent || '';
+  const rows = [
+    [t('install.diag.prompt'), _installPrompt ? t('install.diag.yes') : t('install.diag.no')],
+    [t('install.diag.mode'), isDesktopModeOnMobile() ? t('install.diag.desktop') : t('install.diag.mobile')],
+    [t('install.diag.system'), isIOSDevice() ? 'iOS' : (/Android/i.test(ua) || navigator.userAgentData ? 'Android' : '—')],
+  ];
+  return `<details style="margin-top:14px">
+    <summary style="font-size:12px;color:var(--text-muted);cursor:pointer">${t('install.diag.title')}</summary>
+    <div style="margin-top:8px;font-size:12px;color:var(--text-secondary);line-height:1.7">
+      ${rows.map(([k, v]) => `<div>${k}: <b>${escapeHtml(v)}</b></div>`).join('')}
+      <div style="margin-top:6px;word-break:break-all;color:var(--text-muted);font-size:11px">${escapeHtml(ua)}</div>
+    </div>
+  </details>`;
 }
