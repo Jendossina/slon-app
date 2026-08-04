@@ -4,3 +4,6 @@ playwright-report/
 test-results/
 backups/
 .supabase-pat
+*.jks
+*.keystore
+*.b64

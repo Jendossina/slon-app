@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Передний слой адаптивной иконки. Система обрезает его по маске (круг, квадрат
+     со скруглением и т.п.), забирая примерно четверть от края, поэтому логотип
+     вжимаем внутрь — иначе у него срезало бы края. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@mipmap/ic_launcher_fg"
+    android:inset="22%" />

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Фон иконки и заставки — тот же тёмный цвет, что в manifest.json сайта -->
+    <color name="ic_launcher_background">#0e0d0b</color>
+</resources>

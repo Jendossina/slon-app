@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Slon</string>
+    <string name="title_activity_main">Slon</string>
+    <string name="package_name">uz.slon.app</string>
+    <string name="custom_url_scheme">uz.slon.app</string>
+</resources>

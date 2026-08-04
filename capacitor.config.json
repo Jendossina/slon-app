@@ -1,0 +1,13 @@
+{
+  "appId": "uz.slon.app",
+  "appName": "Slon",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "url": "https://slon-app.vercel.app",
+    "androidScheme": "https",
+    "cleartext": false
+  }
+}
