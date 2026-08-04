@@ -7,3 +7,4 @@ backups/
 *.jks
 *.keystore
 *.b64
+.github-pat
