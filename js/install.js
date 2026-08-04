@@ -67,10 +67,37 @@ function canInstallApp() {
   return !isStandaloneApp();
 }
 
+// Приложение уже стоит на телефоне, но открыто из браузера. Chrome в этом случае
+// не присылает beforeinstallprompt и убирает «Установить» из меню — со стороны
+// выглядит как «кнопки нет нигде». Спрашиваем систему напрямую: в манифесте
+// приложение указано в related_applications как webapp, поэтому браузер отвечает,
+// установлено ли оно. Работает только в Chromium — в остальных просто false.
+let _alreadyInstalled = false;
+async function checkAlreadyInstalled() {
+  try {
+    if(!navigator.getInstalledRelatedApps) return;
+    const apps = await navigator.getInstalledRelatedApps();
+    _alreadyInstalled = Array.isArray(apps) && apps.length > 0;
+    if(_alreadyInstalled) renderInstallCard();
+  } catch(e) { /* не поддерживается — остаёмся с обычной инструкцией */ }
+}
+checkAlreadyInstalled();
+
 function renderInstallCard() {
   const el = document.getElementById('install-app-card');
   if(!el) return;
   if(!canInstallApp()) { el.innerHTML = ''; return; }
+  // Уже установлено — не предлагаем ставить заново, а подсказываем, что искать
+  if(_alreadyInstalled) {
+    el.innerHTML = `<div class="card" style="margin-bottom:12px;display:flex;align-items:center;gap:12px">
+      <img src="/icon-192.png" alt="" style="width:40px;height:40px;border-radius:10px;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:600;color:var(--text-primary)">${t('install.installedTitle')}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${t('install.installedDesc')}</div>
+      </div>
+    </div>`;
+    return;
+  }
   el.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#2a2620,#1a1a1a);border:none;color:#fff;margin-bottom:12px">
     <div style="display:flex;align-items:center;gap:12px">
       <img src="/icon-192.png" alt="" style="width:44px;height:44px;border-radius:12px;flex-shrink:0">
@@ -105,6 +132,13 @@ async function installApp() {
   let head = isInAppBrowser() ? notice(t('install.help.inapp')) : '';
   // «Версия для ПК» прячет установку в самом браузере — сначала её выключить
   if(isDesktopModeOnMobile()) head += notice(t('install.help.desktopMode'));
+  // Уже стоит на телефоне: Chrome тогда молчит и прячет пункт меню
+  if(_alreadyInstalled) head += notice(t('install.help.installed'));
+  // На первом заходе service worker ещё не управляет страницей, и до перезагрузки
+  // браузер не считает сайт приложением — отсюда «установку не предлагает».
+  else if(!_installPrompt && navigator.serviceWorker && !navigator.serviceWorker.controller) {
+    head += notice(t('install.help.reload'));
+  }
 
   document.getElementById('install-help-steps').innerHTML = head
     + `<ol style="margin:0 0 0 18px;padding:0;line-height:1.8;font-size:13px;color:var(--text-secondary)">`

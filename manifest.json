@@ -7,6 +7,9 @@
   "background_color": "#0e0d0b",
   "theme_color": "#0e0d0b",
   "orientation": "portrait",
+  "related_applications": [
+    { "platform": "webapp", "url": "https://slon-app.vercel.app/manifest.json" }
+  ],
   "icons": [
     {
       "src": "/icon-192.png",
