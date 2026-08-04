@@ -63,7 +63,15 @@ window.addEventListener('appinstalled', () => {
 // не шлёт (Firefox, Яндекс, встроенный браузер Telegram, а также Chrome, если
 // он считает приложение уже установленным), не видел вообще ничего. Установка
 // руками через меню браузера возможна почти везде — на неё и уводим.
+// Открыто внутри Android-приложения (оболочка Capacitor, см. docs/android-apk.md).
+// Там предлагать установку абсурдно — оно уже установлено. Признак: Capacitor
+// внедряет в страницу свой мост window.Capacitor, даже когда грузит сайт по адресу.
+function isNativeShell() {
+  return !!window.Capacitor;
+}
+
 function canInstallApp() {
+  if(isNativeShell()) return false;
   return !isStandaloneApp();
 }
 
