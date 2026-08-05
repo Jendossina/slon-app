@@ -417,3 +417,38 @@ test('в пузыре чата видно все вложения, и стары
   expect(r.noMedia, 'без вложений — ничего лишнего').toEqual({ img: 0, video: 0 });
   expect(r.keepsText, 'текст сообщения не должен теряться').toBe(true);
 });
+
+// База знаний: управляющий должен править только те книги, которые ему отдали
+// (регламент по оборудованию), и не трогать Food Book / Bar Book — на них
+// отвечает Помощник. То же правило продублировано в RLS.
+test('база знаний: кто может править статьи и заводить книги', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.kbCanEdit === 'function');
+
+  const r = await page.evaluate(() => {
+    const asRole = (role) => { eval(`currentProfile = { role: ${JSON.stringify(role)} }`); };
+    const admin = { edit_role: 'admin' };
+    const shared = { edit_role: 'manager' };
+    const out = {};
+    asRole('admin');
+    out.adminAnyBook = window.kbCanEdit(admin);
+    out.adminSharedBook = window.kbCanEdit(shared);
+    out.adminMakesBooks = window.kbCanEditBooks();
+    asRole('manager');
+    out.managerAdminBook = window.kbCanEdit(admin);
+    out.managerSharedBook = window.kbCanEdit(shared);
+    out.managerMakesBooks = window.kbCanEditBooks();
+    asRole('employee');
+    out.employeeSharedBook = window.kbCanEdit(shared);
+    asRole('boss');
+    out.bossSharedBook = window.kbCanEdit(shared);
+    return out;
+  });
+
+  for (const k of ['adminAnyBook', 'adminSharedBook', 'adminMakesBooks', 'managerSharedBook']) {
+    expect(r[k], `${k} должен иметь право`).toBe(true);
+  }
+  for (const k of ['managerAdminBook', 'managerMakesBooks', 'employeeSharedBook', 'bossSharedBook']) {
+    expect(r[k], `${k} НЕ должен иметь право`).toBe(false);
+  }
+});

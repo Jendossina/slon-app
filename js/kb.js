@@ -1,7 +1,19 @@
 // ============ KNOWLEDGE BASE ============
 let kbCurrentBookId = null;
+let kbCurrentBook = null;   // книга, открытая сейчас: нужна, чтобы знать, кому её можно править
 
-function kbCanEdit() { return currentRole() === 'admin'; }
+// Книги заводит и удаляет только админ: это скелет базы, на ней держится поиск
+// и ответы Помощника.
+function kbCanEditBooks() { return currentRole() === 'admin'; }
+
+// Статьи внутри книги: админ — везде, управляющий — только там, где книге
+// проставлено edit_role='manager' (например, регламент по оборудованию,
+// который ведут управляющие филиалов). То же правило продублировано в RLS.
+function kbCanEdit(book) {
+  const r = currentRole();
+  if(r === 'admin') return true;
+  return r === 'manager' && (book || kbCurrentBook)?.edit_role === 'manager';
+}
 
 function escapeHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -14,19 +26,20 @@ function escJsAttr(s) {
 
 async function loadKnowledgeBase() {
   kbCurrentBookId = null;
+  kbCurrentBook = null;
   const searchEl = document.getElementById('kb-search');
   if(searchEl && document.activeElement !== searchEl) searchEl.value = '';
   document.getElementById('kb-title').textContent = t('kb.title');
   document.getElementById('kb-subtitle').textContent = t('kb.subtitle');
   const addBtn = document.getElementById('kb-add-book-btn');
-  if(addBtn) { addBtn.style.display = kbCanEdit() ? 'block' : 'none'; addBtn.onclick = openKbBookModal; addBtn.textContent = t('kb.addBook'); }
+  if(addBtn) { addBtn.style.display = kbCanEditBooks() ? 'block' : 'none'; addBtn.onclick = openKbBookModal; addBtn.textContent = t('kb.addBook'); }
 
   const content = document.getElementById('kb-content');
   content.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
   try {
     const { data: books } = await sb.from('kb_books').select('*').order('sort_order').order('created_at');
     if(!books || books.length===0) {
-      content.innerHTML = `<div class="card"><div class="empty"><div class="empty-icon">📚</div><div class="empty-text">${t('kb.noBooks')}${kbCanEdit()?t('kb.noBooksHint'):''}</div></div></div>`;
+      content.innerHTML = `<div class="card"><div class="empty"><div class="empty-icon">📚</div><div class="empty-text">${t('kb.noBooks')}${kbCanEditBooks()?t('kb.noBooksHint'):''}</div></div></div>`;
       return;
     }
     // Count articles per book
@@ -108,11 +121,12 @@ async function openKbBook(bookId) {
   content.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
   try {
     const { data: book } = await sb.from('kb_books').select('*').eq('id', bookId).single();
+    kbCurrentBook = book || null;
     document.getElementById('kb-title').textContent = (book?.icon||'📖') + ' ' + (book?.title||'Книга');
     document.getElementById('kb-subtitle').textContent = t('kb.tapArticle');
     const addBtn = document.getElementById('kb-add-book-btn');
     if(addBtn) {
-      addBtn.style.display = kbCanEdit() ? 'block' : 'none';
+      addBtn.style.display = kbCanEdit(book) ? 'block' : 'none';
       addBtn.textContent = t('kb.addArticle');
       addBtn.onclick = () => openKbArticleModal(bookId);
     }
@@ -120,11 +134,11 @@ async function openKbBook(bookId) {
     const { data: articles } = await sb.from('kb_articles').select('*').eq('book_id', bookId).order('sort_order').order('created_at');
 
     let html = `<div style="margin-bottom:12px"><button onclick="loadKnowledgeBase()" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${t('kb.allBooks')}</button>`;
-    if(kbCanEdit()) html += ` <button onclick="openKbBookModal(${book.id})" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${t('kb.editBook')}</button>`;
+    if(kbCanEditBooks()) html += ` <button onclick="openKbBookModal(${book.id})" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${t('kb.editBook')}</button>`;
     html += `</div>`;
 
     if(!articles || articles.length===0) {
-      html += `<div class="card"><div class="empty"><div class="empty-icon">📄</div><div class="empty-text">${t('kb.noArticles')}${kbCanEdit()?t('kb.noArticlesHint'):''}</div></div></div>`;
+      html += `<div class="card"><div class="empty"><div class="empty-icon">📄</div><div class="empty-text">${t('kb.noArticles')}${kbCanEdit(book)?t('kb.noArticlesHint'):''}</div></div></div>`;
     } else {
       html += articles.map(a=>`
         <div class="card" style="cursor:pointer" onclick="openKbArticle(${a.id})">
@@ -141,6 +155,12 @@ async function openKbArticle(articleId) {
   content.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
   try {
     const { data: a } = await sb.from('kb_articles').select('*').eq('id', articleId).single();
+    // Статью можно открыть и из поиска, минуя список книг, — тогда права на
+    // правку ещё не известны, дочитываем их у книги
+    if(!kbCurrentBook || kbCurrentBook.id !== a.book_id) {
+      const { data: b } = await sb.from('kb_books').select('*').eq('id', a.book_id).single();
+      kbCurrentBook = b || null;
+    }
     document.getElementById('kb-title').textContent = escapeHtml(a.title);
     document.getElementById('kb-subtitle').textContent = '';
     const addBtn = document.getElementById('kb-add-book-btn');
@@ -157,7 +177,7 @@ async function openKbArticle(articleId) {
 
 // --- Book create/edit ---
 function openKbBookModal(bookId) {
-  if(!kbCanEdit()) return;
+  if(!kbCanEditBooks()) return;
   document.getElementById('kb-book-id').value = bookId || '';
   const delBtn = document.getElementById('kb-book-delete-btn');
   if(bookId) {
@@ -166,27 +186,30 @@ function openKbBookModal(bookId) {
     sb.from('kb_books').select('*').eq('id', bookId).single().then(({data})=>{
       document.getElementById('kb-book-icon').value = data?.icon || '';
       document.getElementById('kb-book-title').value = data?.title || '';
+      document.getElementById('kb-book-edit-role').value = data?.edit_role || 'admin';
     });
   } else {
     document.getElementById('kb-book-modal-title').textContent = t('kb.newBook');
     document.getElementById('kb-book-icon').value = '';
     document.getElementById('kb-book-title').value = '';
+    document.getElementById('kb-book-edit-role').value = 'admin';
     delBtn.style.display = 'none';
   }
   openModal('modal-kb-book');
 }
 
 async function saveKbBook() {
-  if(!canEditData()) return showToast(t('common.observerMode'));
+  if(!kbCanEditBooks()) return showToast(t('common.observerMode'));
   const id = document.getElementById('kb-book-id').value;
   const icon = document.getElementById('kb-book-icon').value.trim() || '📖';
   const title = document.getElementById('kb-book-title').value.trim();
+  const editRole = document.getElementById('kb-book-edit-role').value === 'manager' ? 'manager' : 'admin';
   if(!title) return showToast(t('inv.enterName'));
   try {
     if(id) {
-      await sb.from('kb_books').update({icon, title}).eq('id', id);
+      await sb.from('kb_books').update({icon, title, edit_role: editRole}).eq('id', id);
     } else {
-      await sb.from('kb_books').insert({icon, title});
+      await sb.from('kb_books').insert({icon, title, edit_role: editRole});
     }
     closeModal('modal-kb-book');
     showToast(t('sch.saved'));
@@ -230,7 +253,7 @@ function openKbArticleModal(bookId, articleId) {
 }
 
 async function saveKbArticle() {
-  if(!canEditData()) return showToast(t('common.observerMode'));
+  if(!kbCanEdit()) return showToast(t('common.observerMode'));
   const id = document.getElementById('kb-article-id').value;
   const bookId = document.getElementById('kb-article-book-id').value;
   const title = document.getElementById('kb-article-title').value.trim();
@@ -249,7 +272,7 @@ async function saveKbArticle() {
 }
 
 async function deleteKbArticle() {
-  if(!canEditData()) return showToast(t('common.observerMode'));
+  if(!kbCanEdit()) return showToast(t('common.observerMode'));
   const id = document.getElementById('kb-article-id').value;
   const bookId = document.getElementById('kb-article-book-id').value;
   if(!id) return;

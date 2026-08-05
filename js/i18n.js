@@ -167,6 +167,7 @@ const I18N = {
     'kb.back': '← Назад', 'kb.edit': '✏️ Редактировать', 'kb.loadErr': 'Ошибка загрузки',
     'kb.editBookTitle': 'Изменить книгу', 'kb.newBook': 'Новая книга', 'kb.delBookConfirm': 'Удалить книгу вместе со всеми статьями? Это действие необратимо.', 'kb.bookDeleted': '✅ Книга удалена',
     'kb.editArticleTitle': 'Редактировать статью', 'kb.newArticle': 'Новая статья', 'kb.delArticleConfirm': 'Удалить статью? Это действие необратимо.', 'kb.articleDeleted': '✅ Статья удалена',
+    'kb.editRole': 'Кто ведёт статьи', 'kb.editRoleAdmin': 'Только админ', 'kb.editRoleManager': 'Админ и управляющий',
     'kb.bookIcon': 'Иконка (эмодзи)', 'kb.bookName': 'Название книги', 'kb.articleTitleLabel': 'Заголовок статьи', 'kb.articleContentLabel': 'Текст', 'kb.searchPh': '🔍 Поиск по базе знаний...', 'kb.name': 'Название', 'kb.articleTitle2': 'Заголовок',
     // Лента
     'feed.title': '📢 Лента', 'feed.newsImportant': 'Новости и важное', 'feed.teamOpinion': 'Мнение команды', 'feed.addAnn': '+ Объявление', 'feed.addPoll': '+ Опрос',
@@ -610,6 +611,7 @@ const I18N = {
     'kb.back': '← Орқага', 'kb.edit': '✏️ Таҳрирлаш', 'kb.loadErr': 'Юклашда хато',
     'kb.editBookTitle': 'Китобни ўзгартириш', 'kb.newBook': 'Янги китоб', 'kb.delBookConfirm': 'Китобни барча мақолалари билан ўчирасизми? Бу амал қайтарилмайди.', 'kb.bookDeleted': '✅ Китоб ўчирилди',
     'kb.editArticleTitle': 'Мақолани таҳрирлаш', 'kb.newArticle': 'Янги мақола', 'kb.delArticleConfirm': 'Мақолани ўчирасизми? Бу амал қайтарилмайди.', 'kb.articleDeleted': '✅ Мақола ўчирилди',
+    'kb.editRole': 'Мақолаларни ким юритади', 'kb.editRoleAdmin': 'Фақат админ', 'kb.editRoleManager': 'Админ ва бошқарувчи',
     'kb.bookIcon': 'Иконка (эможи)', 'kb.bookName': 'Китоб номи', 'kb.articleTitleLabel': 'Мақола сарлавҳаси', 'kb.articleContentLabel': 'Матн', 'kb.searchPh': '🔍 Билимлар базаси бўйича қидириш...', 'kb.name': 'Номи', 'kb.articleTitle2': 'Сарлавҳа',
     // Лента
     'feed.title': '📢 Лента', 'feed.newsImportant': 'Янгиликлар ва муҳим', 'feed.teamOpinion': 'Жамоа фикри', 'feed.addAnn': '+ Эълон', 'feed.addPoll': '+ Сўровнома',
