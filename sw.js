@@ -7,11 +7,11 @@
 // приложение ждало ~30 запросов к серверу (Vercel отдаёт файлы с
 // must-revalidate), и на мобильном интернете это секунды пустого экрана.
 // Свежесть проверяется фоном, уже после отрисовки: если на сервере что-то
-// изменилось, новые файлы кладутся в кеш, а странице отправляется сообщение
-// 'shell-updated' — она перезагрузится сама, если человек ещё ничего не начал
-// (см. js/boot.js). В любом случае следующий запуск будет уже новым.
+// изменилось, новые файлы тихо кладутся в кеш и применяются при следующем
+// запуске. Страницу при этом не перезагружаем — перезагрузка может прийтись на
+// момент, когда открыта камера для отметки прихода, и съесть снятое видео.
 
-const CACHE_VERSION = 'slon-shell-v58';
+const CACHE_VERSION = 'slon-shell-v59';
 
 const SHELL_FILES = [
   '/',
@@ -99,7 +99,6 @@ let checking = false;
 async function revalidateShell() {
   if (checking) return;
   checking = true;
-  let changed = false;
   try {
     const cache = await caches.open(CACHE_VERSION);
     // Небольшими партиями, чтобы не забивать канал на слабой связи
@@ -111,7 +110,7 @@ async function revalidateShell() {
           const fresh = await fetch(url, { cache: 'no-cache' });
           if (!fresh || !fresh.ok) return;
           const old = await cache.match(url, MATCH_OPTS);
-          if (stamp(old) !== stamp(fresh)) changed = true;
+          if (stamp(old) === stamp(fresh)) return; // файл не менялся
           await cachePut(cache, url, fresh);
         } catch (e) {
           // нет сети — просто оставляем то, что уже в кеше
@@ -120,10 +119,6 @@ async function revalidateShell() {
     }
   } catch (e) {}
   checking = false;
-  if (changed) {
-    const clients = await self.clients.matchAll({ type: 'window' });
-    clients.forEach((c) => c.postMessage({ type: 'shell-updated' }));
-  }
 }
 
 self.addEventListener('fetch', (event) => {

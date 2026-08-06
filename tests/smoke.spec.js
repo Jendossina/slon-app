@@ -210,6 +210,29 @@ test('при обрыве связи вход сообщает о сети, а �
   await expect(page.locator('#login-error')).toHaveText(/Нет связи с сервером/, { timeout: 15000 });
 });
 
+// Регресс-тест на жалобу «отметил приход — выкинуло на экран входа».
+// Профиль не загрузился из-за связи, а код считал это «аккаунт не найден»
+// и делал signOut. Обрыв связи не должен выводить человека из системы.
+test('обрыв связи при загрузке профиля не выкидывает из аккаунта (регресс-тест)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.loadProfile === 'function');
+  await page.route('**/rest/v1/profiles**', (route) => route.abort('failed'));
+
+  const res = await page.evaluate(async () => {
+    // currentUser объявлен через let — это не свойство window, присваиваем напрямую
+    currentUser = { id: '00000000-0000-0000-0000-000000000001', email: 'x@slon.uz' };
+    let signedOut = false;
+    const realSignOut = sb.auth.signOut.bind(sb.auth);
+    sb.auth.signOut = async () => { signedOut = true; return realSignOut(); };
+    const out = await loadProfile();
+    return { ok: out.ok, reason: out.reason, signedOut };
+  });
+
+  expect(res.ok).toBe(false);
+  expect(res.reason).toBe('network');
+  expect(res.signedOut).toBe(false);
+});
+
 // Проверка связи должна отличать «интернета нет» от «интернет есть, но до базы
 // не доходит» — это разные причины, и чинят их по-разному.
 test('проверка связи различает отсутствие интернета и недоступность базы', async ({ page }) => {

@@ -685,7 +685,8 @@ async function doLogin() {
   if(remember) localStorage.setItem('slon-remember-login', login);
   else localStorage.removeItem('slon-remember-login');
   currentUser = data.user;
-  await loadProfile();
+  const res = await loadProfile();
+  if(!res.ok) { if(res.reason === 'network') showProfileNetworkError(); return; }
   showApp();
 }
 
@@ -726,8 +727,12 @@ async function fullLogout() {
   catch(e) {}
 })();
 
+// Возвращает { ok } или { ok:false, reason:'network'|'unknown' }.
+// Оборванная связь и «такого аккаунта нет» — разные вещи: раньше они шли одной
+// веткой, и моргнувший интернет выкидывал человека из системы совсем.
 async function loadProfile() {
-  const { data } = await sb.from('profiles').select('*').eq('user_id', currentUser.id).single();
+  const { data, error } = await sb.from('profiles').select('*').eq('user_id', currentUser.id).maybeSingle();
+  if(error) { console.error('profile load failed', error); return { ok: false, reason: 'network' }; }
   if(data) {
     currentProfile = data;
     // Должность и цех — от них зависят права старших цеха (см. canEditScheduleDept)
@@ -738,21 +743,36 @@ async function loadProfile() {
       const { data: emp } = await sb.from('employees').select('id,name,role,department,salary').eq('id', data.employee_id).single();
       if(emp) currentEmployee = emp;
     }
-  } else {
-    // No profile found - check if this is the first admin
-    const { data: adminCount } = await sb.from('profiles').select('id').eq('role','admin');
-    if(!adminCount || adminCount.length === 0) {
-      // First user ever - make them admin
-      const { data: newP } = await sb.from('profiles').insert({ user_id: currentUser.id, name: currentUser.email, role: 'admin' }).select().single();
-      currentProfile = newP;
-    } else {
-      // Unknown user - deny access
-      await sb.auth.signOut();
-      document.getElementById('login-error').textContent = 'Аккаунт не найден. Обратитесь к управляющему.';
-      document.getElementById('app-page').style.display = 'none';
-      document.getElementById('login-page').style.display = 'block';
-    }
+    return { ok: true };
   }
+  // Профиля нет — либо это самый первый вход в систему, либо чужой аккаунт
+  const { data: adminCount, error: admErr } = await sb.from('profiles').select('id').eq('role','admin');
+  if(admErr) { console.error('admin check failed', admErr); return { ok: false, reason: 'network' }; }
+  if(!adminCount || adminCount.length === 0) {
+    // First user ever - make them admin
+    const { data: newP, error: insErr } = await sb.from('profiles').insert({ user_id: currentUser.id, name: currentUser.email, role: 'admin' }).select().single();
+    if(insErr || !newP) return { ok: false, reason: 'network' };
+    currentProfile = newP;
+    return { ok: true };
+  }
+  // Unknown user - deny access
+  await sb.auth.signOut();
+  document.getElementById('login-error').textContent = 'Аккаунт не найден. Обратитесь к управляющему.';
+  document.getElementById('app-page').style.display = 'none';
+  document.getElementById('login-page').style.display = 'block';
+  return { ok: false, reason: 'unknown' };
+}
+
+// Профиль не загрузился из-за связи: сессию не трогаем (при следующем запуске
+// человек войдёт сам), показываем экран входа с честной причиной.
+function showProfileNetworkError() {
+  const errEl = document.getElementById('login-error');
+  if(errEl) errEl.textContent = t('login.errNetwork');
+  const diagBtn = document.getElementById('login-diag-btn');
+  if(diagBtn) diagBtn.style.display = 'block';
+  document.getElementById('app-page').style.display = 'none';
+  document.getElementById('login-page').style.display = 'block';
+  prefillLogin();
 }
 
 function showApp() {

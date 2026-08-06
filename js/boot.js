@@ -8,43 +8,21 @@ if(typeof applyStaticI18n === 'function') applyStaticI18n();
 sb.auth.getSession().then(({ data }) => {
   if(data.session) {
     currentUser = data.session.user;
-    loadProfile().then(() => showApp());
+    loadProfile().then(res => {
+      if(res && res.ok) showApp();
+      else if(res && res.reason === 'network') showProfileNetworkError();
+    });
   }
   else { prefillLogin(); }
 });
 
-// ===== Service worker и обновления =====
-// Оболочка отдаётся из кеша сразу (иначе на медленном интернете приложение
-// каждый запуск ждёт сеть), а свежесть service worker проверяет фоном. Когда он
-// сообщает, что версия изменилась, обновлённые файлы уже лежат в кеше — их
-// подхватит следующий запуск. А если человек только что открыл приложение и
-// ничего не успел сделать, перезагружаем страницу сразу, чтобы он не работал в
-// старой версии.
+// ===== Service worker =====
+// Оболочка отдаётся из кеша сразу, свежесть service worker проверяет фоном.
+// Обновление НЕ перезагружает страницу само: перезагрузка может прийтись ровно
+// на момент, когда открыта камера для отметки прихода — снятое видео тогда
+// теряется, и отметка не проходит. Новые файлы просто ложатся в кеш и
+// применяются при следующем запуске приложения.
 if('serviceWorker' in navigator) {
-  const bootTime = Date.now();
-
-  // Как только человек начал что-то вводить (текст, выбор, снятое видео),
-  // перезагружать страницу нельзя — потеряет введённое.
-  let userTyped = false;
-  document.addEventListener('input', () => { userTyped = true; }, true);
-  document.addEventListener('change', () => { userTyped = true; }, true);
-
-  function safeToReload() {
-    if(Date.now() - bootTime > 20000) return false;            // только сразу после запуска
-    if(sessionStorage.getItem('shell-reloaded')) return false; // не больше одного раза за сессию
-    if(userTyped) return false;
-    if(document.querySelector('.modal-overlay.open')) return false;
-    return true;
-  }
-
-  navigator.serviceWorker.addEventListener('message', (e) => {
-    if(!e.data || e.data.type !== 'shell-updated') return;
-    if(safeToReload()) {
-      sessionStorage.setItem('shell-reloaded', '1');
-      location.reload();
-    }
-  });
-
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
