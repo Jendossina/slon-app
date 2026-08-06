@@ -139,10 +139,18 @@ function renderAttendanceCard(myShift, record) {
       </div>`;
     } else if(!record.check_out_time) {
       const lateBadge = record.is_late ? `<span class="badge badge-red" style="margin-left:6px">${t('att.late')}</span>` : `<span class="badge badge-green" style="margin-left:6px">${t('att.onTime')}</span>`;
+      // Видео могло не долететь (связь оборвалась, приложение выгрузили) — приход
+      // при этом засчитан, и человек досылает видео одной кнопкой.
+      const needVideo = !record.checkin_video ? `
+        <input type="file" accept="video/*" capture="user" id="checkin-resend-file" style="display:none" onchange="resendCheckinVideo(this, ${record.id})">
+        <button class="btn btn-secondary" onclick="startResendVideo()" style="margin-top:10px">${t('att.resendVideoBtn')}</button>
+        <div style="font-size:12px;color:#A32D2D;margin-top:6px;text-align:center;line-height:1.4">${t('att.noVideoYet')}</div>` : '';
       attEl.innerHTML = `<div class="card" style="margin-bottom:12px">
         <div class="card-title">${t('att.title')}</div>
         <div style="font-size:14px;color:var(--text-primary);margin-bottom:10px">${t('att.arrivedAt')} <b>${record.check_in_time}</b>${lateBadge}</div>
         <button class="btn btn-primary" onclick="checkOut(${record.id})" style="background:#A13C3C">${t('att.checkoutBtn')}</button>
+        ${needVideo}
+        <div id="checkin-status" style="font-size:12px;color:var(--text-muted);margin-top:8px;text-align:center;line-height:1.4"></div>
       </div>`;
     } else {
       attEl.innerHTML = `<div class="card" style="margin-bottom:12px;background:var(--surface-2)">
@@ -210,6 +218,52 @@ function setCheckInStatus(text, kind) {
   el.textContent = text || '';
 }
 
+// Догружаем видео к уже записанной отметке. Возвращает true, если долетело.
+// Триггер в базе разрешает дописать checkin_video, только пока он пустой
+// (миграция 2026-08-06_attach_checkin_video.sql).
+async function attachCheckinVideo(recordId, videoFile) {
+  try {
+    setCheckInStatus(t('att.uploadingVideo'));
+    const ext = (f => { const p=(f.name||'').split('.'); return p.length>1?p.pop():'mp4'; })(videoFile);
+    const path = `checkin-${currentProfile.employee_id}-${Date.now()}.${ext}`;
+    // Загрузка на слабой связи тянется минутами, а может и молча оборваться:
+    // ждём не дольше трёх минут и в любом случае говорим, чем кончилось.
+    const upRes = await Promise.race([
+      sb.storage.from('task-reports').upload(path, videoFile).catch(e => ({ error: e })),
+      new Promise(r => setTimeout(() => r({ timedOut: true }), 180000)),
+    ]);
+    if(upRes.timedOut || upRes.error) {
+      setCheckInStatus(t('att.videoLater'), 'bad');
+      showToast(t('att.videoLater'));
+      return false;
+    }
+    const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
+    const { error } = await sb.from('attendance').update({ checkin_video: urlData.publicUrl }).eq('id', recordId);
+    if(error) { setCheckInStatus(t('att.videoLater'), 'bad'); return false; }
+    setCheckInStatus('');
+    return true;
+  } catch(e) {
+    setCheckInStatus(t('att.videoLater'), 'bad');
+    return false;
+  }
+}
+
+// Дослать видео к отметке, у которой его нет (кнопка на главном экране)
+async function resendCheckinVideo(input, recordId) {
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(!file.type || !file.type.startsWith('video')) { showToast(t('att.needVideo')); return; }
+  const ok = await attachCheckinVideo(recordId, file);
+  if(ok) { showToast(t('att.videoAttached')); loadHome(); }
+}
+
+function startResendVideo() {
+  const input = document.getElementById('checkin-resend-file');
+  if(!input) return;
+  input.value = '';
+  input.click();
+}
+
 async function checkIn(videoFile) {
   try {
     // Видео обязательно — защита от отметки не на рабочем месте
@@ -220,26 +274,11 @@ async function checkIn(videoFile) {
     const { data: myShifts } = await sb.from('schedules').select('*').eq('date', todayStr).eq('employee_id', currentProfile.employee_id);
     const myShift = myShifts && myShifts[0];
 
-    // Гео-проверки нет: на части Android-телефонов геолокация не работает вовсе,
-    // и сотрудник не мог отметиться. Подтверждение места — видео с камеры.
-    showToast(t('att.uploadingVideo'));
-    setCheckInStatus(t('att.uploadingVideo'));
-    let videoUrl = null;
-    const ext = (file => { const p=(file.name||'').split('.'); return p.length>1?p.pop():'mp4'; })(videoFile);
-    const path = `checkin-${currentProfile.employee_id}-${Date.now()}.${ext}`;
-    // Загрузка на слабой связи может тянуться минутами, а может молча оборваться.
-    // Ждём не дольше трёх минут и в любом случае говорим человеку, что произошло,
-    // — раньше при обрыве экран просто замолкал, и отметка терялась без следа.
-    const upload = sb.storage.from('task-reports').upload(path, videoFile);
-    const upRes = await Promise.race([
-      upload.catch(e => ({ error: e })),
-      new Promise(r => setTimeout(() => r({ timedOut: true }), 180000)),
-    ]);
-    if(upRes.timedOut) { setCheckInStatus(t('att.videoTimeout'), 'bad'); showToast(t('att.videoTimeout')); return; }
-    const upErr = upRes.error;
-    if(upErr) { setCheckInStatus(t('att.videoErr')+(upErr.message||''), 'bad'); showToast(t('att.videoErr')+(upErr.message||'')); return; }
-    const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
-    videoUrl = urlData.publicUrl;
+    // ОТМЕТКА ПИШЕТСЯ ПЕРВОЙ, видео уезжает следом. Раньше было наоборот, и на
+    // недорогих андроидах система успевала выгрузить приложение из памяти, пока
+    // с камеры уходили десятки мегабайт: запрос обрывался, отметки не было
+    // вовсе. Теперь приход засчитан за секунду, а видео догружается и
+    // дописывается в ту же строку; не долетело — сотрудник дошлёт с главной.
     setCheckInStatus(t('att.savingMark'));
     // Время прихода, опоздание и штраф проставляет триггер в базе по часам
     // сервера: часы телефона можно перевести назад, и раньше это давало отметку
@@ -248,14 +287,12 @@ async function checkIn(videoFile) {
       employee_id: currentProfile.employee_id, user_id: currentUser.id,
       user_name: currentProfile?.name || currentUser?.email,
       date: todayStr, check_in_time: timeStr,
-      filial: myShift?.filial || currentFilial,
-      checkin_video: videoUrl
+      filial: myShift?.filial || currentFilial
     }).select().single();
     if(attErr) {
       const msg = attErr.code === '23505' ? t('att.already') : t('common.error') + attErr.message;
       setCheckInStatus(msg, 'bad'); showToast(msg); return;
     }
-    setCheckInStatus('');
 
     const lateMin = Number(rec?.late_minutes) || 0;
     const penalty = Number(rec?.penalty) || 0;
@@ -263,6 +300,11 @@ async function checkIn(videoFile) {
     const timeIn = rec?.check_in_time || timeStr;
 
     showToast(isLate ? t('att.lateToast',{min:lateMin,pen:formatNum(penalty)}) : t('att.onTimeToast'));
+
+    // Приход уже засчитан — теперь видео. Экран не держим: если загрузка
+    // сорвётся, на главной появится кнопка «дослать видео».
+    attachCheckinVideo(rec.id, videoFile).then(ok => { if(ok) loadHome(); });
+
     // Уведомляем вверх по иерархии: старшие по цеху + все управляющие (и владелец)
     try {
       const { data: me } = await sb.from('employees').select('department,role,name').eq('id', currentProfile.employee_id).single();

@@ -33,33 +33,43 @@ test('все js-модули загрузились и объявили свои
   expect(missing).toEqual([]);
 });
 
-test('service worker регистрируется и кеширует оболочку', async ({ page }) => {
+// Установка версии качает только ядро — иначе на слабой связи она не доходит
+// до конца, браузер её отменяет, и телефон навсегда остаётся на старой версии
+// (ровно это случилось у сотрудников). Остальное кеш добирает на ходу.
+test('service worker ставится малой кровью и добирает остальное на ходу', async ({ page }) => {
   await page.goto('/');
-  await page.waitForTimeout(1500);
-  const result = await page.evaluate(async () => {
-    if (!('serviceWorker' in navigator)) return { supported: false };
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  const afterInstall = await page.evaluate(async () => {
     const reg = await navigator.serviceWorker.getRegistration();
-    if (!reg) return { supported: true, registered: false };
-    await navigator.serviceWorker.ready;
     const keys = await caches.keys();
-    let cachedCount = 0;
-    if (keys.length) {
-      const cache = await caches.open(keys[0]);
-      cachedCount = (await cache.keys()).length;
-    }
-    return { supported: true, registered: !!reg.active, cachedCount };
+    const cache = await caches.open(keys[0]);
+    return { registered: !!reg.active, files: (await cache.keys()).length, caches: keys.length };
   });
-  expect(result.registered).toBe(true);
-  expect(result.cachedCount).toBeGreaterThan(20);
+  expect(afterInstall.registered).toBe(true);
+  expect(afterInstall.caches).toBe(1);            // ровно одна версия, без смеси
+  expect(afterInstall.files).toBeGreaterThan(5);  // ядро на месте
+  expect(afterInstall.files).toBeLessThan(15);    // но не вся оболочка разом
+
+  // Второй запуск идёт уже через service worker — он и добирает остальные файлы
+  const page2 = await page.context().newPage();
+  await page2.goto('/');
+  await page2.waitForTimeout(1500);
+  const afterSecond = await page2.evaluate(async () => {
+    const keys = await caches.keys();
+    const cache = await caches.open(keys[0]);
+    return (await cache.keys()).length;
+  });
+  expect(afterSecond).toBeGreaterThan(20);
 });
 
 // Ради этого всё и затевалось: на телефоне приложение не должно ждать сеть
-// на каждом запуске. Второй запуск обязан подниматься из кеша, в том числе
-// когда интернета нет вовсе.
-test('второй запуск поднимается из кеша, а не из сети (регресс-тест)', async ({ page, context }) => {
+// на каждом запуске. Прогретый кеш обязан поднимать приложение и без интернета.
+test('приложение поднимается из кеша, а не из сети (регресс-тест)', async ({ page, context }) => {
   await page.goto('/');
   await page.evaluate(() => navigator.serviceWorker.ready);
-  await page.waitForTimeout(2000);
+  const warm = await context.newPage();          // прогреваем кеш вторым запуском
+  await warm.goto('/');
+  await warm.waitForTimeout(1500);
 
   await context.setOffline(true);
   const page2 = await context.newPage();

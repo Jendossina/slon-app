@@ -730,9 +730,18 @@ async function fullLogout() {
 // Возвращает { ok } или { ok:false, reason:'network'|'unknown' }.
 // Оборванная связь и «такого аккаунта нет» — разные вещи: раньше они шли одной
 // веткой, и моргнувший интернет выкидывал человека из системы совсем.
-async function loadProfile() {
+async function loadProfile(attempt = 1) {
   const { data, error } = await sb.from('profiles').select('*').eq('user_id', currentUser.id).maybeSingle();
-  if(error) { console.error('profile load failed', error); return { ok: false, reason: 'network' }; }
+  if(error) {
+    // Мобильный интернет отваливается на секунды — не повод сдаваться с первого
+    // раза. Три попытки с паузой, и только потом сообщение человеку.
+    console.error('profile load failed', error);
+    if(attempt < 3) {
+      await new Promise(r => setTimeout(r, attempt * 1500));
+      return loadProfile(attempt + 1);
+    }
+    return { ok: false, reason: 'network' };
+  }
   if(data) {
     currentProfile = data;
     // Должность и цех — от них зависят права старших цеха (см. canEditScheduleDept)
@@ -763,16 +772,27 @@ async function loadProfile() {
   return { ok: false, reason: 'unknown' };
 }
 
-// Профиль не загрузился из-за связи: сессию не трогаем (при следующем запуске
-// человек войдёт сам), показываем экран входа с честной причиной.
+// Профиль не загрузился из-за связи. Человек остаётся в системе: экран входа
+// тут показывать нельзя — он выглядит как «вас выкинуло», а пароль ни при чём.
+// Показываем отдельный экран с кнопкой «Повторить».
 function showProfileNetworkError() {
-  const errEl = document.getElementById('login-error');
-  if(errEl) errEl.textContent = t('login.errNetwork');
-  const diagBtn = document.getElementById('login-diag-btn');
-  if(diagBtn) diagBtn.style.display = 'block';
+  const el = document.getElementById('boot-error');
+  if(!el) return;
+  document.getElementById('login-page').style.display = 'none';
   document.getElementById('app-page').style.display = 'none';
-  document.getElementById('login-page').style.display = 'block';
-  prefillLogin();
+  el.style.display = 'flex';
+}
+
+// Повторная попытка войти в приложение с уже имеющейся сессией
+async function retryBoot() {
+  const btn = document.getElementById('boot-error-btn');
+  if(btn) { btn.disabled = true; btn.textContent = t('boot.retrying'); }
+  const res = await loadProfile();
+  if(btn) { btn.disabled = false; btn.textContent = t('boot.retry'); }
+  if(res.ok) {
+    document.getElementById('boot-error').style.display = 'none';
+    showApp();
+  }
 }
 
 function showApp() {

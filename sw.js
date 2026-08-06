@@ -20,7 +20,7 @@
 // Отсюда правило: поменял любой файл оболочки — подними CACHE_VERSION.
 // За этим следит CI (scripts/check-sw-version.mjs), забыть не даст.
 
-const CACHE_VERSION = 'slon-shell-v60';
+const CACHE_VERSION = 'slon-shell-v61';
 
 const SHELL_FILES = [
   '/',
@@ -64,6 +64,22 @@ const SHELL_FILES = [
 const SHELL_SET = new Set(SHELL_FILES);
 const MATCH_OPTS = { ignoreSearch: true, ignoreVary: true };
 
+// При установке качаем только то, без чего приложение не откроется. Остальное
+// кладётся в кеш само, когда первый раз понадобится.
+// Почему так: установка новой версии обязана дойти до конца, иначе браузер её
+// отменит и телефон останется на старой — именно это и случилось у сотрудников,
+// когда установка тянула все 36 файлов разом на слабой связи. Кеш именованный
+// по версии, так что смеси старого с новым не будет и при частичном заполнении.
+const CORE_FILES = [
+  '/',
+  '/index.html',
+  '/js/vendor/supabase-js-2.js',
+  '/js/i18n.js',
+  '/js/core.js',
+  '/js/home.js',
+  '/js/boot.js',
+];
+
 // Кладём ответ в кеш, снимая метку «после редиректа»: сервер отвечает на
 // /index.html перенаправлением на /, а редиректный ответ браузер отказывается
 // принимать как страницу — навигация падает с сетевой ошибкой.
@@ -78,7 +94,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_VERSION).then((cache) =>
       Promise.all(
-        SHELL_FILES.map(async (url) => {
+        CORE_FILES.map(async (url) => {
           try { await cachePut(cache, url, await fetch(url, { cache: 'reload' })); }
           catch (e) { /* не валим установку целиком, если один файл недоступен */ }
         })
@@ -121,9 +137,13 @@ self.addEventListener('fetch', (event) => {
       if (res && res.ok && res.type === 'basic') cachePut(cache, req.url, res.clone());
       return res;
     } catch (e) {
-      // офлайн и в кеше пусто — для перехода по странице отдаём оболочку
-      const shell = (await cache.match('/', MATCH_OPTS)) || (await cache.match('/index.html', MATCH_OPTS));
-      if (shell) return shell;
+      // Офлайн и в кеше пусто. Оболочку подставляем ТОЛЬКО для перехода по
+      // странице: отдать HTML вместо js-файла — значит уронить приложение
+      // с «Unexpected token '<'».
+      if (isNavigation) {
+        const shell = (await cache.match('/', MATCH_OPTS)) || (await cache.match('/index.html', MATCH_OPTS));
+        if (shell) return shell;
+      }
       throw e;
     }
   })());

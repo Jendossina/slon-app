@@ -458,6 +458,15 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </main>
 </div>
 
+<!-- Связь пропала на старте: человек остаётся в системе, показываем это,
+     а не экран входа — экран входа читается как «вас выкинуло». -->
+<div id="boot-error" style="display:none;position:fixed;inset:0;z-index:400;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;gap:14px">
+  <div style="font-size:44px">📶</div>
+  <div style="font-size:16px;font-weight:600;color:var(--text-primary)" data-i18n="boot.noNetTitle">Нет связи с сервером</div>
+  <div style="font-size:13px;color:var(--text-muted);line-height:1.6;max-width:320px" data-i18n="boot.noNetText">Вы остаётесь в системе — заново входить не нужно. Проверьте интернет и нажмите «Повторить».</div>
+  <button class="btn btn-primary" id="boot-error-btn" onclick="retryBoot()" style="max-width:260px" data-i18n="boot.retry">Повторить</button>
+</div>
+
 <!-- BIOMETRIC LOCK -->
 <!-- APP -->
 <div id="app-page" style="display:none">
