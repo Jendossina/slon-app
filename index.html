@@ -760,7 +760,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="header">
       <div class="header-row">
         <div><h1 data-i18n="sl.title">🚦 Го/стоп лист</h1><p id="stoplist-subtitle">—</p></div>
-        <button id="stoplist-add-btn" onclick="openStopItemModal('stop')" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="sl.addBtn">+ Позиция</button>
+        <button id="stoplist-add-btn" onclick="openStopItemModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="sl.addBtn">+ Позиция</button>
       </div>
     </div>
     <div style="display:flex;gap:8px;padding:10px 12px 0">
@@ -948,6 +948,19 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 </div>
 
 <!-- ГО/СТОП ЛИСТ: новая позиция -->
+<!-- Выбор позиции из меню: поиск + кнопки «стоп» и «го» напротив каждого блюда -->
+<div class="modal-overlay" id="modal-stop-picker">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-stop-picker')">✕</button>
+    <div class="modal-title" data-i18n="sl.pickTitle">🚦 Что поставить в лист</div>
+    <div id="stop-picker-areas" style="display:none;gap:8px;margin-bottom:10px"></div>
+    <input class="form-input" id="stop-picker-search" type="search" autocomplete="off"
+           placeholder="Поиск по меню" data-i18n-ph="sl.searchPh" oninput="onStopPickerSearch(this.value)">
+    <div id="stop-picker-list" style="max-height:60vh;overflow-y:auto;margin-top:10px"></div>
+    <button class="btn btn-secondary" onclick="openStopManualModal()" style="margin-top:12px" data-i18n="sl.manualBtn">✏️ Нет в списке — вписать вручную</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-stoplist-item">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-stoplist-item')">✕</button>
@@ -1611,6 +1624,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <script defer src="js/feed.js"></script>
 <script defer src="js/reviews.js"></script>
 <script defer src="js/teamchat.js"></script>
+<script defer src="js/menu.js"></script>
 <script defer src="js/stoplist.js"></script>
 <script defer src="js/install.js"></script>
 <script defer src="js/boot.js"></script>

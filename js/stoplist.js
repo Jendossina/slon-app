@@ -113,29 +113,123 @@ function renderStopListNow() {
                  + section('go',   '⚡', t('sl.sectionGo'),   '#C77E24');
 }
 
-// ===== Постановка позиции =====
-function openStopItemModal(state) {
+// ===== Выбор позиции из меню =====
+// Раньше название вписывали руками, и одно блюдо появлялось в трёх написаниях —
+// официант потом искал его в листе и не находил. Теперь список меню с поиском,
+// а стоп и го ставятся одной кнопкой. Чего нет в меню — по-прежнему вручную.
+let stopPickerArea = 'kitchen';
+let stopPickerQuery = '';
+
+function openStopItemModal() {
   const areas = stopListMyAreas();
   if(areas.length === 0) return;
+  stopPickerArea = areas.includes('kitchen') ? 'kitchen' : areas[0];
+  stopPickerQuery = '';
+  const input = document.getElementById('stop-picker-search');
+  if(input) input.value = '';
+  renderStopPicker();
+  openModal('modal-stop-picker');
+}
+
+function setStopPickerArea(area) { stopPickerArea = area; renderStopPicker(); }
+function onStopPickerSearch(value) { stopPickerQuery = value; renderStopPickerList(); }
+
+function renderStopPicker() {
+  const areas = stopListMyAreas();
+  const tabs = document.getElementById('stop-picker-areas');
+  if(tabs) {
+    // Переключатель нужен только тому, кто отвечает за обе области
+    tabs.style.display = areas.length > 1 ? 'flex' : 'none';
+    tabs.innerHTML = areas.map(a => {
+      const on = stopPickerArea === a;
+      return `<button onclick="setStopPickerArea('${a}')" style="flex:1;padding:9px;border-radius:10px;border:1px solid ${on?'var(--gold-dark)':'var(--border)'};background:${on?'var(--gold-dark)':'var(--surface)'};color:${on?'#fff':'var(--text-primary)'};font-size:13px;font-weight:600;cursor:pointer">${escapeHtml(stopAreaLabel(a))}</button>`;
+    }).join('');
+  }
+  renderStopPickerList();
+}
+
+// Что уже стоит в листе по этому названию (чтобы не ставить дважды)
+function stopActiveFor(name, area) {
+  return stopListActive.find(i => i.area === area && i.name === name);
+}
+
+function stopPickerRow(name, section) {
+  const active = stopActiveFor(name, stopPickerArea);
+  const nameHtml = `<div style="flex:1;min-width:0">
+      <div style="font-size:14px;font-weight:600;color:var(--text-primary)">${escapeHtml(name)}</div>
+      ${section?`<div style="font-size:11px;color:var(--text-muted)">${escapeHtml(section)}</div>`:''}
+    </div>`;
+  if(active) {
+    const label = active.state === 'stop' ? '🛑 ' + t('sl.stopShort') : '⚡ ' + t('sl.goShort');
+    const color = active.state === 'stop' ? '#A32D2D' : '#C77E24';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:1px solid var(--border)">
+      ${nameHtml}
+      <span style="font-size:12px;font-weight:600;color:${color};white-space:nowrap">${label}</span>
+      <button onclick="resolveStopItem(${active.id}, true)" style="flex:0 0 auto;background:#e2efda;color:#3B6D11;border:none;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:600;cursor:pointer">${t('sl.returnBtn')}</button>
+    </div>`;
+  }
+  const btn = (state, bg, color, label) =>
+    `<button onclick="setStopFromMenu('${escJsAttr(name)}','${state}')" style="flex:0 0 auto;background:${bg};color:${color};border:none;border-radius:8px;padding:7px 11px;font-size:12px;font-weight:700;cursor:pointer">${label}</button>`;
+  return `<div style="display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:1px solid var(--border)">
+    ${nameHtml}
+    ${btn('go', '#FDF2E0', '#8A5B12', '⚡ ' + t('sl.goShort'))}
+    ${btn('stop', '#FCEBEB', '#A32D2D', '🛑 ' + t('sl.stopShort'))}
+  </div>`;
+}
+
+function renderStopPickerList() {
+  const list = document.getElementById('stop-picker-list');
+  if(!list) return;
+  // Каталог есть только по кухне: бар со своими напитками ставится вручную
+  if(stopPickerArea !== 'kitchen') {
+    list.innerHTML = `<div class="empty" style="padding:18px 0"><div class="empty-text">${t('sl.noCatalog')}</div></div>`;
+    return;
+  }
+  const found = searchKitchenMenu(stopPickerQuery);
+  if(found.length === 0) {
+    list.innerHTML = `<div class="empty" style="padding:18px 0"><div class="empty-text">${t('sl.nothingFound')}</div></div>`;
+    return;
+  }
+  // При поиске разделы не рисуем — иначе на экране одни заголовки
+  if(stopPickerQuery.trim()) {
+    list.innerHTML = found.map(d => stopPickerRow(d.name, d.section)).join('');
+    return;
+  }
+  const names = new Set(found.map(d => d.name));
+  list.innerHTML = KITCHEN_MENU.map(g => {
+    const rows = g.items.filter(n => names.has(n));
+    if(rows.length === 0) return '';
+    return `<div class="section-label" style="margin:14px 4px 4px">${escapeHtml(g.section)}</div>`
+      + rows.map(n => stopPickerRow(n, '')).join('');
+  }).join('');
+}
+
+// Одно нажатие — позиция в листе
+async function setStopFromMenu(name, state) {
+  const ok = await addStopItem({ name, area: stopPickerArea, state });
+  if(ok) renderStopPickerList();
+}
+
+// ===== Ручной ввод: то, чего нет в меню =====
+function openStopManualModal() {
+  const areas = stopListMyAreas();
+  if(areas.length === 0) return;
+  closeModal('modal-stop-picker');
   document.getElementById('stoplist-item-name').value = '';
   document.getElementById('stoplist-item-note').value = '';
   const areaSel = document.getElementById('stoplist-item-area');
   areaSel.innerHTML = areas.map(a=>`<option value="${a}">${escapeHtml(stopAreaLabel(a))}</option>`).join('');
   // Своя область выбрана заранее: повару и бармену менять её всё равно нельзя
-  areaSel.value = areas[0];
+  areaSel.value = areas.includes(stopPickerArea) ? stopPickerArea : areas[0];
   areaSel.disabled = areas.length === 1;
-  const stateSel = document.getElementById('stoplist-item-state');
-  stateSel.value = state || 'stop';
+  document.getElementById('stoplist-item-state').value = 'stop';
   openModal('modal-stoplist-item');
 }
 
-async function saveStopItem() {
-  const name  = document.getElementById('stoplist-item-name').value.trim();
-  const note  = document.getElementById('stoplist-item-note').value.trim();
-  const area  = document.getElementById('stoplist-item-area').value;
-  const state = document.getElementById('stoplist-item-state').value;
-  if(!name) return showToast(t('sl.enterName'));
-  if(!stopListCanEdit(area)) return showToast(t('sl.noRights'));
+// Общая запись позиции: и для выбора из меню, и для ручного ввода
+async function addStopItem({ name, area, state, note }) {
+  if(!name) { showToast(t('sl.enterName')); return false; }
+  if(!stopListCanEdit(area)) { showToast(t('sl.noRights')); return false; }
   try {
     const row = {
       filial: currentFilial, area, state, name, note: note || null,
@@ -143,21 +237,37 @@ async function saveStopItem() {
     };
     const { data, error } = await sb.from('stoplist_items').insert(row).select().single();
     // Частичный уникальный индекс: та же позиция уже висит в списке
-    if(error) return showToast(error.code === '23505' ? t('sl.dupName') : t('common.error') + error.message);
-    closeModal('modal-stoplist-item');
+    if(error) { showToast(error.code === '23505' ? t('sl.dupName') : t('common.error') + error.message); return false; }
     showToast(state === 'stop' ? t('sl.addedStop') : t('sl.addedGo'));
-    loadStopListNow();
+    // Держим кэш в актуальном виде: по нему рисуется и список, и окно выбора
+    stopListActive = [data, ...stopListActive];
+    renderStopListNow();
     notifyStopList(data || row, 'on');
-  } catch(e) { showToast(t('common.error') + e.message); }
+    return true;
+  } catch(e) { showToast(t('common.error') + e.message); return false; }
+}
+
+async function saveStopItem() {
+  const ok = await addStopItem({
+    name:  document.getElementById('stoplist-item-name').value.trim(),
+    note:  document.getElementById('stoplist-item-note').value.trim(),
+    area:  document.getElementById('stoplist-item-area').value,
+    state: document.getElementById('stoplist-item-state').value,
+  });
+  if(ok) { closeModal('modal-stoplist-item'); loadStopListNow(); }
 }
 
 // Снятие: позиция не удаляется, а закрывается — история остаётся.
-async function resolveStopItem(id) {
+// fromPicker — сняли из окна выбора, там подтверждение только мешает: человек
+// стоит у плиты и жмёт кнопку напротив названия.
+async function resolveStopItem(id, fromPicker) {
   const it = stopListActive.find(x=>x.id===id);
   if(!it) return;
   if(!stopListCanEdit(it.area)) return showToast(t('sl.noRights'));
-  const ok = await confirmDialog(t('sl.confirmReturn', { name: it.name }), { title: t('sl.returnBtn'), okText: t('sl.returnBtn'), danger: false });
-  if(!ok) return;
+  if(!fromPicker) {
+    const ok = await confirmDialog(t('sl.confirmReturn', { name: it.name }), { title: t('sl.returnBtn'), okText: t('sl.returnBtn'), danger: false });
+    if(!ok) return;
+  }
   try {
     const { error } = await sb.from('stoplist_items').update({
       resolved_at: new Date().toISOString(),
@@ -166,7 +276,9 @@ async function resolveStopItem(id) {
     }).eq('id', id);
     if(error) return showToast(t('common.error') + error.message);
     showToast(t('sl.returned'));
-    loadStopListNow();
+    stopListActive = stopListActive.filter(x => x.id !== id);
+    if(fromPicker) { renderStopPickerList(); renderStopListNow(); }
+    else loadStopListNow();
     notifyStopList(it, 'off');
   } catch(e) { showToast(t('common.error') + e.message); }
 }

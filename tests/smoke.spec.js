@@ -33,6 +33,56 @@ test('все js-модули загрузились и объявили свои
   expect(missing).toEqual([]);
 });
 
+// Го/стоп-лист: позиции берутся из меню кухни, ставятся кнопкой, а не руками.
+test('го/стоп: поиск по меню и постановка одной кнопкой', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.renderStopPickerList === 'function');
+
+  const result = await page.evaluate(async () => {
+    // права повара по кухне
+    currentProfile = { name: 'Повар', role: 'employee', employee_id: 1 };
+    currentEmployee = { id: 1, name: 'Повар', role: 'Повар', department: 'Повара' };
+    currentUser = { id: 'u1', email: 'cook@slon.uz' };
+    stopListActive = [];
+    stopPickerArea = 'kitchen';
+
+    const list = document.getElementById('stop-picker-list');
+    stopPickerQuery = '';
+    renderStopPickerList();
+    const allRows = list.querySelectorAll('button').length;
+
+    stopPickerQuery = 'цезарь';
+    renderStopPickerList();
+    const found = list.innerText;
+
+    stopPickerQuery = 'такого блюда нет';
+    renderStopPickerList();
+    const empty = list.innerText;
+
+    // позиция уже в листе — вместо кнопок «стоп/го» показываем «вернуть»
+    stopListActive = [{ id: 7, area: 'kitchen', name: 'Греческий салат', state: 'stop' }];
+    stopPickerQuery = 'греческий';
+    renderStopPickerList();
+    const withActive = list.innerText;
+
+    return {
+      allRows,
+      caesarHasBoth: found.includes('Цезарь с курицей') && found.includes('Цезарь с креветками'),
+      caesarNoOthers: !found.includes('Греческий салат'),
+      emptyText: empty,
+      activeShowsReturn: withActive.includes('Вернуть'),
+      menuCount: kitchenMenuFlat().length,
+    };
+  });
+
+  expect(result.menuCount).toBeGreaterThan(70);   // всё меню на месте
+  expect(result.allRows).toBeGreaterThan(140);    // по две кнопки на позицию
+  expect(result.caesarHasBoth).toBe(true);
+  expect(result.caesarNoOthers).toBe(true);
+  expect(result.emptyText).toContain('ничего не нашлось');
+  expect(result.activeShowsReturn).toBe(true);
+});
+
 // Регресс-тест на жалобу «опять выкинуло на экран входа».
 // Экран входа был виден по умолчанию, и пока приложение выясняло, кто вошёл,
 // человек смотрел на форму пароля. С мгновенной загрузкой это стало особенно
