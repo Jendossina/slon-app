@@ -192,13 +192,9 @@ async function checkIn(videoFile) {
     const timeStr = getCurrentTimeStr();
     const { data: myShifts } = await sb.from('schedules').select('*').eq('date', todayStr).eq('employee_id', currentProfile.employee_id);
     const myShift = myShifts && myShifts[0];
-    const geoFilial = myShift?.filial || currentFilial;
 
-    // Гео-проверка ДО загрузки видео: если точка филиала задана — должны быть рядом
-    showToast(t('att.checkGeo'));
-    const geoCheck = await verifyCheckinLocation(geoFilial);
-    if(!geoCheck.ok) { showToast(geoCheck.message); return; }
-
+    // Гео-проверки нет: на части Android-телефонов геолокация не работает вовсе,
+    // и сотрудник не мог отметиться. Подтверждение места — видео с камеры.
     showToast(t('att.uploadingVideo'));
     let videoUrl = null;
     const ext = (file => { const p=(file.name||'').split('.'); return p.length>1?p.pop():'mp4'; })(videoFile);
@@ -215,8 +211,7 @@ async function checkIn(videoFile) {
       user_name: currentProfile?.name || currentUser?.email,
       date: todayStr, check_in_time: timeStr,
       filial: myShift?.filial || currentFilial,
-      checkin_video: videoUrl,
-      checkin_geo: geoCheck.geo
+      checkin_video: videoUrl
     }).select().single();
     if(attErr) { showToast(attErr.code === '23505' ? t('att.already') : t('common.error') + attErr.message); return; }
 

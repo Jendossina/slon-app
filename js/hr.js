@@ -34,8 +34,7 @@ async function loadHR() {
          <button onclick="openPayroll()" style="width:100%;background:linear-gradient(135deg,#2d2416,#4a3a1f);color:#f0e9db;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px">${t('hr.monthPayrollBtn',{f:getFilialName(currentFilial)})}</button>`
       : '';
     const toggleBtn = q ? '' : `<div style="padding:0 4px 10px"><button onclick="hrShowAll=!hrShowAll;loadHR()" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${hrShowAll?t('hr.showThisFilial'):t('hr.showAll')}</button></div>`;
-    const geoBtn = (q || !canEditData()) ? '' : `<div style="padding:0 4px 10px"><button onclick="openFilialGeo()" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${t('hr.geoBtn',{f:getFilialName(currentFilial)})}</button></div>`;
-    if(!emps||emps.length===0) { list.innerHTML=geoBtn+toggleBtn+`<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">${q?t('hr.nobodyFound'):t('hr.noEmpFilial')}</div></div>`; return; }
+    if(!emps||emps.length===0) { list.innerHTML=toggleBtn+`<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">${q?t('hr.nobodyFound'):t('hr.noEmpFilial')}</div></div>`; return; }
 
     // Группировка по отделам
     const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара','Техперсонал'];
@@ -50,60 +49,10 @@ async function loadHR() {
         ${canSeeSalary?`<span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}">${escapeHtml(e.status||'Активен')}</span>`:''}
       </div>`;
 
-    list.innerHTML = geoBtn + toggleBtn + orderedDepts.map(dept=>
+    list.innerHTML = toggleBtn + orderedDepts.map(dept=>
       deptSection(dept, groups[dept].length, groups[dept].map(empCard).join(''))
     ).join('');
   } catch(e) { document.getElementById('hr-list').innerHTML=`<div class="loading">${t('hr.loadErr')}</div>`; }
-}
-
-// ===== Гео-отметка прихода: задать точку филиала =====
-async function openFilialGeo() {
-  if(!canEditData()) return showToast(t('hr.unavailableObserver'));
-  document.getElementById('fg-filial-display').textContent = '📍 ' + getFilialName(currentFilial);
-  document.getElementById('fg-lat').value = '';
-  document.getElementById('fg-lng').value = '';
-  const cur = await loadFilialGeo(currentFilial);
-  if(cur) {
-    document.getElementById('fg-radius').value = cur.radius_m || 150;
-    document.getElementById('fg-lat').value = cur.lat;
-    document.getElementById('fg-lng').value = cur.lng;
-    document.getElementById('fg-status').innerHTML = `${t('hr.pointSet')}<b>${(+cur.lat).toFixed(5)}, ${(+cur.lng).toFixed(5)}</b> · ${t('hr.radius',{r:cur.radius_m||150})}<br><span style="color:var(--text-muted)">${t('hr.updatedBy')}${escapeHtml(cur.updated_by||'—')}</span>`;
-  } else {
-    document.getElementById('fg-radius').value = 150;
-    document.getElementById('fg-status').textContent = t('hr.pointNotSet');
-  }
-  openModal('modal-filial-geo');
-}
-async function captureFilialGeoPoint() {
-  showToast(t('hr.gpsDetecting'));
-  let pos;
-  try { pos = await getGpsPosition(); }
-  catch(e) { return showToast(t('hr.gpsFail')); }
-  document.getElementById('fg-lat').value = pos.lat.toFixed(6);
-  document.getElementById('fg-lng').value = pos.lng.toFixed(6);
-  document.getElementById('fg-status').innerHTML = `${t('hr.newPoint')}<b>${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}</b><br><span style="color:var(--text-muted)">${t('hr.gpsAccuracy',{n:Math.round(pos.accuracy||0)})}</span>`;
-  showToast(t('hr.coordsCaught'));
-}
-async function saveFilialGeo() {
-  if(!canEditData()) return showToast(t('hr.unavailable'));
-  const lat = parseFloat(document.getElementById('fg-lat').value);
-  const lng = parseFloat(document.getElementById('fg-lng').value);
-  const radius = parseInt(document.getElementById('fg-radius').value) || 150;
-  if(isNaN(lat) || isNaN(lng)) return showToast(t('hr.setPointFirst'));
-  const { error } = await sb.from('filial_geo').upsert({
-    filial: currentFilial, lat, lng, radius_m: radius,
-    updated_by: currentProfile?.name || '', updated_at: new Date().toISOString()
-  });
-  if(error) return showToast(t('common.error')+error.message);
-  closeModal('modal-filial-geo');
-  showToast(t('hr.pointSaved',{f:getFilialName(currentFilial),r:radius}));
-}
-async function removeFilialGeo() {
-  if(!canEditData()) return showToast(t('hr.unavailable'));
-  const { error } = await sb.from('filial_geo').delete().eq('filial', currentFilial);
-  if(error) return showToast(t('common.error')+error.message);
-  closeModal('modal-filial-geo');
-  showToast(t('hr.geoOff'));
 }
 
 // Зарплатная ведомость за текущий месяц (admin/manager)
