@@ -13,10 +13,24 @@ async function loadHome() {
   try {
     const todayStr = today();
     const shiftDay = businessToday(); // смена 12:00–03:00 = один кассовый день (ночью = вчера)
+    const empId = currentProfile?.employee_id;
+
+    // Все запросы главного экрана уходят разом. Раньше они шли цепочкой —
+    // задачи, потом смена, потом отметка, потом зарплата — и на мобильном
+    // интернете каждый добавлял свои полсекунды к появлению экрана.
     let tasksQuery = sb.from('tasks').select('*').eq('due_date', todayStr);
     if(role === 'employee') tasksQuery = tasksQuery.eq('assigned_to_id', currentUser.id);
     else tasksQuery = tasksQuery.eq('filial', currentFilial);
-    const { data: tasks } = await tasksQuery;
+
+    const [tasksRes, shiftsRes, attRes, booksRes, finsRes] = await Promise.all([
+      tasksQuery,
+      empId ? sb.from('schedules').select('*').eq('date', shiftDay).eq('employee_id', empId) : Promise.resolve({}),
+      empId ? sb.from('attendance').select('*').eq('employee_id', empId).eq('date', shiftDay) : Promise.resolve({}),
+      role !== 'employee' ? sb.from('bookings').select('id').eq('date', todayStr).eq('filial', currentFilial) : Promise.resolve({}),
+      (role !== 'employee' && canSeeFinance()) ? sb.from('finances').select('amount').eq('date', shiftDay).eq('type','income').eq('filial', currentFilial) : Promise.resolve({}),
+    ]);
+
+    const tasks = tasksRes.data;
     const done = (tasks||[]).filter(t=>t.status==='done').length;
     const total = (tasks||[]).length;
     const pct = total ? Math.round(done/total*100) : 0;
@@ -25,13 +39,19 @@ async function loadHome() {
     const myEl = document.getElementById('home-my-tasks');
     if(!tasks||tasks.length===0) { myEl.innerHTML=`<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">${t('home.noTasksToday')}</div></div>`; }
     else {
-      if(typeof computeTaskUnread === 'function') await computeTaskUnread(tasks.map(t=>t.id));
+      // Рисуем задачи сразу, а точки непрочитанных комментариев дорисовываем,
+      // когда придёт ответ — раньше список ждал этот запрос впустую
       myEl.innerHTML = tasks.map(t=>taskHTML(t)).join('');
+      if(typeof computeTaskUnread === 'function') {
+        computeTaskUnread(tasks.map(t=>t.id))
+          .then(() => { myEl.innerHTML = tasks.map(t=>taskHTML(t)).join(''); })
+          .catch(()=>{});
+      }
     }
 
     // Show my shift on home screen
-    if(currentProfile?.employee_id) {
-      const { data: myShifts } = await sb.from('schedules').select('*').eq('date', shiftDay).eq('employee_id', currentProfile.employee_id);
+    if(empId) {
+      const myShifts = shiftsRes.data;
       const myShift = myShifts && myShifts.length > 0 ? myShifts[0] : null;
       const shiftEl = document.getElementById('home-shift-card');
       if(shiftEl) {
@@ -45,17 +65,18 @@ async function loadHome() {
       }
 
       // Attendance check-in/out
+      const attRecord = (attRes.data && attRes.data[0]) || null;
       if(myShift && !myShift.is_day_off) {
-        await loadAttendanceCard(shiftDay, myShift);
+        renderAttendanceCard(myShift, attRecord);
       } else {
         const attEl = document.getElementById('home-attendance-card');
         if(attEl) attEl.innerHTML = '';
       }
 
-      // Моя зарплата за месяц
-      await loadSalaryCard();
-      // Аттестация по меню (официантам, по субботам)
-      await loadQuizCard();
+      // Моя зарплата за сегодня
+      loadSalaryCard(attRecord);
+      // Аттестация по меню (официантам, по субботам) — свои запросы, не держим экран
+      loadQuizCard();
     }
 
     // Telegram link card
@@ -82,13 +103,11 @@ async function loadHome() {
     }
 
     if(role !== 'employee') {
-      const { data: books } = await sb.from('bookings').select('id').eq('date', todayStr).eq('filial', currentFilial);
-      document.getElementById('home-bookings').textContent = (books||[]).length;
+      document.getElementById('home-bookings').textContent = (booksRes.data||[]).length;
       const revEl = document.getElementById('home-revenue');
       const revCard = revEl ? revEl.closest('.card') : null;
       if(canSeeFinance()) {
-        const { data: fins } = await sb.from('finances').select('amount').eq('date', shiftDay).eq('type','income').eq('filial', currentFilial);
-        revEl.textContent = formatNum((fins||[]).reduce((s,f)=>s+Number(f.amount),0));
+        revEl.textContent = formatNum((finsRes.data||[]).reduce((s,f)=>s+Number(f.amount),0));
         if(revCard) revCard.style.display = '';
       } else {
         // менеджер не видит финансы — прячем карточку выручки
@@ -104,13 +123,12 @@ function getCurrentTimeStr() {
   return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
 }
 
-async function loadAttendanceCard(dateStr, myShift) {
+// Запись о приходе приезжает вместе с остальными данными главного экрана
+// (loadHome), поэтому карточка только рисует — своего запроса у неё нет.
+function renderAttendanceCard(myShift, record) {
   const attEl = document.getElementById('home-attendance-card');
   if(!attEl) return;
   try {
-    const { data: records } = await sb.from('attendance').select('*').eq('employee_id', currentProfile.employee_id).eq('date', dateStr);
-    const record = records && records.length > 0 ? records[0] : null;
-
     if(!record) {
       attEl.innerHTML = `<div class="card" style="margin-bottom:12px">
         <div class="card-title">${t('att.title')}</div>
@@ -135,20 +153,17 @@ async function loadAttendanceCard(dateStr, myShift) {
 }
 
 // Карточка "Моя зарплата" на главном экране — за СЕГОДНЯ (за период — в личном кабинете)
-async function loadSalaryCard() {
+// Ставка берётся из currentEmployee, отметка прихода — из уже загруженной записи:
+// раньше карточка делала два своих запроса поверх тех же данных.
+function loadSalaryCard(record) {
   const el = document.getElementById('home-salary-card');
   if(!el) return;
   el.innerHTML = '';
   try {
     if(!currentProfile?.employee_id) return;
-    const { data: emp } = await sb.from('employees').select('salary,name').eq('id', currentProfile.employee_id).single();
-    const rate = Number(emp?.salary) || 0;
+    const rate = Number(currentEmployee?.salary) || 0;
     if(!rate) return;
 
-    const todayStr = businessToday();
-    const { data: att } = await sb.from('attendance').select('penalty,check_in_time')
-      .eq('employee_id', currentProfile.employee_id).eq('date', todayStr);
-    const record = att && att[0];
     const worked = record?.check_in_time ? 1 : 0;
     const penalty = Number(record?.penalty) || 0;
     const earned = worked * rate;

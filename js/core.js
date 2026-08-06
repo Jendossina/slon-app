@@ -733,7 +733,9 @@ async function loadProfile() {
     // Должность и цех — от них зависят права старших цеха (см. canEditScheduleDept)
     currentEmployee = null;
     if(data.employee_id) {
-      const { data: emp } = await sb.from('employees').select('id,name,role,department').eq('id', data.employee_id).single();
+      // salary тянем сразу: карточка зарплаты и аттестация на главной раньше
+      // ходили за той же строкой ещё двумя отдельными запросами
+      const { data: emp } = await sb.from('employees').select('id,name,role,department,salary').eq('id', data.employee_id).single();
       if(emp) currentEmployee = emp;
     }
   } else {

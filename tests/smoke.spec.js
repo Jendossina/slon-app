@@ -53,6 +53,31 @@ test('service worker регистрируется и кеширует оболо
   expect(result.cachedCount).toBeGreaterThan(20);
 });
 
+// Ради этого всё и затевалось: на телефоне приложение не должно ждать сеть
+// на каждом запуске. Второй запуск обязан подниматься из кеша, в том числе
+// когда интернета нет вовсе.
+test('второй запуск поднимается из кеша, а не из сети (регресс-тест)', async ({ page, context }) => {
+  await page.goto('/');
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.waitForTimeout(2000);
+
+  await context.setOffline(true);
+  const page2 = await context.newPage();
+  const errors = [];
+  page2.on('pageerror', (e) => errors.push(e.message));
+  await page2.goto('/');
+  await expect(page2.locator('#login-page')).toBeVisible();
+  const ready = await page2.evaluate(() => typeof window.showApp === 'function' && typeof window.loadHome === 'function');
+  // ресурсы, отданные service worker: пришли без сети, но с телом
+  const fromCache = await page2.evaluate(() => performance.getEntriesByType('resource')
+    .filter((r) => r.transferSize === 0 && r.decodedBodySize > 0).length);
+  await context.setOffline(false);
+
+  expect(ready).toBe(true);
+  expect(fromCache).toBeGreaterThan(20);
+  expect(errors).toEqual([]);
+});
+
 test('неверный пароль показывает ошибку, а не тишину', async ({ page }) => {
   await page.goto('/');
   await page.fill('#login-email', 'no-such-user@slon.uz');

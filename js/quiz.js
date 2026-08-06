@@ -144,8 +144,8 @@ async function loadQuizCard() {
   const empId = currentProfile?.employee_id;
   if(!empId) return;
   try {
-    const { data: emp } = await sb.from('employees').select('department').eq('id', empId).single();
-    if(emp?.department !== 'Официанты') return;
+    // Цех уже загружен при входе (currentEmployee) — отдельный запрос не нужен
+    if(currentEmployee?.department !== 'Официанты') return;
 
     const week = weekStartOf();
     const today = businessToday();

@@ -285,8 +285,8 @@ function viewChecklistItemMedia(itemId) {
   const content = document.getElementById('view-report-content');
   content.innerHTML = `<div style="display:flex;flex-direction:column;gap:12px">` + arr.map(m =>
     m.type==='video'
-      ? `<video src="${escapeHtml(m.url)}" controls style="width:100%;border-radius:12px"></video>`
-      : `<img src="${escapeHtml(m.url)}" style="width:100%;border-radius:12px" onclick="viewReport('${escJsAttr(m.url)}','image')">`
+      ? `<video src="${escapeHtml(m.url)}" controls preload="none" style="width:100%;border-radius:12px"></video>`
+      : `<img src="${escapeHtml(m.url)}" loading="lazy" decoding="async" style="width:100%;border-radius:12px" onclick="viewReport('${escJsAttr(m.url)}','image')">`
   ).join('') + `</div>`;
   openModal('modal-view-report');
 }

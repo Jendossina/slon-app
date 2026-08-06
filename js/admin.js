@@ -71,8 +71,8 @@ function viewChecklistMedia(itemsMedia, items) {
     html += `<div>
       <div style="font-size:13px;color:#666;margin-bottom:6px">${escapeHtml(itemMap[itemId]||'')}${arr.length>1?' · '+t('adm.photoCount',{n:arr.length}):''}</div>
       ${arr.map(m => m.type==='video'
-        ? `<video src="${escapeHtml(m.url)}" controls style="width:100%;border-radius:12px;margin-bottom:8px"></video>`
-        : `<img src="${escapeHtml(m.url)}" style="width:100%;border-radius:12px;margin-bottom:8px">`).join('')}
+        ? `<video src="${escapeHtml(m.url)}" controls preload="none" style="width:100%;border-radius:12px;margin-bottom:8px"></video>`
+        : `<img src="${escapeHtml(m.url)}" loading="lazy" decoding="async" style="width:100%;border-radius:12px;margin-bottom:8px">`).join('')}
     </div>`;
   });
   html += '</div>';

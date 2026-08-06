@@ -90,7 +90,7 @@ function taskHTML(t) {
       <div class="task-text" style="${isDone?'text-decoration:line-through;color:var(--text-muted)':''}">${escapeHtml(t.title)}</div>
       ${t.description?`<div style="font-size:12px;color:#666;margin-top:2px">${escapeHtml(t.description)}</div>`:''}
       <div class="task-meta">👤 ${escapeHtml(t.assigned_to_name||'—')} ${t.due_date?'· '+tr('tasks.due')+' '+fmtDateShort(t.due_date):''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">'+tr('tasks.mine')+'</span>':''}</div>
-      ${t.photo_url?`<img src="${escapeHtml(t.photo_url)}" loading="lazy" alt="" onclick="event.stopPropagation();viewReport('${escJsAttr(t.photo_url)}','image')" style="margin-top:6px;width:84px;height:84px;object-fit:cover;border-radius:8px;cursor:zoom-in;background:var(--surface-2);display:block">`:''}
+      ${t.photo_url?`<img src="${escapeHtml(t.photo_url)}" loading="lazy" decoding="async" alt="" onclick="event.stopPropagation();viewReport('${escJsAttr(t.photo_url)}','image')" style="margin-top:6px;width:84px;height:84px;object-fit:cover;border-radius:8px;cursor:zoom-in;background:var(--surface-2);display:block">`:''}
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
         ${reportSection}
         <button class="report-btn" onclick="event.stopPropagation();openTaskComments(${t.id},'${escJsAttr(t.title||'')}')">💬 ${tr('tasks.discuss')}<span id="taskunread-${t.id}" style="display:${taskUnreadMap[t.id]?'inline-block':'none'};width:8px;height:8px;border-radius:50%;background:#A32D2D;margin-left:5px;vertical-align:middle"></span></button>
@@ -399,15 +399,15 @@ function chatBubbleHTML(c, isMine, showPinBtn) {
   if(media.length === 1) {
     const m = media[0];
     mediaHTML = m.type === 'video'
-      ? `<video src="${escapeHtml(m.url)}" controls style="max-width:100%;border-radius:10px;margin-bottom:${c.text?'6px':'0'};display:block"></video>`
-      : `<img src="${escapeHtml(m.url)}" style="max-width:100%;border-radius:10px;margin-bottom:${c.text?'6px':'0'};display:block;cursor:pointer" onclick="viewReport('${escJsAttr(m.url)}','image')">`;
+      ? `<video src="${escapeHtml(m.url)}" controls preload="none" style="max-width:100%;border-radius:10px;margin-bottom:${c.text?'6px':'0'};display:block"></video>`
+      : `<img src="${escapeHtml(m.url)}" loading="lazy" decoding="async" style="max-width:100%;border-radius:10px;margin-bottom:${c.text?'6px':'0'};display:block;cursor:pointer" onclick="viewReport('${escJsAttr(m.url)}','image')">`;
   } else if(media.length > 1) {
     // Несколько файлов — плиткой по два в ряд, каждый открывается по нажатию.
     // Видео среди них не автозапускаем: в ленте это шумно, играет по кнопке.
     mediaHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:${c.text?'6px':'0'}">`
       + media.map(m => m.type === 'video'
-        ? `<video src="${escapeHtml(m.url)}" controls preload="metadata" style="width:100%;aspect-ratio:1;border-radius:8px;object-fit:cover;background:#000"></video>`
-        : `<img src="${escapeHtml(m.url)}" loading="lazy" style="width:100%;aspect-ratio:1;border-radius:8px;object-fit:cover;cursor:pointer" onclick="viewReport('${escJsAttr(m.url)}','image')">`
+        ? `<video src="${escapeHtml(m.url)}" controls preload="none" style="width:100%;aspect-ratio:1;border-radius:8px;object-fit:cover;background:#000"></video>`
+        : `<img src="${escapeHtml(m.url)}" loading="lazy" decoding="async" style="width:100%;aspect-ratio:1;border-radius:8px;object-fit:cover;cursor:pointer" onclick="viewReport('${escJsAttr(m.url)}','image')">`
       ).join('') + `</div>`;
   }
   const pinBtn = showPinBtn ? `<button onclick="event.stopPropagation();toggleChatPin(${c.id},${c.is_pinned})" style="background:none;border:none;cursor:pointer;font-size:11px;opacity:0.6;margin-left:6px">${c.is_pinned?'📌':'📍'}</button>` : '';

@@ -112,7 +112,7 @@ function renderFinanceDay(sel, all, canEdit) {
       <div style="flex:1;background:var(--surface-2);border-radius:10px;padding:10px;text-align:center"><div class="stat-sub">${t('fin.guests')}</div><div style="font-size:18px;font-weight:700">${guests || '—'}</div></div>
       <div style="flex:1;background:var(--surface-2);border-radius:10px;padding:10px;text-align:center"><div class="stat-sub">${t('fin.avgCheck')}</div><div style="font-size:18px;font-weight:700" class="finance-positive">${avg!=null?formatNum(avg):'—'}</div></div>
     </div>`;
-    if(dayIncome.photo_url) html += `<img src="${escapeHtml(dayIncome.photo_url)}" onclick="viewReport('${escJsAttr(dayIncome.photo_url)}','image')" style="margin-top:10px;max-width:100%;border-radius:10px;max-height:140px;object-fit:cover;cursor:pointer">`;
+    if(dayIncome.photo_url) html += `<img src="${escapeHtml(dayIncome.photo_url)}" loading="lazy" decoding="async" onclick="viewReport('${escJsAttr(dayIncome.photo_url)}','image')" style="margin-top:10px;max-width:100%;border-radius:10px;max-height:140px;object-fit:cover;cursor:pointer">`;
   } else {
     html += `<div style="color:var(--text-muted);font-size:13px;padding:6px 0">${t('fin.noKassaDay')}</div>`;
   }

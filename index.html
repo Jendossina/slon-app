@@ -8,11 +8,20 @@
 <link rel="icon" type="image/png" href="/icon-192.png">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <meta name="theme-color" content="#0e0d0b">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+/* Шрифт заголовков лежит у нас же: Google Fonts подключался внешней таблицей
+   стилей и блокировал первую отрисовку, а до Ташкента этот запрос идёт долго.
+   swap — текст виден сразу шрифтом-фолбэком, Playfair подменяет его позже. */
+@font-face {
+  font-family: 'Playfair Display'; font-style: normal; font-weight: 600 700; font-display: swap;
+  src: url('/fonts/playfair-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Playfair Display'; font-style: normal; font-weight: 600 700; font-display: swap;
+  src: url('/fonts/playfair-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 :root {
   --font-display: 'Playfair Display', Georgia, serif;
   --gold: #C9A468;
@@ -1553,55 +1562,39 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </div>
 </div>
 
-<script src="js/i18n.js"></script>
-<script src="js/core.js"></script>
-<script src="js/home.js"></script>
-<script src="js/profile.js"></script>
-<script src="js/tasks.js"></script>
-<script src="js/hr.js"></script>
-<script src="js/finance.js"></script>
-<script src="js/crm.js"></script>
-<script src="js/admin.js"></script>
-<script src="js/schedule.js"></script>
-<script src="js/checklists.js"></script>
-<script src="js/kb.js"></script>
-<script src="js/supply.js"></script>
-<script src="js/dishware.js"></script>
-<script src="js/bonus.js"></script>
-<script src="js/quiz.js"></script>
-<script src="js/directory.js"></script>
-<script src="js/help.js"></script>
-<script src="js/notes.js"></script>
-<script src="js/dashboard.js"></script>
-<script src="js/calendar.js"></script>
-<script src="js/feed.js"></script>
-<script src="js/reviews.js"></script>
-<script src="js/teamchat.js"></script>
-<script src="js/stoplist.js"></script>
-<script src="js/install.js"></script>
-<script>
-
-// Переводим статический HTML после полного парсинга DOM — иначе модалки,
-// объявленные ниже этого скрипта, ещё не существуют и остаются непереведёнными.
-if(typeof applyStaticI18n === 'function') {
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => applyStaticI18n());
-  else applyStaticI18n();
-}
-
-sb.auth.getSession().then(({ data }) => {
-  if(data.session) {
-    currentUser = data.session.user;
-    loadProfile().then(() => showApp());
-  }
-  else { prefillLogin(); }
-});
-
-if('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  });
-}
-</script>
+<!-- Все скрипты — defer: браузер качает их параллельно и выполняет ПОСЛЕ разбора
+     страницы, в том же порядке. Раньше они выполнялись прямо посреди HTML и
+     держали экран пустым, пока не догрузится последний файл.
+     supabase-js лежит у нас (js/vendor), а не на CDN: лишний домен = ещё одно
+     соединение на старте и файл, который service worker закешировать не может. -->
+<script defer src="js/vendor/supabase-js-2.js"></script>
+<script defer src="js/i18n.js"></script>
+<script defer src="js/core.js"></script>
+<script defer src="js/home.js"></script>
+<script defer src="js/profile.js"></script>
+<script defer src="js/tasks.js"></script>
+<script defer src="js/hr.js"></script>
+<script defer src="js/finance.js"></script>
+<script defer src="js/crm.js"></script>
+<script defer src="js/admin.js"></script>
+<script defer src="js/schedule.js"></script>
+<script defer src="js/checklists.js"></script>
+<script defer src="js/kb.js"></script>
+<script defer src="js/supply.js"></script>
+<script defer src="js/dishware.js"></script>
+<script defer src="js/bonus.js"></script>
+<script defer src="js/quiz.js"></script>
+<script defer src="js/directory.js"></script>
+<script defer src="js/help.js"></script>
+<script defer src="js/notes.js"></script>
+<script defer src="js/dashboard.js"></script>
+<script defer src="js/calendar.js"></script>
+<script defer src="js/feed.js"></script>
+<script defer src="js/reviews.js"></script>
+<script defer src="js/teamchat.js"></script>
+<script defer src="js/stoplist.js"></script>
+<script defer src="js/install.js"></script>
+<script defer src="js/boot.js"></script>
 
 <!-- EDIT EMPLOYEE MODAL -->
 <div class="modal-overlay" id="modal-task-emp-filter">
