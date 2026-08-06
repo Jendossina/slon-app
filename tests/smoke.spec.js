@@ -33,6 +33,43 @@ test('все js-модули загрузились и объявили свои
   expect(missing).toEqual([]);
 });
 
+// Регресс-тест на жалобу «опять выкинуло на экран входа».
+// Экран входа был виден по умолчанию, и пока приложение выясняло, кто вошёл,
+// человек смотрел на форму пароля. С мгновенной загрузкой это стало особенно
+// заметно. Теперь до ответа висит заставка, а форма входа появляется, только
+// если сохранённого входа действительно нет.
+test('вошедшему человеку форма входа не показывается (регресс-тест)', async ({ page }) => {
+  // Ответ про профиль приходит с задержкой — имитируем мобильный интернет
+  await page.route('**/rest/v1/profiles**', async (route) => {
+    await new Promise((r) => setTimeout(r, 3000));
+    await route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify([{ user_id: 'u1', name: 'Тест', role: 'employee', employee_id: null }]) });
+  });
+  await page.route('**/auth/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
+
+  await page.addInitScript(() => {
+    // как будто человек уже вошёл: сессия лежит в хранилище
+    const session = {
+      access_token: 'test-token', token_type: 'bearer', expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: 'r',
+      user: { id: 'u1', email: 'test@slon.uz', aud: 'authenticated', role: 'authenticated' },
+    };
+    localStorage.setItem('sb-omeomdkurvtvirhfkffu-auth-token', JSON.stringify(session));
+  });
+
+  await page.goto('/');
+  // пока грузится профиль — заставка, а не форма пароля
+  await expect(page.locator('#app-splash')).toBeVisible();
+  await expect(page.locator('#login-page')).toBeHidden();
+  await page.waitForTimeout(1500);
+  await expect(page.locator('#login-page')).toBeHidden();
+
+  // как только профиль пришёл — приложение
+  await expect(page.locator('#app-page')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('#login-page')).toBeHidden();
+  await expect(page.locator('#app-splash')).toBeHidden();
+});
+
 // Установка версии качает только ядро — иначе на слабой связи она не доходит
 // до конца, браузер её отменяет, и телефон навсегда остаётся на старой версии
 // (ровно это случилось у сотрудников). Остальное кеш добирает на ходу.

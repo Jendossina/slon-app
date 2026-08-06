@@ -714,6 +714,8 @@ async function fullLogout() {
   // подвисал, а человек оставался в приложении. Сессию чистим в любом случае.
   try { await sb.auth.signOut(); } catch(e) { console.warn('signOut failed', e); }
   currentUser = null; currentProfile = null;
+  hideSplashSafe();
+  document.getElementById('boot-error').style.display = 'none';
   document.getElementById('app-page').style.display = 'none';
   document.getElementById('login-page').style.display = 'block';
   document.getElementById('login-password').value = '';
@@ -767,9 +769,17 @@ async function loadProfile(attempt = 1) {
   // Unknown user - deny access
   await sb.auth.signOut();
   document.getElementById('login-error').textContent = 'Аккаунт не найден. Обратитесь к управляющему.';
+  hideSplashSafe();
   document.getElementById('app-page').style.display = 'none';
   document.getElementById('login-page').style.display = 'block';
   return { ok: false, reason: 'unknown' };
+}
+
+// Заставка снимается только когда решено, что показать: приложение, вход или
+// «нет связи». Функция живёт в boot.js, но зовут её и отсюда.
+function hideSplashSafe() {
+  const s = document.getElementById('app-splash');
+  if(s) s.style.display = 'none';
 }
 
 // Профиль не загрузился из-за связи. Человек остаётся в системе: экран входа
@@ -778,6 +788,7 @@ async function loadProfile(attempt = 1) {
 function showProfileNetworkError() {
   const el = document.getElementById('boot-error');
   if(!el) return;
+  hideSplashSafe();
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app-page').style.display = 'none';
   el.style.display = 'flex';
@@ -787,7 +798,8 @@ function showProfileNetworkError() {
 async function retryBoot() {
   const btn = document.getElementById('boot-error-btn');
   if(btn) { btn.disabled = true; btn.textContent = t('boot.retrying'); }
-  const res = await loadProfile();
+  // Если сессию так и не удалось прочитать, начинаем со старта, а не с профиля
+  const res = currentUser ? await loadProfile() : (await bootApp(), { ok: false, reason: 'restarted' });
   if(btn) { btn.disabled = false; btn.textContent = t('boot.retry'); }
   if(res.ok) {
     document.getElementById('boot-error').style.display = 'none';
@@ -796,6 +808,7 @@ async function retryBoot() {
 }
 
 function showApp() {
+  hideSplashSafe();
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app-page').style.display = 'block';
   if(PILOT_MODE && !canSeeAdminPanel()) currentFilial = PILOT_FILIAL;

@@ -430,8 +430,18 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 
 <div class="toast" id="toast"></div>
 
+<!-- Заставка на время проверки сессии. Раньше по умолчанию был виден экран
+     входа, и пока приложение выясняло, кто вошёл, человек секунду-другую
+     смотрел на форму пароля — читалось это как «меня выкинуло». Особенно
+     заметно стало после ускорения: страница появляется мгновенно, а ответ
+     сервера о профиле идёт своим ходом. -->
+<div id="app-splash" style="position:fixed;inset:0;z-index:350;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+  <div class="login-logo-img"></div>
+  <div class="loading"></div>
+</div>
+
 <!-- LOGIN -->
-<div id="login-page">
+<div id="login-page" style="display:none">
   <main class="login-screen">
     <div class="login-logo-img"></div>
     <h1 class="login-title">Slon Shisha & Bar</h1>
