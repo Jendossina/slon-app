@@ -6,12 +6,21 @@
 // Оболочка отдаётся ИЗ КЕША сразу. Раньше был приоритет сети: каждый запуск
 // приложение ждало ~30 запросов к серверу (Vercel отдаёт файлы с
 // must-revalidate), и на мобильном интернете это секунды пустого экрана.
-// Свежесть проверяется фоном, уже после отрисовки: если на сервере что-то
-// изменилось, новые файлы тихо кладутся в кеш и применяются при следующем
-// запуске. Страницу при этом не перезагружаем — перезагрузка может прийтись на
-// момент, когда открыта камера для отметки прихода, и съесть снятое видео.
+//
+// ОБНОВЛЕНИЕ ИДЁТ ТОЛЬКО ЧЕРЕЗ CACHE_VERSION. Пробовали хитрее — фоном
+// перепроверять каждый файл и подменять его в живом кеше. На телефоне это
+// разваливалось: Android останавливает service worker когда захочет, проверка
+// обрывалась на середине, и в кеше оставалась СМЕСЬ старых и новых файлов
+// (ловили новый core.js со старым quiz.js и старым boot.js). Штатный механизм
+// браузера таких состояний не допускает: он сам перезапрашивает sw.js при
+// каждом открытии приложения, при изменившемся файле ставит новую версию,
+// скачивает оболочку целиком в НОВЫЙ кеш и переключается на него только если
+// скачалось всё. Оборвалась установка — продолжает работать прежняя версия.
+//
+// Отсюда правило: поменял любой файл оболочки — подними CACHE_VERSION.
+// За этим следит CI (scripts/check-sw-version.mjs), забыть не даст.
 
-const CACHE_VERSION = 'slon-shell-v59';
+const CACHE_VERSION = 'slon-shell-v60';
 
 const SHELL_FILES = [
   '/',
@@ -86,41 +95,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// «Отпечаток» ответа, по которому видно, что файл на сервере изменился.
-function stamp(res) {
-  if (!res) return null;
-  return res.headers.get('etag') || res.headers.get('last-modified') || res.headers.get('content-length');
-}
-
-// Фоновая проверка свежести: раз в запуск приложения (не чаще раза в минуту).
-let lastCheck = 0;
-let checking = false;
-
-async function revalidateShell() {
-  if (checking) return;
-  checking = true;
-  try {
-    const cache = await caches.open(CACHE_VERSION);
-    // Небольшими партиями, чтобы не забивать канал на слабой связи
-    for (let i = 0; i < SHELL_FILES.length; i += 6) {
-      const batch = SHELL_FILES.slice(i, i + 6);
-      await Promise.all(batch.map(async (url) => {
-        try {
-          // no-cache = условный запрос к серверу: обычно вернётся 304 и почти нулевой трафик
-          const fresh = await fetch(url, { cache: 'no-cache' });
-          if (!fresh || !fresh.ok) return;
-          const old = await cache.match(url, MATCH_OPTS);
-          if (stamp(old) === stamp(fresh)) return; // файл не менялся
-          await cachePut(cache, url, fresh);
-        } catch (e) {
-          // нет сети — просто оставляем то, что уже в кеше
-        }
-      }));
-    }
-  } catch (e) {}
-  checking = false;
-}
-
 self.addEventListener('fetch', (event) => {
   const req = event.request;
 
@@ -134,12 +108,6 @@ self.addEventListener('fetch', (event) => {
 
   // Всё, что не оболочка (в том числе сам /sw.js), — обычной дорогой через сеть
   if (!isNavigation && !SHELL_SET.has(url.pathname)) return;
-
-  // Каждый запуск приложения — одна фоновая проверка обновлений, уже после отрисовки
-  if (isNavigation && Date.now() - lastCheck > 60000) {
-    lastCheck = Date.now();
-    event.waitUntil(revalidateShell());
-  }
 
   // Оболочка: КЕШ В ПРИОРИТЕТЕ — экран появляется мгновенно и без сети.
   event.respondWith((async () => {

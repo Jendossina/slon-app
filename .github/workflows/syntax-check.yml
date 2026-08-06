@@ -11,6 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check service worker cache version
+        run: node scripts/check-sw-version.mjs
 
       - name: Check JS module syntax
         run: |

@@ -135,6 +135,7 @@ function renderAttendanceCard(myShift, record) {
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${t('att.startsAt',{time:myShift.shift_start})}</div>
         <input type="file" accept="video/*" capture="user" id="checkin-video-file" style="display:none" onchange="onCheckInVideo(this)">
         <button class="btn btn-primary" onclick="startCheckIn()">${t('att.recordBtn')}</button>
+        <div id="checkin-status" style="font-size:12px;color:var(--text-muted);margin-top:8px;text-align:center;line-height:1.4"></div>
       </div>`;
     } else if(!record.check_out_time) {
       const lateBadge = record.is_late ? `<span class="badge badge-red" style="margin-left:6px">${t('att.late')}</span>` : `<span class="badge badge-green" style="margin-left:6px">${t('att.onTime')}</span>`;
@@ -198,6 +199,17 @@ async function onCheckInVideo(input) {
   await checkIn(file);
 }
 
+// Постоянная строка состояния под кнопкой отметки. Всплывающая подсказка живёт
+// 2,5 секунды, а загрузка видео с телефона идёт куда дольше — человек видел
+// «загружаю видео», подсказка пропадала, и дальше было непонятно, идёт что-то
+// или всё зависло.
+function setCheckInStatus(text, kind) {
+  const el = document.getElementById('checkin-status');
+  if(!el) return;
+  el.style.color = kind === 'bad' ? '#A32D2D' : 'var(--text-muted)';
+  el.textContent = text || '';
+}
+
 async function checkIn(videoFile) {
   try {
     // Видео обязательно — защита от отметки не на рабочем месте
@@ -211,13 +223,24 @@ async function checkIn(videoFile) {
     // Гео-проверки нет: на части Android-телефонов геолокация не работает вовсе,
     // и сотрудник не мог отметиться. Подтверждение места — видео с камеры.
     showToast(t('att.uploadingVideo'));
+    setCheckInStatus(t('att.uploadingVideo'));
     let videoUrl = null;
     const ext = (file => { const p=(file.name||'').split('.'); return p.length>1?p.pop():'mp4'; })(videoFile);
     const path = `checkin-${currentProfile.employee_id}-${Date.now()}.${ext}`;
-    const { error: upErr } = await sb.storage.from('task-reports').upload(path, videoFile);
-    if(upErr) { showToast(t('att.videoErr')+upErr.message); return; }
+    // Загрузка на слабой связи может тянуться минутами, а может молча оборваться.
+    // Ждём не дольше трёх минут и в любом случае говорим человеку, что произошло,
+    // — раньше при обрыве экран просто замолкал, и отметка терялась без следа.
+    const upload = sb.storage.from('task-reports').upload(path, videoFile);
+    const upRes = await Promise.race([
+      upload.catch(e => ({ error: e })),
+      new Promise(r => setTimeout(() => r({ timedOut: true }), 180000)),
+    ]);
+    if(upRes.timedOut) { setCheckInStatus(t('att.videoTimeout'), 'bad'); showToast(t('att.videoTimeout')); return; }
+    const upErr = upRes.error;
+    if(upErr) { setCheckInStatus(t('att.videoErr')+(upErr.message||''), 'bad'); showToast(t('att.videoErr')+(upErr.message||'')); return; }
     const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
     videoUrl = urlData.publicUrl;
+    setCheckInStatus(t('att.savingMark'));
     // Время прихода, опоздание и штраф проставляет триггер в базе по часам
     // сервера: часы телефона можно перевести назад, и раньше это давало отметку
     // «вовремя». Клиент их больше не считает и не шлёт — только читает результат.
@@ -228,7 +251,11 @@ async function checkIn(videoFile) {
       filial: myShift?.filial || currentFilial,
       checkin_video: videoUrl
     }).select().single();
-    if(attErr) { showToast(attErr.code === '23505' ? t('att.already') : t('common.error') + attErr.message); return; }
+    if(attErr) {
+      const msg = attErr.code === '23505' ? t('att.already') : t('common.error') + attErr.message;
+      setCheckInStatus(msg, 'bad'); showToast(msg); return;
+    }
+    setCheckInStatus('');
 
     const lateMin = Number(rec?.late_minutes) || 0;
     const penalty = Number(rec?.penalty) || 0;
@@ -246,7 +273,7 @@ async function checkIn(videoFile) {
       if(isLate) await notifyAdminsAll(msg, 'late');                                       // управляющим — только опоздания
     } catch(e) { console.error('notify checkin', e); }
     loadHome();
-  } catch(e) { showToast(t('common.error')+e.message); }
+  } catch(e) { setCheckInStatus(t('common.error')+e.message, 'bad'); showToast(t('common.error')+e.message); }
 }
 
 async function checkOut(recordId) {
