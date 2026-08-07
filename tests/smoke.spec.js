@@ -57,6 +57,78 @@ test('кнопка обновления сообщает, что версия у
   expect(navigations).toBe(0);                      // и страницу зря не перезагружаем
 });
 
+// Старший цеха: полный хозяин внутри своего отдела и никто за его пределами.
+// Права даёт должность, а не роль в системе, поэтому легко случайно раздать
+// лишнее — тест держит границу.
+test('старший цеха ведёт свой отдел и не лезет в чужие', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.canLeadDept === 'function');
+
+  const res = await page.evaluate(() => {
+    const as = (role, job, dept) => {
+      currentProfile = { role, name: 'Тест', employee_id: 1 };
+      currentEmployee = dept ? { id: 1, name: 'Тест', role: job, department: dept } : null;
+    };
+    const out = {};
+
+    // шеф кальянной станции — обычный сотрудник по системной роли
+    as('employee', 'Шеф кальянной станции', 'Кальянные мастера');
+    out.lead = {
+      isLead: isDeptLead(), dept: myLeadDept(),
+      ownDept: canLeadDept('Кальянные мастера'), otherDept: canLeadDept('Повара'),
+      ownSchedule: canEditScheduleDept('Кальянные мастера'), otherSchedule: canEditScheduleDept('Повара'),
+      salary: canSeeSalaryRole(), finance: canSeeFinance(), adminPanel: canOpenAdminPanel(),
+      fullStaff: canManageStaffFully(), editData: canEditData(),
+      kbOwnBook: kbCanEdit({ edit_dept: 'Кальянные мастера' }),
+      kbBarBook: kbCanEdit({ edit_role: 'admin' }),
+      kbEquipment: kbCanEdit({ edit_role: 'manager' }),
+      kbBooks: kbCanEditBooks(),
+    };
+
+    // рядовой кальянщик — прав цеха не получает
+    as('employee', 'Кальянный мастер', 'Кальянные мастера');
+    out.plain = { isLead: isDeptLead(), ownDept: canLeadDept('Кальянные мастера') };
+
+    // управляющий ведёт любой отдел и правит любую книгу — как раньше
+    as('admin', null, null);
+    out.admin = { anyDept: canLeadDept('Повара'), kbOwnBook: kbCanEdit({ edit_dept: 'Кальянные мастера' }) };
+
+    // менеджер ведёт отделы, но книга цеха сама по себе прав ему не даёт
+    as('manager', null, null);
+    out.manager = { anyDept: canLeadDept('Повара'), kbOwnBook: kbCanEdit({ edit_dept: 'Кальянные мастера' }) };
+
+    // владелец только смотрит
+    as('boss', 'Шеф кальянной станции', 'Кальянные мастера');
+    out.boss = { isLead: isDeptLead(), ownDept: canLeadDept('Кальянные мастера') };
+    return out;
+  });
+
+  // что старшему можно
+  expect(res.lead.isLead).toBe(true);
+  expect(res.lead.dept).toBe('Кальянные мастера');
+  expect(res.lead.ownDept).toBe(true);
+  expect(res.lead.ownSchedule).toBe(true);
+  expect(res.lead.kbOwnBook).toBe(true);
+  // и чего нельзя
+  expect(res.lead.otherDept).toBe(false);
+  expect(res.lead.otherSchedule).toBe(false);
+  expect(res.lead.salary).toBe(false);
+  expect(res.lead.finance).toBe(false);
+  expect(res.lead.adminPanel).toBe(false);
+  expect(res.lead.fullStaff).toBe(false);
+  expect(res.lead.editData).toBe(false);
+  expect(res.lead.kbBarBook).toBe(false);
+  expect(res.lead.kbEquipment).toBe(false);
+  expect(res.lead.kbBooks).toBe(false);
+
+  expect(res.plain).toEqual({ isLead: false, ownDept: false });
+  expect(res.admin.anyDept).toBe(true);
+  expect(res.admin.kbOwnBook).toBe(true);      // админ правит любую книгу, как и раньше
+  expect(res.manager.anyDept).toBe(true);
+  expect(res.manager.kbOwnBook).toBe(false);   // а книга цеха — только старшему этого цеха
+  expect(res.boss).toEqual({ isLead: false, ownDept: false });
+});
+
 // Полоска «доступна новая версия». Главное правило: она предлагает, а не
 // перезагружает сама — однажды самовольная перезагрузка пришлась ровно на
 // съёмку видео прихода и съела отметку.

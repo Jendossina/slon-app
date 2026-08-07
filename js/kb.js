@@ -8,11 +8,15 @@ function kbCanEditBooks() { return currentRole() === 'admin'; }
 
 // Статьи внутри книги: админ — везде, управляющий — только там, где книге
 // проставлено edit_role='manager' (например, регламент по оборудованию,
-// который ведут управляющие филиалов). То же правило продублировано в RLS.
+// который ведут управляющие филиалов), старший цеха — в книге своего цеха
+// (edit_dept). То же правило продублировано в RLS.
 function kbCanEdit(book) {
+  const b = book || kbCurrentBook;
   const r = currentRole();
   if(r === 'admin') return true;
-  return r === 'manager' && (book || kbCurrentBook)?.edit_role === 'manager';
+  if(r === 'manager' && b?.edit_role === 'manager') return true;
+  // Именно старший этого цеха: управляющему книга цеха сама по себе прав не даёт
+  return !!b?.edit_dept && typeof myLeadDept === 'function' && myLeadDept() === b.edit_dept;
 }
 
 function escapeHtml(s) {

@@ -42,8 +42,10 @@ async function loadHR() {
     emps.forEach(e=>{ const d = e.department || 'Без отдела'; (groups[d]=groups[d]||[]).push(e); });
     const orderedDepts = [...DEPT_ORDER.filter(d=>groups[d]), ...Object.keys(groups).filter(d=>!DEPT_ORDER.includes(d))];
 
+    // Старший цеха правит своих людей прямо отсюда: админ-панель ему не положена,
+    // а карточку сотрудника открыть надо. Руководству карточка тоже открывается.
     const empCard = e => `
-      <div class="list-item">
+      <div class="list-item" ${canLeadDept(e.department) ? `onclick="openEditEmployee(${e.id})" style="cursor:pointer"` : ''}>
         <div class="avatar ${getColor(e.name)}">${escapeHtml(getInitials(e.name))}</div>
         <div class="item-info"><div class="item-name">${escapeHtml(e.name)}</div><div class="item-sub">${escapeHtml(e.role||'')} · ${escapeHtml(e.phone||'')}</div><div class="item-sub">${(e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).map(getFilialName).join(', ')}</div>${canSeeSalary&&e.salary?`<div class="item-sub">${formatNum(e.salary)} сум</div>`:''}</div>
         ${canSeeSalary?`<span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}">${escapeHtml(e.status||'Активен')}</span>`:''}

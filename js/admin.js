@@ -157,6 +157,14 @@ async function openEditEmployee(id) {
   ['edit-emp-sysrole-group','edit-emp-pass-group','edit-emp-pass-btn','edit-emp-delete-group'].forEach(gid=>{
     const el = document.getElementById(gid); if(el) el.style.display = full ? '' : 'none';
   });
+  // Старший цеха ведёт своих людей, но не их деньги и не их должность: ставка,
+  // должность и отдел ему закрыты (то же самое сторожит триггер в базе).
+  const leadOnly = !canEditData();
+  const salaryGroup = document.getElementById('edit-emp-salary')?.closest('.form-group');
+  if(salaryGroup) salaryGroup.style.display = leadOnly ? 'none' : '';
+  ['edit-emp-role','edit-emp-department'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.disabled = leadOnly;
+  });
   openModal('modal-edit-employee');
 }
 
@@ -184,7 +192,6 @@ function pickSalary(amount) {
 }
 
 async function saveEmployee() {
-  if(!canEditData()) return showToast(t('common.observerMode'));
   const id = document.getElementById('edit-emp-id').value;
   const name = document.getElementById('edit-emp-name').value.trim();
   const role = document.getElementById('edit-emp-role').value;
@@ -194,14 +201,24 @@ async function saveEmployee() {
   const status = document.getElementById('edit-emp-status').value;
   const sysRole = document.getElementById('edit-emp-system-role').value;
   const empFilials = Array.from(document.querySelectorAll('.edit-emp-filial-checkbox:checked')).map(c=>c.value);
+  // Старший цеха сохраняет только своих и только то, что ему открыто:
+  // ставку, должность и отдел не шлём вовсе, роль в системе не трогаем.
+  const lead = !canEditData();
+  if(lead && !canLeadDept(department)) return showToast(t('common.observerMode'));
   try {
-    await sb.from('employees').update({name,role,department,phone,salary:salary||null,status,filials:empFilials.length?empFilials:['istikbol','chekhov']}).eq('id',id);
-    await sb.from('profiles').update({role:sysRole,name}).eq('employee_id',id);
+    const fields = { name, phone, status, filials: empFilials.length ? empFilials : ['istikbol','chekhov'] };
+    if(!lead) Object.assign(fields, { role, department, salary: salary || null });
+    await sb.from('employees').update(fields).eq('id',id);
+    if(!lead) await sb.from('profiles').update({role:sysRole,name}).eq('employee_id',id);
+    else await sb.from('profiles').update({name}).eq('employee_id',id);
     if(typeof invalidateScheduleEmps === 'function') invalidateScheduleEmps();
-    await logActivity('edit_employee', name + ' → ' + role + ', ' + status);
+    // Журнал не должен ронять сохранение: у старшего цеха прав на него может не быть
+    try { await logActivity('edit_employee', name + ' → ' + role + ', ' + status); } catch(e) {}
     closeModal('modal-edit-employee');
     showToast(t('adm.saved'));
-    loadAdminEmployees();
+    // Старший правит из раздела «Люди», руководство — из админ-панели
+    if(lead) { if(typeof loadHR === 'function') loadHR(); }
+    else loadAdminEmployees();
   } catch(e) { showToast(t('common.error')+e.message); }
 }
 
