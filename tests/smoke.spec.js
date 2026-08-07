@@ -57,6 +57,45 @@ test('кнопка обновления сообщает, что версия у
   expect(navigations).toBe(0);                      // и страницу зря не перезагружаем
 });
 
+// Полоска «доступна новая версия». Главное правило: она предлагает, а не
+// перезагружает сама — однажды самовольная перезагрузка пришлась ровно на
+// съёмку видео прихода и съела отметку.
+test('полоска обновления предлагает, но не перезагружает сама', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.showUpdateBanner === 'function');
+
+  let navigations = 0;
+  page.on('framenavigated', (f) => { if (f === page.mainFrame()) navigations++; });
+
+  // 1) во время съёмки видео прихода полоска не лезет поверх камеры
+  const duringRecording = await page.evaluate(() => {
+    document.getElementById('checkin-recorder').style.display = 'flex';
+    showUpdateBanner('web');
+    const shown = getComputedStyle(document.getElementById('update-banner')).display !== 'none';
+    document.getElementById('checkin-recorder').style.display = 'none';
+    return shown;
+  });
+  expect(duringRecording).toBe(false);
+
+  // 2) в обычной ситуации — показывается и ждёт нажатия
+  const banner = await page.evaluate(() => {
+    updateBannerShown = false;
+    showUpdateBanner('web');
+    const el = document.getElementById('update-banner');
+    return { visible: getComputedStyle(el).display !== 'none', text: el.innerText };
+  });
+  expect(banner.visible).toBe(true);
+  expect(banner.text).toContain('Доступна новая версия');
+  expect(navigations).toBe(0);
+
+  // 3) закрыли крестиком — исчезла
+  const afterHide = await page.evaluate(() => {
+    hideUpdateBanner();
+    return getComputedStyle(document.getElementById('update-banner')).display !== 'none';
+  });
+  expect(afterHide).toBe(false);
+});
+
 // Го/стоп-лист: позиции берутся из меню кухни, ставятся кнопкой, а не руками.
 test('го/стоп: поиск по меню и постановка одной кнопкой', async ({ page }) => {
   await page.goto('/');

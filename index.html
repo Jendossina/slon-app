@@ -948,6 +948,10 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 </div>
 
 <!-- ГО/СТОП ЛИСТ: новая позиция -->
+<!-- «Доступна новая версия»: полоска над нижним меню. Перезагружать страницу
+     сами не имеем права — момент выбирает человек, а не приложение. -->
+<div id="update-banner" style="display:none;position:fixed;left:8px;right:8px;bottom:calc(64px + env(safe-area-inset-bottom));z-index:120;background:var(--header-bg);border:1px solid rgba(201,164,104,0.35);border-radius:12px;padding:10px 12px;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,0.35)"></div>
+
 <!-- Запись видео прихода внутри приложения: ролик не уходит в галерею телефона
      и приложение не сворачивается в системную камеру. -->
 <div id="checkin-recorder" style="display:none;position:fixed;inset:0;z-index:360;background:#000;flex-direction:column;align-items:center;justify-content:center">

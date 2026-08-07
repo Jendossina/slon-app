@@ -97,6 +97,85 @@ async function latestApkRelease() {
   } catch(e) { return null; }
 }
 
+// ===== Полоска «доступна новая версия» =====
+// Сама перезагружать страницу нельзя: однажды это уже случилось ровно в момент
+// съёмки видео прихода и съело отметку. Поэтому предлагаем, а нажимает человек.
+
+let updateBannerShown = false;
+
+function showUpdateBanner(kind, url) {
+  const el = document.getElementById('update-banner');
+  if(!el || updateBannerShown) return;
+  // Идёт запись видео прихода — не лезем поверх камеры, покажем после
+  const rec = document.getElementById('checkin-recorder');
+  if(rec && getComputedStyle(rec).display !== 'none') { setTimeout(() => showUpdateBanner(kind, url), 15000); return; }
+
+  updateBannerShown = true;
+  const isApk = kind === 'apk';
+  el.innerHTML = `
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:600;color:#f0e9db">${isApk ? t('upd.bannerApk') : t('upd.bannerWeb')}</div>
+      <div style="font-size:11px;color:#c4b8a0;margin-top:2px">${isApk ? t('upd.bannerApkSub') : t('upd.bannerWebSub')}</div>
+    </div>
+    ${isApk
+      ? `<a href="${escapeHtml(url)}" onclick="hideUpdateBanner()" style="flex:0 0 auto;background:var(--gold);color:#1a1a1a;border-radius:9px;padding:9px 14px;font-size:13px;font-weight:700;text-decoration:none">${t('upd.bannerDownload')}</a>`
+      : `<button onclick="applyUpdateFromBanner()" style="flex:0 0 auto;background:var(--gold);color:#1a1a1a;border:none;border-radius:9px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer">${t('upd.bannerBtn')}</button>`}
+    <button onclick="hideUpdateBanner(${isApk ? `'${escJsAttr(url)}'` : ''})" aria-label="${t('upd.bannerLater')}"
+            style="flex:0 0 auto;background:none;border:none;color:#8a8072;font-size:20px;line-height:1;cursor:pointer;padding:4px 6px">✕</button>`;
+  el.style.display = 'flex';
+}
+
+function hideUpdateBanner(apkUrl) {
+  const el = document.getElementById('update-banner');
+  if(el) el.style.display = 'none';
+  // Про новую сборку APK больше не напоминаем — человек её видел
+  if(apkUrl) { try { localStorage.setItem('slon-apk-dismissed', apkUrl); } catch(e) {} }
+}
+
+function applyUpdateFromBanner() {
+  hideUpdateBanner();
+  location.reload();
+}
+
+// Следим за обновлениями, пока приложение открыто
+function watchForUpdates(reg) {
+  if(!reg) return;
+  // Первая установка service worker — это не обновление, а обычный первый запуск
+  const wasControlled = !!navigator.serviceWorker.controller;
+
+  const watchWorker = w => {
+    if(!w) return;
+    w.addEventListener('statechange', () => {
+      if(w.state === 'activated' && wasControlled) showUpdateBanner('web');
+    });
+  };
+  watchWorker(reg.installing);
+  watchWorker(reg.waiting);
+  reg.addEventListener('updatefound', () => watchWorker(reg.installing));
+
+  // Смена, которая длится всю ночь: приложение открыто, а версия за это время
+  // могла выйти. Раз в полчаса тихо спрашиваем сервер — это один запрос.
+  setInterval(() => {
+    if(document.visibilityState === 'visible') reg.update().catch(()=>{});
+  }, 30 * 60 * 1000);
+
+  // Новая сборка APK — проверяем один раз при запуске
+  checkApkBanner();
+}
+
+async function checkApkBanner() {
+  try {
+    const inApp = typeof isNativeShell === 'function' ? isNativeShell() : !!window.Capacitor;
+    if(!inApp) return;
+    const native = nativeAppVersion();
+    if(!native) return;                       // старая сборка не сообщает версию — не пугаем
+    const rel = await latestApkRelease();
+    if(!rel || !rel.version || rel.version === native) return;
+    if(localStorage.getItem('slon-apk-dismissed') === rel.url) return;
+    showUpdateBanner('apk', rel.url);
+  } catch(e) {}
+}
+
 // Карточка в личном кабинете
 async function renderUpdateCard() {
   const el = document.getElementById('update-card');

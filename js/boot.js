@@ -60,10 +60,15 @@ bootApp();
 
 // ===== Service worker =====
 // Оболочка отдаётся из кеша сразу, обновление приезжает через смену версии в
-// sw.js (см. комментарий там). Страницу сами не перезагружаем: перезагрузка
-// может прийтись на момент, когда открыта камера для отметки прихода.
+// sw.js (см. комментарий там). Страницу сами НЕ перезагружаем: перезагрузка
+// может прийтись на момент, когда открыта камера для отметки прихода. Вместо
+// этого показываем внизу полоску «доступна новая версия» — момент выбирает
+// человек (js/update.js).
 if('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      if(typeof watchForUpdates === 'function') watchForUpdates(reg);
+    } catch(e) {}
   });
 }
