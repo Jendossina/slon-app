@@ -56,6 +56,19 @@ jobs:
       - name: Установить зависимости
         run: npm ci
 
+      # Оболочка дописывает свою версию в User-Agent, чтобы приложение могло
+      # показать её человеку и понять, вышла ли сборка новее установленной
+      # (личный кабинет → «Обновление приложения», см. js/update.js).
+      - name: Прописать версию оболочки в User-Agent
+        run: |
+          node -e "
+            const fs = require('fs');
+            const cfg = JSON.parse(fs.readFileSync('capacitor.config.json', 'utf8'));
+            cfg.appendUserAgent = 'SlonApp/${{ inputs.version_name }}.${{ github.run_number }}';
+            fs.writeFileSync('capacitor.config.json', JSON.stringify(cfg, null, 2) + '\n');
+            console.log('User-Agent:', cfg.appendUserAgent);
+          "
+
       - name: Собрать веб-часть оболочки
         run: npx cap sync android
 

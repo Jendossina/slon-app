@@ -33,6 +33,30 @@ test('все js-модули загрузились и объявили свои
   expect(missing).toEqual([]);
 });
 
+// Кнопка «Обновить» в личном кабинете: должна дотянуться до service worker,
+// а если новой версии нет — честно сказать, что и так последняя.
+test('кнопка обновления сообщает, что версия уже последняя', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.waitForFunction(() => typeof window.renderUpdateCard === 'function');
+
+  let navigations = 0;
+  page.on('framenavigated', (f) => { if (f === page.mainFrame()) navigations++; });
+
+  const res = await page.evaluate(async () => {
+    document.body.insertAdjacentHTML('beforeend', '<div id="update-card"></div>');
+    await renderUpdateCard();
+    const card = document.getElementById('update-card').innerText;
+    await forceWebUpdate();
+    return { card, status: document.getElementById('update-status').textContent, shell: await appShellVersion() };
+  });
+
+  expect(res.shell).toMatch(/^v\d+$/);              // версия содержимого видна
+  expect(res.card).toContain('версия содержимого');
+  expect(res.status).toContain('последняя версия'); // нового sw.js нет — обновлять нечего
+  expect(navigations).toBe(0);                      // и страницу зря не перезагружаем
+});
+
 // Го/стоп-лист: позиции берутся из меню кухни, ставятся кнопкой, а не руками.
 test('го/стоп: поиск по меню и постановка одной кнопкой', async ({ page }) => {
   await page.goto('/');

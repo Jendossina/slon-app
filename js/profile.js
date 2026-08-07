@@ -147,7 +147,11 @@ async function loadProfile2() {
 
     const tabsBar = `<div class="hscroll" style="display:flex;gap:6px;overflow-x:auto;margin-bottom:14px">${tabs.map(t=>`<button onclick="switchProfileTab('${t.id}')" style="flex:0 0 auto;padding:8px 14px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;background:${t.id===profileTab?'var(--gold-dark)':'var(--surface-2)'};color:${t.id===profileTab?'#fff':'var(--text-primary)'}">${t.label}</button>`).join('')}</div>`;
 
-    content.innerHTML = header + tabsBar + `<div id="profile-tab-body">${tabsContent[profileTab]}</div>` + langBlock + notifBlock + passwordBlock;
+    content.innerHTML = header + tabsBar + `<div id="profile-tab-body">${tabsContent[profileTab]}</div>`
+      + langBlock + notifBlock + `<div id="update-card"></div>` + passwordBlock;
+    // Обновление приложения: версия оболочки читается из кеша, новая сборка APK —
+    // из релизов, поэтому карточка дорисовывается после основного экрана
+    if(typeof renderUpdateCard === 'function') renderUpdateCard();
   } catch(e) { console.error(e); content.innerHTML = `<div class="loading">${t('common.loadErr')}</div>`; }
 }
 
