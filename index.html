@@ -948,6 +948,14 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 </div>
 
 <!-- ГО/СТОП ЛИСТ: новая позиция -->
+<!-- Запись видео прихода внутри приложения: ролик не уходит в галерею телефона
+     и приложение не сворачивается в системную камеру. -->
+<div id="checkin-recorder" style="display:none;position:fixed;inset:0;z-index:360;background:#000;flex-direction:column;align-items:center;justify-content:center">
+  <video id="checkin-preview" playsinline muted autoplay style="width:100%;max-height:75vh;object-fit:cover;transform:scaleX(-1)"></video>
+  <div id="checkin-countdown" style="position:absolute;top:24px;left:0;right:0;text-align:center;color:#fff;font-size:17px;font-weight:700;text-shadow:0 1px 6px rgba(0,0,0,.6)"></div>
+  <button onclick="cancelCheckinRecording()" style="position:absolute;bottom:28px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:22px;padding:11px 26px;font-size:14px;font-weight:600;cursor:pointer" data-i18n="common.cancel">Отмена</button>
+</div>
+
 <!-- Выбор позиции из меню: поиск + кнопки «стоп» и «го» напротив каждого блюда -->
 <div class="modal-overlay" id="modal-stop-picker">
   <div class="modal">

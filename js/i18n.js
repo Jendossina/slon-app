@@ -134,7 +134,7 @@ const I18N = {
     // Отметка на смену (явка)
     'att.title': 'Отметка на смену', 'att.startsAt': 'Смена начинается в {time}. Для отметки нужно снять короткое видео на месте.',
     'att.recordBtn': '🎥 Снять видео и отметить приход', 'att.arrivedAt': 'Пришёл в', 'att.late': 'Опоздание', 'att.onTime': 'Вовремя',
-    'att.checkoutBtn': '🚪 Отметить уход', 'att.shiftDone': 'Смена завершена', 'att.came': 'Пришёл', 'att.left': 'Ушёл',
+    'att.cameraStarting': '📷 Включаю камеру...', 'att.recording': '🔴 Идёт запись · {n} сек',
     'att.loadErr': 'Не удалось загрузить. Проверьте соединение и обновите страницу.',
     'att.needVideo': 'Нужно именно видео с камеры', 'att.uploadingVideo': '⏳ Загружаю видео...',
     'boot.noNetTitle': 'Нет связи с сервером', 'boot.noNetText': 'Вы остаётесь в системе — заново входить не нужно. Проверьте интернет и нажмите «Повторить».',
@@ -144,7 +144,6 @@ const I18N = {
     'att.resendVideoBtn': '🎥 Дослать видео', 'att.noVideoYet': 'К этой отметке ещё не приложено видео',
     'att.videoAttached': '✅ Видео приложено к отметке',
     'att.videoErr': 'Ошибка загрузки видео: ', 'att.lateToast': '⏰ Опоздание {min} мин · штраф {pen} сум', 'att.onTimeToast': '✅ Отмечено вовремя!', 'att.already': 'Ты уже отметился сегодня',
-    'att.checkoutToast': '✅ Уход отмечен',
     // Зарплата (карточка на главной)
     'salary.todayTitle': 'Моя зарплата · сегодня', 'salary.rate': 'Ставка', 'salary.notMarked': 'Смена сегодня ещё не отмечена', 'salary.penalty': 'Штраф',
     // Задачи
@@ -466,6 +465,7 @@ const I18N = {
     'pf.n.taskDue': '📋 Дедлайны задач', 'pf.n.taskDueD': 'Сводка в 11:00 и повтор в 20:00 по незакрытым',
     'pf.n.schedule': '📅 Изменения графика', 'pf.n.scheduleD': 'Ваша смена изменилась',
     'pf.n.stoplist': '🚦 Го/стоп лист', 'pf.n.stoplistD': 'Позицию поставили в стоп или вернули',
+    'pf.n.signboard': '💡 Уличная вывеска', 'pf.n.signboardD': 'Напоминания включить в 18:00 и выключить в 23:00',
     // Го/стоп лист
     'sl.title': '🚦 Го/стоп лист', 'sl.addBtn': '+ Позиция',
     'sl.tabNow': 'Сейчас', 'sl.tabHistory': 'История',
@@ -519,7 +519,7 @@ const I18N = {
     'cl.photoAttached': '✅ Фото прикреплено', 'cl.photosAttached': '✅ Прикреплено фото: {n}', 'cl.saveErr': 'Ошибка сохранения: ',
     'cl.mediaTitle': '📎 Фото/видео к пункту', 'cl.mediaHint': 'Нажми чтобы прикрепить фото или видео', 'cl.mediaHintSub': 'можно выбрать несколько', 'cl.attachBtn': 'Прикрепить',
     // Общее
-    'common.loading': 'Загрузка...', 'common.logout': 'Выйти', 'common.sum': 'сум', 'common.error': 'Ошибка: ', 'common.close': 'Закрыть',
+    'common.loading': 'Загрузка...', 'common.logout': 'Выйти', 'common.sum': 'сум', 'common.error': 'Ошибка: ', 'common.close': 'Закрыть', 'common.cancel': 'Отмена',
     'common.observerMode': 'Режим наблюдателя — редактирование недоступно', 'common.allEmployees': '👥 Все сотрудники', 'common.byDept': 'по цехам ▾',
     'common.uploadErr': 'Ошибка загрузки: ', 'common.loadErrConn': 'Ошибка загрузки. Проверьте соединение.', 'common.uploadingFile': '⏳ Загружаю файл...',
     'common.loadErr': 'Ошибка загрузки', 'common.save': 'Сохранить', 'common.delete': 'Удалить',
@@ -585,7 +585,7 @@ const I18N = {
     // Отметка на смену (явка)
     'att.title': 'Сменага белги', 'att.startsAt': 'Смена {time} да бошланади. Белгилаш учун жойда қисқа видео олиш керак.',
     'att.recordBtn': '🎥 Видео олиб, келишни белгилаш', 'att.arrivedAt': 'Келди:', 'att.late': 'Кечикди', 'att.onTime': 'Ўз вақтида',
-    'att.checkoutBtn': '🚪 Кетишни белгилаш', 'att.shiftDone': 'Смена тугади', 'att.came': 'Келди', 'att.left': 'Кетди',
+    'att.cameraStarting': '📷 Камера ёқилмоқда...', 'att.recording': '🔴 Ёзиб олинмоқда · {n} сония',
     'att.loadErr': 'Юклаб бўлмади. Уланишни текширинг ва саҳифани янгиланг.',
     'att.needVideo': 'Айнан камерадан видео олиш керак', 'att.uploadingVideo': '⏳ Видео юкланмоқда...',
     'boot.noNetTitle': 'Сервер билан алоқа йўқ', 'boot.noNetText': 'Сиз тизимдасиз — қайта кириш шарт эмас. Интернетни текшириб, «Қайта уриниш» ни босинг.',
@@ -595,7 +595,6 @@ const I18N = {
     'att.resendVideoBtn': '🎥 Видеони юбориш', 'att.noVideoYet': 'Бу белгига видео ҳали илова қилинмаган',
     'att.videoAttached': '✅ Видео белгига илова қилинди',
     'att.videoErr': 'Видео юклашда хато: ', 'att.lateToast': '⏰ Кечикиш {min} дақиқа · жарима {pen} сўм', 'att.onTimeToast': '✅ Ўз вақтида белгиланди!', 'att.already': 'Сен бугун аллақачон белгилагансан',
-    'att.checkoutToast': '✅ Кетиш белгиланди',
     // Зарплата (карточка на главной)
     'salary.todayTitle': 'Менинг маошим · бугун', 'salary.rate': 'Ставка', 'salary.notMarked': 'Бугунги смена ҳали белгиланмаган', 'salary.penalty': 'Жарима',
     // Задачи
@@ -917,6 +916,7 @@ const I18N = {
     'pf.n.taskDue': '📋 Вазифа муддатлари', 'pf.n.taskDueD': 'Соат 11:00 да хулоса ва 20:00 да ёпилмаганлар бўйича такрор',
     'pf.n.schedule': '📅 График ўзгаришлари', 'pf.n.scheduleD': 'Сменангиз ўзгарди',
     'pf.n.stoplist': '🚦 Го/стоп рўйхат', 'pf.n.stoplistD': 'Позиция стопга қўйилди ёки қайтарилди',
+    'pf.n.signboard': '💡 Кўча вывескаси', 'pf.n.signboardD': '18:00 да ёқиш ва 23:00 да ўчириш эслатмалари',
     // Го/стоп рўйхат
     'sl.title': '🚦 Го/стоп рўйхат', 'sl.addBtn': '+ Позиция',
     'sl.tabNow': 'Ҳозир', 'sl.tabHistory': 'Тарих',
@@ -970,7 +970,7 @@ const I18N = {
     'cl.photoAttached': '✅ Фото бириктирилди', 'cl.photosAttached': '✅ Бириктирилган фото: {n}', 'cl.saveErr': 'Сақлашда хато: ',
     'cl.mediaTitle': '📎 Бандга фото/видео', 'cl.mediaHint': 'Фото ёки видео бириктириш учун босинг', 'cl.mediaHintSub': 'бир нечтасини танлаш мумкин', 'cl.attachBtn': 'Бириктириш',
     // Общее
-    'common.loading': 'Юкланмоқда...', 'common.logout': 'Чиқиш', 'common.sum': 'сўм', 'common.error': 'Хато: ', 'common.close': 'Ёпиш',
+    'common.loading': 'Юкланмоқда...', 'common.logout': 'Чиқиш', 'common.sum': 'сўм', 'common.error': 'Хато: ', 'common.close': 'Ёпиш', 'common.cancel': 'Бекор қилиш',
     'common.observerMode': 'Кузатувчи режими — таҳрирлаш мумкин эмас', 'common.allEmployees': '👥 Барча ходимлар', 'common.byDept': 'цехлар бўйича ▾',
     'common.uploadErr': 'Юклашда хато: ', 'common.loadErrConn': 'Юклашда хато. Уланишни текширинг.', 'common.uploadingFile': '⏳ Файл юкланмоқда...',
     'common.loadErr': 'Юклашда хато', 'common.save': 'Сақлаш', 'common.delete': 'Ўчириш',

@@ -137,25 +137,20 @@ function renderAttendanceCard(myShift, record) {
         <button class="btn btn-primary" onclick="startCheckIn()">${t('att.recordBtn')}</button>
         <div id="checkin-status" style="font-size:12px;color:var(--text-muted);margin-top:8px;text-align:center;line-height:1.4"></div>
       </div>`;
-    } else if(!record.check_out_time) {
+    } else {
+      // Отметки ухода нет: смену закрывает график, а не кнопка в телефоне.
       const lateBadge = record.is_late ? `<span class="badge badge-red" style="margin-left:6px">${t('att.late')}</span>` : `<span class="badge badge-green" style="margin-left:6px">${t('att.onTime')}</span>`;
       // Видео могло не долететь (связь оборвалась, приложение выгрузили) — приход
       // при этом засчитан, и человек досылает видео одной кнопкой.
       const needVideo = !record.checkin_video ? `
         <input type="file" accept="video/*" capture="user" id="checkin-resend-file" style="display:none" onchange="resendCheckinVideo(this, ${record.id})">
-        <button class="btn btn-secondary" onclick="startResendVideo()" style="margin-top:10px">${t('att.resendVideoBtn')}</button>
+        <button class="btn btn-secondary" onclick="startResendVideo(${record.id})" style="margin-top:10px">${t('att.resendVideoBtn')}</button>
         <div style="font-size:12px;color:#A32D2D;margin-top:6px;text-align:center;line-height:1.4">${t('att.noVideoYet')}</div>` : '';
       attEl.innerHTML = `<div class="card" style="margin-bottom:12px">
         <div class="card-title">${t('att.title')}</div>
-        <div style="font-size:14px;color:var(--text-primary);margin-bottom:10px">${t('att.arrivedAt')} <b>${record.check_in_time}</b>${lateBadge}</div>
-        <button class="btn btn-primary" onclick="checkOut(${record.id})" style="background:#A13C3C">${t('att.checkoutBtn')}</button>
+        <div style="font-size:14px;color:var(--text-primary)">${t('att.arrivedAt')} <b>${record.check_in_time}</b>${lateBadge}</div>
         ${needVideo}
         <div id="checkin-status" style="font-size:12px;color:var(--text-muted);margin-top:8px;text-align:center;line-height:1.4"></div>
-      </div>`;
-    } else {
-      attEl.innerHTML = `<div class="card" style="margin-bottom:12px;background:var(--surface-2)">
-        <div class="card-title">${t('att.shiftDone')}</div>
-        <div style="font-size:13px;color:var(--text-secondary)">${t('att.came')}: <b>${record.check_in_time}</b> · ${t('att.left')}: <b>${record.check_out_time}</b></div>
       </div>`;
     }
   } catch(e) { console.error(e); attEl.innerHTML = `<div class="card" style="margin-bottom:12px"><div class="card-title">${t('att.title')}</div><div style="font-size:12px;color:#A32D2D">${t('att.loadErr')}</div></div>`; }
@@ -193,7 +188,123 @@ function loadSalaryCard(record) {
 // attendance_guard() в базе (миграция 2026-08-03_attendance_server_time.sql).
 // Лестница штрафов живёт только там, иначе телефон снова станет источником правды.
 
-function startCheckIn() {
+// ===== Запись видео прихода внутри приложения =====
+// Раньше открывалась системная камера: видео оставалось в галерее телефона, а
+// само приложение уходило в фон — и Android спокойно выгружал его из памяти
+// вместе с недогруженной отметкой. Теперь снимаем прямо в приложении: ролик
+// живёт только в памяти страницы, в галерею не попадает, приложение не
+// сворачивается, а размер файла мы задаём сами — секунды вместо минут загрузки.
+const CHECKIN_SECONDS = 5;       // столько пишем: этого хватает подтвердить, что человек на месте
+let checkinStream = null;
+let checkinRecorder = null;
+let checkinTimer = null;
+
+// Умеет ли телефон снимать внутри страницы. Старый Android-webview в APK до
+// пересборки — не умеет, для него остаётся системная камера.
+function canRecordInApp() {
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+}
+
+function pickRecorderMime() {
+  const types = ['video/mp4', 'video/webm;codecs=vp8', 'video/webm'];
+  for(const ty of types) { if(MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(ty)) return ty; }
+  return '';
+}
+
+// onReady(file) — что делать с записанным роликом: новая отметка или досылка
+let checkinOnReady = null;
+
+async function startCheckIn() {
+  checkinOnReady = file => checkIn(file);
+  await recordCheckinVideo();
+}
+
+async function recordCheckinVideo() {
+  if(!canRecordInApp()) return startCheckInFallback();
+  try {
+    setCheckInStatus(t('att.cameraStarting'));
+    // Фронтальная камера, небольшое разрешение: качество «видно, что это ты и
+    // что ты на месте» — больше и не нужно, зато файл уезжает за секунды.
+    checkinStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false,
+    });
+  } catch(e) {
+    console.error('getUserMedia failed', e);
+    setCheckInStatus('');
+    return startCheckInFallback();   // не дали доступ или камеры нет — как раньше
+  }
+  const video = document.getElementById('checkin-preview');
+  const box = document.getElementById('checkin-recorder');
+  if(!video || !box) { stopCheckinStream(); return startCheckInFallback(); }
+  video.srcObject = checkinStream;
+  video.muted = true;
+  video.playsInline = true;
+  await video.play().catch(()=>{});
+  box.style.display = 'block';
+  setCheckInStatus('');
+
+  const chunks = [];
+  const mime = pickRecorderMime();
+  try {
+    checkinRecorder = new MediaRecorder(checkinStream, mime ? { mimeType: mime, videoBitsPerSecond: 800000 } : undefined);
+  } catch(e) {
+    console.error('MediaRecorder failed', e);
+    stopCheckinStream(); box.style.display = 'none';
+    return startCheckInFallback();
+  }
+  checkinRecorder.ondataavailable = ev => { if(ev.data && ev.data.size) chunks.push(ev.data); };
+  checkinRecorder.onstop = async () => {
+    stopCheckinStream();
+    box.style.display = 'none';
+    const type = (chunks[0] && chunks[0].type) || mime || 'video/webm';
+    const blob = new Blob(chunks, { type });
+    if(!blob.size) { showToast(t('att.needVideo')); return; }
+    // Файл живёт только в памяти страницы — на диск телефона он не попадает
+    const name = 'checkin.' + (type.includes('mp4') ? 'mp4' : 'webm');
+    let file;
+    try { file = new File([blob], name, { type }); }
+    catch(e) { file = blob; file.name = name; }
+    const done = checkinOnReady || (f => checkIn(f));
+    checkinOnReady = null;
+    await done(file);
+  };
+  checkinRecorder.start();
+
+  // Обратный отсчёт: человеку видно, сколько осталось
+  let left = CHECKIN_SECONDS;
+  const counter = document.getElementById('checkin-countdown');
+  if(counter) counter.textContent = t('att.recording', { n: left });
+  checkinTimer = setInterval(() => {
+    left -= 1;
+    if(counter) counter.textContent = t('att.recording', { n: Math.max(0, left) });
+    if(left <= 0) stopCheckinRecording();
+  }, 1000);
+}
+
+function stopCheckinRecording() {
+  if(checkinTimer) { clearInterval(checkinTimer); checkinTimer = null; }
+  if(checkinRecorder && checkinRecorder.state !== 'inactive') checkinRecorder.stop();
+  checkinRecorder = null;
+}
+
+function stopCheckinStream() {
+  if(checkinTimer) { clearInterval(checkinTimer); checkinTimer = null; }
+  if(checkinStream) { checkinStream.getTracks().forEach(tr => tr.stop()); checkinStream = null; }
+}
+
+// Отмена записи (кнопка «Отмена») — ничего не отправляем
+function cancelCheckinRecording() {
+  if(checkinRecorder) { checkinRecorder.onstop = null; if(checkinRecorder.state !== 'inactive') checkinRecorder.stop(); checkinRecorder = null; }
+  stopCheckinStream();
+  const box = document.getElementById('checkin-recorder');
+  if(box) box.style.display = 'none';
+  setCheckInStatus('');
+}
+
+// Запасной путь — системная камера. Такое видео телефон сохраняет в галерею,
+// но лучше так, чем человек не сможет отметиться вовсе.
+function startCheckInFallback() {
   const input = document.getElementById('checkin-video-file');
   if(!input) return;
   input.value = '';
@@ -253,11 +364,19 @@ async function resendCheckinVideo(input, recordId) {
   const file = input.files && input.files[0];
   if(!file) return;
   if(!file.type || !file.type.startsWith('video')) { showToast(t('att.needVideo')); return; }
+  await sendResendVideo(recordId, file);
+}
+
+async function sendResendVideo(recordId, file) {
   const ok = await attachCheckinVideo(recordId, file);
   if(ok) { showToast(t('att.videoAttached')); loadHome(); }
 }
 
-function startResendVideo() {
+async function startResendVideo(recordId) {
+  if(canRecordInApp()) {
+    checkinOnReady = file => sendResendVideo(recordId, file);
+    return recordCheckinVideo();
+  }
   const input = document.getElementById('checkin-resend-file');
   if(!input) return;
   input.value = '';
@@ -318,14 +437,7 @@ async function checkIn(videoFile) {
   } catch(e) { setCheckInStatus(t('common.error')+e.message, 'bad'); showToast(t('common.error')+e.message); }
 }
 
-async function checkOut(recordId) {
-  try {
-    // Как и приход, время ухода переставляет триггер на серверное
-    const timeStr = getCurrentTimeStr();
-    const { error } = await sb.from('attendance').update({check_out_time: timeStr}).eq('id', recordId);
-    if(error) { showToast(t('common.error') + error.message); return; }
-    showToast(t('att.checkoutToast'));
-    loadHome();
-  } catch(e) { showToast(t('common.error')+e.message); }
-}
+// Отметки ухода больше нет — решение владельца. Колонка check_out_time в базе
+// осталась вместе со старыми записями, но приложение её не пишет и не
+// показывает: смена считается по графику, а не по нажатию кнопки в конце дня.
 
