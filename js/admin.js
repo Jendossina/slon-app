@@ -157,14 +157,17 @@ async function openEditEmployee(id) {
   ['edit-emp-sysrole-group','edit-emp-pass-group','edit-emp-pass-btn','edit-emp-delete-group'].forEach(gid=>{
     const el = document.getElementById(gid); if(el) el.style.display = full ? '' : 'none';
   });
-  // Старший цеха ведёт своих людей, но не их деньги и не их должность: ставка,
-  // должность и отдел ему закрыты (то же самое сторожит триггер в базе).
-  const leadOnly = !canEditData();
+  // Старший цеха ведёт своих людей целиком, включая ставку и должность. Две
+  // границы (их же сторожит триггер в базе): свою ставку не поднимает и людей
+  // между цехами не переводит.
+  const lead = !canEditData();
+  const isSelf = lead && String(currentProfile?.employee_id || '') === String(id);
   const salaryGroup = document.getElementById('edit-emp-salary')?.closest('.form-group');
-  if(salaryGroup) salaryGroup.style.display = leadOnly ? 'none' : '';
-  ['edit-emp-role','edit-emp-department'].forEach(id => {
-    const el = document.getElementById(id); if(el) el.disabled = leadOnly;
-  });
+  if(salaryGroup) salaryGroup.style.display = (lead && isSelf) ? 'none' : '';
+  const deptEl2 = document.getElementById('edit-emp-department');
+  if(deptEl2) deptEl2.disabled = lead;
+  const roleEl2 = document.getElementById('edit-emp-role');
+  if(roleEl2) roleEl2.disabled = lead && isSelf;
   openModal('modal-edit-employee');
 }
 
@@ -201,13 +204,15 @@ async function saveEmployee() {
   const status = document.getElementById('edit-emp-status').value;
   const sysRole = document.getElementById('edit-emp-system-role').value;
   const empFilials = Array.from(document.querySelectorAll('.edit-emp-filial-checkbox:checked')).map(c=>c.value);
-  // Старший цеха сохраняет только своих и только то, что ему открыто:
-  // ставку, должность и отдел не шлём вовсе, роль в системе не трогаем.
+  // Старший цеха сохраняет только своих. Отдел не шлём (его меняет руководство),
+  // свою ставку и должность — тоже: границы продублированы триггером в базе.
   const lead = !canEditData();
   if(lead && !canLeadDept(department)) return showToast(t('common.observerMode'));
+  const isSelf = lead && String(currentProfile?.employee_id || '') === String(id);
   try {
     const fields = { name, phone, status, filials: empFilials.length ? empFilials : ['istikbol','chekhov'] };
     if(!lead) Object.assign(fields, { role, department, salary: salary || null });
+    else if(!isSelf) Object.assign(fields, { role, salary: salary || null });
     await sb.from('employees').update(fields).eq('id',id);
     if(!lead) await sb.from('profiles').update({role:sysRole,name}).eq('employee_id',id);
     else await sb.from('profiles').update({name}).eq('employee_id',id);

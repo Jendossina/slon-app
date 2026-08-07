@@ -9,7 +9,7 @@ function hrSearch(v) {
 async function loadHR() {
   try {
     const role = currentProfile?.role;
-    const canSeeSalary = canSeeSalaryRole();
+    const canSeeSalary = payrollVisible();   // руководство — по всем, старший цеха — по своим
     const { data: allEmps } = await sb.from('employees_view').select('*').order('name');
     let emps = hrShowAll ? (allEmps||[]) : (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
     // Фильтр по поиску (имя, должность, телефон)
@@ -47,8 +47,8 @@ async function loadHR() {
     const empCard = e => `
       <div class="list-item" ${canLeadDept(e.department) ? `onclick="openEditEmployee(${e.id})" style="cursor:pointer"` : ''}>
         <div class="avatar ${getColor(e.name)}">${escapeHtml(getInitials(e.name))}</div>
-        <div class="item-info"><div class="item-name">${escapeHtml(e.name)}</div><div class="item-sub">${escapeHtml(e.role||'')} · ${escapeHtml(e.phone||'')}</div><div class="item-sub">${(e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).map(getFilialName).join(', ')}</div>${canSeeSalary&&e.salary?`<div class="item-sub">${formatNum(e.salary)} сум</div>`:''}</div>
-        ${canSeeSalary?`<span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}">${escapeHtml(e.status||'Активен')}</span>`:''}
+        <div class="item-info"><div class="item-name">${escapeHtml(e.name)}</div><div class="item-sub">${escapeHtml(e.role||'')} · ${escapeHtml(e.phone||'')}</div><div class="item-sub">${(e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).map(getFilialName).join(', ')}</div>${canSeeSalaryOf(e.department)&&e.salary?`<div class="item-sub">${formatNum(e.salary)} сум</div>`:''}</div>
+        ${canSeeSalaryOf(e.department)?`<span class="badge ${e.status==='Активен'?'badge-green':e.status==='Уволен'?'badge-red':'badge-amber'}">${escapeHtml(e.status||'Активен')}</span>`:''}
       </div>`;
 
     list.innerHTML = toggleBtn + orderedDepts.map(dept=>
@@ -57,9 +57,14 @@ async function loadHR() {
   } catch(e) { document.getElementById('hr-list').innerHTML=`<div class="loading">${t('hr.loadErr')}</div>`; }
 }
 
+// Ведомости видит руководство целиком, старший цеха — только свой отдел.
+// Отдельная проверка вместо canSeeSalaryRole(), чтобы не открывать ему чужие цеха.
+function payrollVisible() { return canSeeSalaryRole() || isDeptLead(); }
+function payrollDeptFilter(dept) { return canSeeSalaryRole() ? true : myLeadDept() === dept; }
+
 // Зарплатная ведомость за текущий месяц (admin/manager)
 async function openPayroll() {
-  if(!canSeeSalaryRole()) return;
+  if(!payrollVisible()) return;
   openModal('modal-payroll');
   const body = document.getElementById('payroll-body');
   body.innerHTML = `<div class="loading">${t('hr.calculating')}</div>`;
@@ -75,7 +80,8 @@ async function openPayroll() {
       sb.from('attendance').select('employee_id,date,check_in_time,penalty').eq('filial', currentFilial).gte('date', firstStr).lte('date', lastStr),
       sb.from('schedules').select('employee_id,date,shift_start,is_day_off').eq('filial', currentFilial).gte('date', firstStr).lte('date', lastStr),
     ]);
-    const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
+    const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial))
+                              .filter(e => payrollDeptFilter(e.department));
     const empDept = {}; (allEmps||[]).forEach(e=>{ empDept[e.id]=e.department; });
 
     // Отработанные дни (по явке) и штрафы за месяц
@@ -137,7 +143,7 @@ async function openPayroll() {
 
 // ===== ДНЕВНАЯ ВЕДОМОСТЬ (кто в смене сегодня + к выплате) =====
 async function openDailyPayroll() {
-  if(!canSeeSalaryRole()) return;
+  if(!payrollVisible()) return;
   openModal('modal-daily-payroll');
   const body = document.getElementById('daily-payroll-body');
   body.innerHTML = `<div class="loading">${tr('hr.calculating')}</div>`;
@@ -152,8 +158,10 @@ async function openDailyPayroll() {
       sb.from('attendance').select('employee_id,check_in_time,is_late,late_minutes,penalty,checkin_video').eq('filial',currentFilial).eq('date',t),
       sb.from('premiums').select('*').eq('filial',currentFilial).eq('date',t)
     ]);
-    const sched = (schedR.data||[]).filter(s=>!s.is_day_off);
     const empById = {}; (empR.data||[]).forEach(e=>{ empById[e.id]=e; });
+    // Старший цеха видит ведомость только своего отдела
+    const sched = (schedR.data||[]).filter(s=>!s.is_day_off)
+      .filter(s => payrollDeptFilter(empById[s.employee_id]?.department));
     const attById = {}; (attR.data||[]).forEach(a=>{ attById[a.employee_id]=a; });
     const premByEmp = {}; (premR.data||[]).forEach(p=>{ (premByEmp[p.employee_id]=premByEmp[p.employee_id]||[]).push(p); });
 
@@ -242,7 +250,9 @@ async function deletePremium(id) {
 }
 
 async function addEmployee() {
-  if(!canEditData()) return showToast(t('common.observerMode'));
+  // Старший цеха заводит людей только в свой отдел и только рядовыми
+  const dept = document.getElementById('emp-department').value;
+  if(!canEditData() && !canLeadDept(dept)) return showToast(t('common.observerMode'));
   const name = document.getElementById('emp-name').value.trim();
   const loginVal = document.getElementById('emp-email').value.trim();
   const email = loginVal.includes('@') ? loginVal : loginVal + '@slon.uz';

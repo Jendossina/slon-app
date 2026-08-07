@@ -129,6 +129,53 @@ test('старший цеха ведёт свой отдел и не лезет 
   expect(res.boss).toEqual({ isLead: false, ownDept: false });
 });
 
+// Отчёт по кальянам: вносит станция, сводку видит руководство и старший
+// станции — и только свою вкладку, без денег заведения.
+test('кальяны: кто вносит отчёт и кто видит сводку', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.hookahCanReport === 'function');
+
+  const res = await page.evaluate(() => {
+    const as = (role, job, dept) => {
+      currentProfile = { role, name: 'Тест', employee_id: 1 };
+      currentEmployee = dept ? { id: 1, name: 'Тест', role: job, department: dept } : null;
+    };
+    const out = {};
+    as('employee', 'Кальянный мастер', 'Кальянные мастера');
+    out.master = { report: hookahCanReport(), stats: hookahCanSeeStats(), tabs: dashTabList().map(x=>x.id) };
+
+    as('employee', 'Шеф кальянной станции', 'Кальянные мастера');
+    out.lead = { report: hookahCanReport(), stats: hookahCanSeeStats(), tabs: dashTabList().map(x=>x.id) };
+
+    as('employee', 'Повар', 'Повара');
+    out.cook = { report: hookahCanReport(), stats: hookahCanSeeStats() };
+
+    as('admin', null, null);
+    out.admin = { report: hookahCanReport(), tabs: dashTabList().map(x=>x.id) };
+
+    as('boss', null, null);
+    out.boss = { tabs: dashTabList().map(x=>x.id) };
+    return out;
+  });
+
+  // мастер вносит отчёт, но дашборд не открывает
+  expect(res.master.report).toBe(true);
+  expect(res.master.stats).toBe(false);
+  // старший станции: вносит и видит сводку — но ТОЛЬКО вкладку кальянов
+  expect(res.lead.report).toBe(true);
+  expect(res.lead.stats).toBe(true);
+  expect(res.lead.tabs).toEqual(['hookah']);
+  // повар — мимо
+  expect(res.cook.report).toBe(false);
+  expect(res.cook.stats).toBe(false);
+  // руководство видит всё, включая новую вкладку
+  expect(res.admin.report).toBe(true);
+  expect(res.admin.tabs).toContain('hookah');
+  expect(res.admin.tabs).toContain('overview');
+  // владелец — обзор и кальяны
+  expect(res.boss.tabs).toEqual(['overview', 'hookah']);
+});
+
 // Полоска «доступна новая версия». Главное правило: она предлагает, а не
 // перезагружает сама — однажды самовольная перезагрузка пришлась ровно на
 // съёмку видео прихода и съела отметку.

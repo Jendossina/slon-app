@@ -236,14 +236,21 @@ function setDashPeriod(p) { dashPeriod = p; dashClTpl = null; loadDashboard(); }
 let dashTab = 'overview';
 
 function dashTabList() {
+  const hookah = { id:'hookah', label:t('dash.tab.hookah') };
+  // Старший кальянной станции заходит в дашборд только ради своей вкладки:
+  // всё остальное — чужие цеха и деньги заведения.
+  if(typeof myLeadDept === 'function' && myLeadDept() === 'Кальянные мастера' && !canEditData() && !isBoss()) {
+    return [hookah];
+  }
   const all = [
     { id:'overview',   label:t('dash.tab.overview') },
     { id:'attendance', label:t('dash.tab.attendance') },
     { id:'tasks',      label:t('dash.tab.tasks') },
     { id:'checklists', label:t('dash.tab.checklists') },
     { id:'people',     label:t('dash.tab.people') },
+    hookah,
   ];
-  return isBoss() ? all.slice(0, 1) : all;
+  return isBoss() ? [all[0], hookah] : all;
 }
 
 function renderDashTabs() {
@@ -272,6 +279,7 @@ async function loadDashboardTab() {
   if(dashTab === 'tasks')      return loadDashTasks();
   if(dashTab === 'checklists') return loadDashChecklists();
   if(dashTab === 'people')     return loadDashPeople();
+  if(dashTab === 'hookah')     return loadDashHookah();
   return loadDashOverview();
 }
 

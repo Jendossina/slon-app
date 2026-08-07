@@ -505,6 +505,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <div id="home-quiz-card"></div>
       <div id="home-shift-card"></div>
       <div id="home-attendance-card"></div>
+      <div id="home-hookah-card"></div>
       <div id="home-salary-card"></div>
       <div id="telegram-link-card"></div>
       <div class="grid2" id="home-stats-grid" style="display:none">
@@ -958,6 +959,30 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <video id="checkin-preview" playsinline muted autoplay style="width:100%;max-height:75vh;object-fit:cover;transform:scaleX(-1)"></video>
   <div id="checkin-countdown" style="position:absolute;top:24px;left:0;right:0;text-align:center;color:#fff;font-size:17px;font-weight:700;text-shadow:0 1px 6px rgba(0,0,0,.6)"></div>
   <button onclick="cancelCheckinRecording()" style="position:absolute;bottom:28px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:22px;padding:11px 26px;font-size:14px;font-weight:600;cursor:pointer" data-i18n="common.cancel">Отмена</button>
+</div>
+
+<!-- Отчёт кальянной станции за день: как касса, только по кальянам -->
+<div class="modal-overlay" id="modal-hookah">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-hookah')">✕</button>
+    <div class="modal-title" data-i18n="hk.modalTitle">💨 Кальяны за сегодня</div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:12px" id="hookah-filial-label">—</div>
+    <div class="form-group"><label class="form-label" for="hookah-count" data-i18n="hk.count">Продано кальянов</label>
+      <input class="form-input" id="hookah-count" type="number" inputmode="numeric" placeholder="0"></div>
+    <div class="form-group"><label class="form-label" for="hookah-amount" data-i18n="hk.amount">Сумма за день (сум)</label>
+      <input class="form-input" id="hookah-amount" type="number" inputmode="numeric" placeholder="0"></div>
+    <div class="form-group"><label class="form-label" for="hookah-note" data-i18n="hk.note">Комментарий (необязательно)</label>
+      <input class="form-input" id="hookah-note" placeholder="—"></div>
+    <div class="form-group">
+      <label class="form-label" data-i18n="hk.photo">Фото отчёта</label>
+      <input type="file" accept="image/*" capture="environment" id="hookah-photo" style="display:none" onchange="onHookahPhoto(this)">
+      <button class="btn btn-secondary" onclick="document.getElementById('hookah-photo').click()" data-i18n="hk.photoBtn">📷 Сделать фото</button>
+      <div id="hookah-photo-status" style="font-size:12px;color:var(--text-muted);margin-top:6px;text-align:center"></div>
+      <div id="hookah-photo-preview" style="margin-top:8px"></div>
+      <input type="hidden" id="hookah-photo-url">
+    </div>
+    <button class="btn btn-primary" onclick="saveHookahReport()" data-i18n="common.save">Сохранить</button>
+  </div>
 </div>
 
 <!-- Выбор позиции из меню: поиск + кнопки «стоп» и «го» напротив каждого блюда -->
@@ -1637,6 +1662,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <script defer src="js/reviews.js"></script>
 <script defer src="js/teamchat.js"></script>
 <script defer src="js/menu.js"></script>
+<script defer src="js/hookah.js"></script>
 <script defer src="js/stoplist.js"></script>
 <script defer src="js/install.js"></script>
 <script defer src="js/update.js"></script>

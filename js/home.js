@@ -10,6 +10,7 @@ async function loadHome() {
   loadHomeAnnouncements();
   if(typeof renderInstallCard === 'function') renderInstallCard();
   if(typeof renderStopListCard === 'function') renderStopListCard();
+  if(typeof renderHookahCard === 'function') renderHookahCard();
   try {
     const todayStr = today();
     const shiftDay = businessToday(); // смена 12:00–03:00 = один кассовый день (ночью = вчера)

@@ -134,6 +134,9 @@ function canLeadDept(dept) {
   if(canEditData()) return true;
   return !!dept && myLeadDept() === dept;
 }
+// Видит ли зарплату конкретного человека: руководство — всех, старший — своих.
+// Ставка сотрудника цеха — часть управления цехом, чужие цеха по-прежнему закрыты.
+function canSeeSalaryOf(dept) { return canSeeSalaryRole() || canLeadDept(dept); }
 
 // Карточка сотрудника текущего пользователя (должность и цех) — нужна для прав
 // по должности. Заполняется при входе, чтобы не ходить в базу на каждый клик.
@@ -845,10 +848,23 @@ function applyRolePermissions() {
       ['fab-hr','fab-tasks','fab-crm','fab-finance'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
     }
   }
-  // Менеджер заводит только рядовых сотрудников — оставляем в форме добавления лишь роль «Сотрудник»
-  if(role === 'manager') {
+  // Старший цеха заводит людей в свой отдел: кнопка «+» в разделе «Люди»
+  if(isDeptLead()) {
+    const fab = document.getElementById('fab-hr');
+    if(fab) fab.style.display = 'flex';
+  }
+  // Менеджер и старший цеха заводят только рядовых сотрудников — оставляем
+  // в форме добавления лишь роль «Сотрудник»
+  if(role === 'manager' || isDeptLead()) {
     const addSel = document.getElementById('emp-system-role');
     if(addSel) Array.from(addSel.options).forEach(o=>{ if(o.value!=='employee') o.remove(); });
+    // и только свой цех в списке отделов
+    const deptSel = document.getElementById('emp-department');
+    const my = myLeadDept();
+    if(my && deptSel) {
+      Array.from(deptSel.options).forEach(o=>{ if(o.value !== my) o.remove(); });
+      deptSel.value = my;
+    }
   }
   // Кнопка админ-панели в нижней навигации — теперь и у менеджера
   const navAdmin = document.getElementById('nav-admin');
@@ -886,7 +902,7 @@ function openMoreMenu() {
     ]},
     { title:t('more.group.manage'), items:[
       {id:'finance', label:'💰 '+t('more.finance'), show: canSeeFinance()},
-      {id:'dashboard', label:'📈 '+t('more.dashboard'), show: canSeeAdminPanel()},
+      {id:'dashboard', label:'📈 '+t('more.dashboard'), show: canSeeAdminPanel() || (typeof hookahCanSeeStats === 'function' && hookahCanSeeStats())},
       {id:'directory', label:'📇 '+t('more.directory'), show: canEditData() || isBoss()},
       {id:'admin', label:'⚙️ '+t('more.admin'), show: canOpenAdminPanel()},
     ]},
