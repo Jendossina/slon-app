@@ -751,9 +751,10 @@ body.boss-readonly [data-edit-only] { display: none !important; }
         <button id="dishware-add-item-btn" onclick="openDishwareItemModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="inv.addItemBtn">+ Позиция</button>
       </div>
     </div>
-    <div style="display:flex;gap:8px;padding:10px 12px 0">
-      <button id="dishware-tab-stock" onclick="switchDishwareTab('stock')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--gold-dark);color:#fff" data-i18n="dish.tabStock">Остатки</button>
-      <button id="dishware-tab-report" onclick="switchDishwareTab('report')" style="flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)" data-i18n="dish.tabReport">Отчёт боя</button>
+    <div style="display:flex;gap:6px;padding:10px 12px 0">
+      <button id="dishware-tab-stock" onclick="switchDishwareTab('stock')" style="flex:1;padding:10px 6px;border-radius:10px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:var(--gold-dark);color:#fff" data-i18n="dish.tabStock">Остатки</button>
+      <button id="dishware-tab-inventory" onclick="switchDishwareTab('inventory')" style="flex:1;padding:10px 6px;border-radius:10px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)" data-i18n="dinv.tab">Инвентаризация</button>
+      <button id="dishware-tab-report" onclick="switchDishwareTab('report')" style="flex:1;padding:10px 6px;border-radius:10px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:var(--surface-2);color:var(--text-primary)" data-i18n="dish.tabReport">Отчёт боя</button>
     </div>
     <div class="content" id="dishware-content" style="padding:12px">
       <div class="loading" data-i18n="common.loading">Загрузка...</div>
@@ -1062,6 +1063,15 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <button class="modal-close" onclick="closeModal('modal-dishware-history')">✕</button>
     <div class="modal-title" id="dishware-history-title">История</div>
     <div id="dishware-history-body"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
+  </div>
+</div>
+
+<!-- DISHWARE: расхождения инвентаризации и утверждение -->
+<div class="modal-overlay" id="modal-dishware-diff">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-dishware-diff')">✕</button>
+    <div class="modal-title" data-i18n="dinv.diffTitle">Расхождения</div>
+    <div id="dishware-diff-body"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
   </div>
 </div>
 

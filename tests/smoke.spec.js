@@ -780,6 +780,75 @@ test('база знаний: кто может править статьи и з
   }
 });
 
+// Инвентаризация посуды. Главное правило — слепой пересчёт: пока идёт
+// инвентаризация, официант не должен нигде увидеть учётный остаток, иначе он
+// перепишет цифру из системы вместо того, чтобы считать.
+test('инвентаризация: официант считает вслепую, руководство видит остаток', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.renderDishwareInvActive === 'function');
+
+  const res = await page.evaluate(() => {
+    // Остаток намеренно приметный: ищем это число в разметке
+    const items = [
+      { id: 1, name: 'Рокс',    category: 'Бар', qty: 98765, cost: 20000 },
+      { id: 2, name: 'Чайник',  category: 'Бар', qty: 47,    cost: 30000 },
+      { id: 3, name: 'Вилка',   category: 'Зал', qty: 124,   cost: 5000 },
+    ];
+    const out = {};
+    const asRole = role => { currentProfile = { role, name: 'Тест', employee_id: 1 }; };
+
+    dishwareStock = items;
+    dishwareInv = { id: 10, date: '2026-08-08', filial: 'istikbol', status: 'open', started_by_name: 'Управляющий' };
+    dishwareCounts = { 2: { item_id: 2, qty: 45, user_name: 'Азиз', updated_at: new Date().toISOString() } };
+    dishwareInvZone = '';
+    dishwareInvSearch = '';
+
+    // --- официант на вкладке инвентаризации
+    asRole('employee');
+    renderDishwareInvActive();
+    const invHtml = document.getElementById('dishware-content').innerHTML;
+    out.invShowsStock = invHtml.includes('98765');
+    out.invInputs = document.querySelectorAll('#dinv-list input[type=number]').length;
+    out.invCountedValue = document.getElementById('dinv-qty-2').value;
+    out.progress = document.getElementById('dinv-progress').textContent;
+    out.hasApplyBtn = /openDishwareDiff/.test(invHtml);
+
+    // --- официант на вкладке остатков: остаток тоже скрыт
+    document.getElementById('dishware-content').innerHTML = '<div id="dishware-list"></div>';
+    renderDishwareStock();
+    out.stockShowsQtyWaiter = document.getElementById('dishware-list').innerHTML.includes('98765');
+
+    // --- руководство остаток видит, и у него есть утверждение
+    asRole('admin');
+    document.getElementById('dishware-content').innerHTML = '<div id="dishware-list"></div>';
+    renderDishwareStock();
+    out.stockShowsQtyAdmin = document.getElementById('dishware-list').innerHTML.includes('98765');
+    renderDishwareInvActive();
+    out.adminHasApplyBtn = /openDishwareDiff/.test(document.getElementById('dishware-content').innerHTML);
+
+    // --- фильтр по зоне отсекает чужие позиции
+    dishwareInvZone = 'Зал';
+    renderDishwareInvActive();
+    out.hallRows = document.querySelectorAll('#dinv-list input[type=number]').length;
+
+    // --- прогресс считается по внесённым пересчётам
+    dishwareInvZone = '';
+    out.prog = dishwareInvProgress();
+    return out;
+  });
+
+  expect(res.invShowsStock, 'учётный остаток не должен попадать на экран пересчёта').toBe(false);
+  expect(res.stockShowsQtyWaiter, 'на вкладке остатков официант тоже не видит число').toBe(false);
+  expect(res.stockShowsQtyAdmin, 'руководству остаток виден').toBe(true);
+  expect(res.invInputs).toBe(3);
+  expect(res.invCountedValue, 'уже посчитанное подставляется в поле').toBe('45');
+  expect(res.progress).toContain('1');
+  expect(res.hasApplyBtn, 'официант не утверждает инвентаризацию').toBe(false);
+  expect(res.adminHasApplyBtn, 'руководство утверждает').toBe(true);
+  expect(res.hallRows, 'в зоне «Зал» одна позиция').toBe(1);
+  expect(res.prog).toEqual({ done: 1, total: 3, pct: 33 });
+});
+
 // Регресс-тест на жалобу «сотрудник подошёл спросить, где отметить приход».
 // Карточка со сменой и кнопкой отметки должна стоять выше всех прочих
 // карточек главного экрана и попадать в первый экран телефона без прокрутки.

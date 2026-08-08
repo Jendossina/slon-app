@@ -18,17 +18,24 @@ let dishwareSearch = '';
 let dishwareEditId = null;
 let dishwarePhotoItemId = null;
 
+// Инвентаризация: открытая сессия филиала и уже внесённые пересчёты (item_id → строка)
+let dishwareInv = null;
+let dishwareCounts = {};
+let dishwareInvZone = '';
+let dishwareInvSearch = '';
+
 function switchDishwareTab(tab) {
   dishwareTab = tab;
-  const s = document.getElementById('dishware-tab-stock');
-  const r = document.getElementById('dishware-tab-report');
-  if(s&&r){
-    s.style.background = tab==='stock' ? 'var(--gold-dark)' : 'var(--surface-2)';
-    s.style.color = tab==='stock' ? '#fff' : 'var(--text-primary)';
-    r.style.background = tab==='report' ? 'var(--gold-dark)' : 'var(--surface-2)';
-    r.style.color = tab==='report' ? '#fff' : 'var(--text-primary)';
+  const tabs = { stock: 'dishware-tab-stock', inventory: 'dishware-tab-inventory', report: 'dishware-tab-report' };
+  for(const [name, id] of Object.entries(tabs)) {
+    const el = document.getElementById(id);
+    if(!el) continue;
+    el.style.background = tab===name ? 'var(--gold-dark)' : 'var(--surface-2)';
+    el.style.color = tab===name ? '#fff' : 'var(--text-primary)';
   }
-  if(tab==='stock') loadDishwareStock(); else loadDishwareReport();
+  if(tab==='stock') loadDishwareStock();
+  else if(tab==='inventory') loadDishwareInventory();
+  else loadDishwareReport();
 }
 
 async function loadDishware() {
@@ -36,6 +43,26 @@ async function loadDishware() {
   if(addBtn) addBtn.style.display = dishwareCanManage() ? 'block' : 'none';
   document.getElementById('dishware-subtitle').textContent = getFilialName(currentFilial);
   switchDishwareTab(dishwareTab);
+}
+
+// Открытая инвентаризация филиала — одна или ни одной (за этим следит
+// частичный уникальный индекс в базе).
+async function loadDishwareOpenInventory() {
+  try {
+    const { data } = await sb.from('dishware_inventories').select('*')
+      .eq('filial', currentFilial).eq('status','open').maybeSingle();
+    dishwareInv = data || null;
+  } catch(e) { dishwareInv = null; }
+  markDishwareInvTab();
+  return dishwareInv;
+}
+
+// Точка на вкладке, пока идёт пересчёт: официант заходит в «Посуду» по своим
+// делам и должен видеть, что его ждут, не открывая вкладку
+function markDishwareInvTab() {
+  const el = document.getElementById('dishware-tab-inventory');
+  if(!el) return;
+  el.textContent = t('dinv.tab') + (dishwareInv ? ' •' : '');
 }
 
 function dishwareFmt(n){ n=Number(n)||0; return Number.isInteger(n)?String(n):n.toFixed(2).replace(/\.?0+$/,''); }
@@ -70,7 +97,10 @@ async function loadDishwareStock() {
   const content = document.getElementById('dishware-content');
   content.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
   try {
-    const { data: items } = await sb.from('dishware_items').select('*').eq('filial', currentFilial).order('name');
+    const [{ data: items }] = await Promise.all([
+      sb.from('dishware_items').select('*').eq('filial', currentFilial).order('name'),
+      loadDishwareOpenInventory(),
+    ]);
     dishwareStock = items || [];
     if(dishwareStock.length===0) {
       content.innerHTML = `<div class="card"><div class="empty"><div class="empty-icon">🍽️</div><div class="empty-text">${t('inv.noItems')}${dishwareCanManage()?t('inv.addItemHint'):''}</div></div></div>`;
@@ -101,15 +131,23 @@ function renderDishwareStock() {
   const known = DISHWARE_CATS.filter(c=>groups[c]);
   const rest = Object.keys(groups).filter(c=>!DISHWARE_CATS.includes(c)).sort();
 
+  // Пока идёт инвентаризация, остаток от официантов скрыт: иначе «слепой»
+  // пересчёт слепым не является — достаточно переключить вкладку и списать
+  // цифру оттуда. Руководство остаток видит всегда.
+  const hideQty = !!dishwareInv && !dishwareCanManage();
+
   list.innerHTML = known.concat(rest).map(cat=>{
     const rows = groups[cat].map(it=>{
       const q2 = Number(it.qty)||0;
       const low = q2<=0;
+      const stockLine = hideQty
+        ? `<div style="font-size:13px;color:var(--text-muted)">🔒 ${t('dinv.qtyHidden')}</div>`
+        : `<div style="font-size:13px;color:${low?'#A32D2D':'var(--text-muted)'}">${t('inv.remaining')} <b>${dishwareFmt(q2)} ${t('dish.pcs')}</b>${dishwareCanManage()?` · ${formatNum(it.cost)} ${t('dish.perPcs')}`:''}</div>`;
       return `<div class="card" style="display:flex;align-items:center;gap:10px">
         ${dishwareThumb(it)}
         <div style="flex:1;min-width:0;cursor:pointer" onclick="openDishwareHistory(${it.id})">
           <div style="font-size:15px;font-weight:600;color:var(--text-primary)">${escapeHtml(it.name)}</div>
-          <div style="font-size:13px;color:${low?'#A32D2D':'var(--text-muted)'}">${t('inv.remaining')} <b>${dishwareFmt(q2)} ${t('dish.pcs')}</b>${dishwareCanManage()?` · ${formatNum(it.cost)} ${t('dish.perPcs')}`:''}</div>
+          ${stockLine}
         </div>
         <button onclick="openDishwareBreak(${it.id})" style="background:#FCEBEB;color:#A32D2D;border:none;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;flex:0 0 auto">${t('dish.breakBtn')}</button>
       </div>`;
@@ -285,11 +323,16 @@ async function openDishwareHistory(itemId) {
     if(cached) Object.assign(cached, it); else dishwareStock.push(it);
     document.getElementById('dishware-history-title').textContent = it.name;
 
+    // Карточка позиции — второй путь к остатку, его тоже закрываем на время
+    // пересчёта, иначе прятать число в списке бессмысленно
+    const hideQty = !!dishwareInv && !dishwareCanManage();
     const head = `<div style="display:flex;gap:12px;align-items:center;margin-bottom:10px">
         ${dishwareThumb(it, 64)}
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;color:var(--text-muted)">${escapeHtml(dishwareCatLabel(it.category))}</div>
-          <div style="font-size:14px;color:var(--text-primary)">${t('inv.remaining')} <b>${dishwareFmt(it.qty)} ${t('dish.pcs')}</b>${dishwareCanManage()?` · ${formatNum(it.cost)} ${t('dish.perPcs')}`:''}</div>
+          ${hideQty
+            ? `<div style="font-size:14px;color:var(--text-muted)">🔒 ${t('dinv.qtyHidden')}</div>`
+            : `<div style="font-size:14px;color:var(--text-primary)">${t('inv.remaining')} <b>${dishwareFmt(it.qty)} ${t('dish.pcs')}</b>${dishwareCanManage()?` · ${formatNum(it.cost)} ${t('dish.perPcs')}`:''}</div>`}
         </div>
       </div>
       ${dishwareCanManage()?`<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
@@ -303,10 +346,16 @@ async function openDishwareHistory(itemId) {
     if(!moves || moves.length===0) { body.innerHTML = head + `<div class="empty"><div class="empty-text">${t('inv.noMoves')}</div></div>`; return; }
     body.innerHTML = head + moves.map(m=>{
       const isBreak = m.move_type==='break';
+      const isInv = m.move_type==='inventory';
       const loss = isBreak ? Number(m.qty)*Number(m.cost_at_moment||0) : 0;
+      // У инвентаризации qty — это разница, со своим знаком: недостача пишется
+      // минусом, излишек плюсом, поэтому знак не подставляем, а берём из числа
+      const qtyTxt = isInv
+        ? `📋 ${Number(m.qty)>0?'+':''}${dishwareFmt(m.qty)}`
+        : `${isBreak?'💥 −':'📥 +'}${dishwareFmt(m.qty)}`;
       return `<div class="list-item">
         <div class="item-info">
-          <div class="item-name">${isBreak?'💥 −':'📥 +'}${dishwareFmt(m.qty)} ${t('dish.pcs')}${isBreak&&dishwareCanManage()?' · −'+formatNum(Math.round(loss))+' '+t('common.sum'):''}</div>
+          <div class="item-name">${qtyTxt} ${t('dish.pcs')}${isBreak&&dishwareCanManage()?' · −'+formatNum(Math.round(loss))+' '+t('common.sum'):''}</div>
           <div class="item-sub">${new Date(m.created_at).toLocaleDateString('ru-RU')} · ${escapeHtml(m.user_name||'')}${m.note?' · '+escapeHtml(m.note):''}</div>
         </div>
       </div>`;
@@ -378,4 +427,323 @@ async function runDishwareReport() {
         ${whoRows.map((r,i)=>`<div class="list-item"><div class="item-info"><div class="item-name">${i===0?'🥇 ':''}${escapeHtml(r.name)}</div><div class="item-sub">${dishwareFmt(r.qty)} ${t('dish.pcs')} · −${formatNum(Math.round(r.loss))} ${t('common.sum')}</div></div></div>`).join('')}
       </div>`;
   } catch(e) { res.innerHTML = `<div class="card"><div class="empty"><div class="empty-text">${t('common.error')+e.message}</div></div></div>`; }
+}
+
+// ============ ИНВЕНТАРИЗАЦИЯ ============
+// Управляющий открывает пересчёт, официанты вбивают фактическое количество
+// вслепую (учётный остаток им не показывается), управляющий смотрит
+// расхождения и утверждает. Остатки правятся только в момент утверждения —
+// одной транзакцией на стороне базы (apply_dishware_inventory).
+
+async function loadDishwareInventory() {
+  const content = document.getElementById('dishware-content');
+  content.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
+  try {
+    await loadDishwareOpenInventory();
+    if(!dishwareInv) { await renderDishwareInvIdle(); return; }
+    const [{ data: items }, { data: counts }] = await Promise.all([
+      sb.from('dishware_items').select('*').eq('filial', currentFilial).order('name'),
+      sb.from('dishware_counts').select('*').eq('inventory_id', dishwareInv.id),
+    ]);
+    dishwareStock = items || [];
+    dishwareCounts = {};
+    (counts||[]).forEach(c => { dishwareCounts[c.item_id] = c; });
+    renderDishwareInvActive();
+  } catch(e) {
+    content.innerHTML = `<div class="card"><div class="empty"><div class="empty-text">${t('common.error')+e.message}</div></div></div>`;
+  }
+}
+
+// Пересчёт не идёт: официанту сообщаем, что делать нечего, руководству даём кнопку
+async function renderDishwareInvIdle() {
+  const content = document.getElementById('dishware-content');
+  content.innerHTML = dishwareCanManage()
+    ? `<div class="card">
+         <div class="card-title">📋 ${t('dinv.startTitle')}</div>
+         <div style="font-size:13px;color:var(--text-muted);margin:8px 0 12px;line-height:1.5">${t('dinv.startDesc')}</div>
+         <button class="btn btn-primary" onclick="startDishwareInventory()">${t('dinv.startBtn')}</button>
+       </div>
+       <div id="dishware-inv-history"></div>`
+    : `<div class="card"><div class="empty"><div class="empty-icon">📋</div>
+         <div class="empty-text">${t('dinv.notStarted')}<br><span style="font-size:12px">${t('dinv.notStartedHint')}</span></div></div></div>`;
+  if(dishwareCanManage()) renderDishwareInvHistory();
+}
+
+async function renderDishwareInvHistory() {
+  const el = document.getElementById('dishware-inv-history');
+  if(!el) return;
+  try {
+    const { data } = await sb.from('dishware_inventories').select('*')
+      .eq('filial', currentFilial).neq('status','open')
+      .order('created_at', { ascending: false }).limit(10);
+    if(!data || data.length===0) { el.innerHTML = ''; return; }
+    el.innerHTML = `<div class="card"><div class="section-label">${t('dinv.history')}</div>${data.map(inv=>`
+      <div class="list-item"><div class="item-info">
+        <div class="item-name">${inv.status==='applied'?'✅':'✖️'} ${fmtLocale(new Date(inv.date+'T12:00:00'), {day:'numeric', month:'long', year:'numeric'})}</div>
+        <div class="item-sub">${inv.status==='applied'?t('dinv.statusApplied'):t('dinv.statusCancelled')}${inv.closed_by_name?' · '+escapeHtml(inv.closed_by_name):''}</div>
+      </div></div>`).join('')}</div>`;
+  } catch(e) { el.innerHTML = ''; }
+}
+
+function dishwareInvProgress() {
+  const total = dishwareStock.length;
+  const done = dishwareStock.filter(it => dishwareCounts[it.id]).length;
+  return { done, total, pct: total ? Math.round(done/total*100) : 0 };
+}
+
+function renderDishwareInvActive() {
+  const content = document.getElementById('dishware-content');
+  const p = dishwareInvProgress();
+  const chips = [{ id:'', label:t('dinv.zoneAll') }].concat(DISHWARE_CATS.map(c=>({ id:c, label:dishwareCatLabel(c) })));
+
+  content.innerHTML = `
+    <div class="card" style="background:linear-gradient(135deg,#1a2e1a,#2b4a2b);border:none;color:#eef5ee">
+      <div style="font-size:11px;opacity:0.75;margin-bottom:4px">${t('dinv.running')} · ${getFilialName(currentFilial)}</div>
+      <div style="font-size:20px;font-weight:700">📋 ${fmtLocale(new Date(dishwareInv.date+'T12:00:00'), {day:'numeric', month:'long'})}</div>
+      <!-- Тёмная карточка: стандартные цвета полоски (золото на светлом треке
+           со светлой рамкой) на ней сливаются в одну белёсую линию -->
+      <div class="progress-track" style="margin-top:10px;background:rgba(0,0,0,0.28);border:none"><div class="progress-fill" id="dinv-bar" style="width:${p.pct}%;background:#8fd694"></div></div>
+      <div style="font-size:13px;opacity:0.85;margin-top:6px" id="dinv-progress">${t('dinv.progress',{done:p.done,total:p.total})}</div>
+      ${dishwareInv.started_by_name?`<div style="font-size:11px;opacity:0.6;margin-top:4px">${t('dinv.startedBy',{name:escapeHtml(dishwareInv.started_by_name)})}</div>`:''}
+      ${dishwareCanManage()?`<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <button onclick="openDishwareDiff()" style="flex:1;min-width:140px;background:var(--gold);color:#1a1a1a;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:700;cursor:pointer">${t('dinv.diffBtn')}</button>
+        <button onclick="cancelDishwareInventory()" style="background:rgba(255,255,255,0.14);color:#fff;border:none;border-radius:10px;padding:11px 14px;font-size:14px;cursor:pointer;flex:0 0 auto">${t('dinv.cancelBtn')}</button>
+      </div>`:''}
+    </div>
+    ${!dishwareCanManage()?`<div class="card" style="background:#FFF8E6;border:1px solid #f0dfae"><div style="font-size:13px;color:#7a5c11;line-height:1.5">💡 ${t('dinv.blindHint')}</div></div>`:''}
+    <div class="hscroll" style="display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px">
+      ${chips.map(c=>`<button onclick="setDishwareInvZone('${escJsAttr(c.id)}')" style="flex:0 0 auto;padding:8px 14px;border-radius:20px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:${dishwareInvZone===c.id?'var(--gold-dark)':'var(--surface-2)'};color:${dishwareInvZone===c.id?'#fff':'var(--text-primary)'}">${escapeHtml(c.label)}</button>`).join('')}
+    </div>
+    <div class="card" style="padding:8px"><input class="form-input" id="dinv-search" placeholder="${t('dish.search')}" value="${escapeHtml(dishwareInvSearch)}" oninput="renderDishwareInvList()"></div>
+    <div id="dinv-list"></div>`;
+  renderDishwareInvList();
+}
+
+function setDishwareInvZone(zone) {
+  dishwareInvZone = zone;
+  renderDishwareInvActive();
+}
+
+// Список перерисовывается только целиком по фильтру/поиску. После сохранения
+// одной позиции трогаем ровно её строку: перерисовка списка на каждую введённую
+// цифру уводила бы экран в начало прямо посреди пересчёта.
+function renderDishwareInvList() {
+  const list = document.getElementById('dinv-list');
+  if(!list) return;
+  const inp = document.getElementById('dinv-search');
+  dishwareInvSearch = inp ? inp.value : '';
+  const q = dishwareInvSearch.trim().toLowerCase();
+
+  let items = dishwareStock;
+  if(dishwareInvZone) items = items.filter(it => (it.category||'') === dishwareInvZone);
+  if(q) items = items.filter(it => (it.name||'').toLowerCase().includes(q));
+  if(items.length===0) { list.innerHTML = `<div class="card"><div class="empty"><div class="empty-text">${t('dish.nothingFound')}</div></div></div>`; return; }
+
+  list.innerHTML = items.map(it => {
+    const c = dishwareCounts[it.id];
+    return `<div class="card" id="dinv-row-${it.id}" style="display:flex;align-items:center;gap:10px;border-left:3px solid ${c?'#3B6D11':'transparent'}">
+      ${dishwareThumb(it)}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:600;color:var(--text-primary)">${escapeHtml(it.name)}</div>
+        <div style="font-size:12px;margin-top:2px" id="dinv-sub-${it.id}">${dishwareCountSub(it.id)}</div>
+      </div>
+      <input type="number" inputmode="decimal" step="any" min="0" id="dinv-qty-${it.id}"
+        value="${c ? dishwareFmt(c.qty) : ''}" placeholder="${t('dish.pcs')}"
+        onchange="saveDishwareCount(${it.id}, this)"
+        style="width:78px;flex:0 0 auto;text-align:center;font-size:17px;font-weight:700;padding:10px 6px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-primary)">
+    </div>`;
+  }).join('');
+}
+
+function dishwareCountSub(itemId) {
+  const c = dishwareCounts[itemId];
+  if(!c) return `<span style="color:var(--text-muted)">${t('dinv.notCountedYet')}</span>`;
+  const when = new Date(c.updated_at || c.created_at);
+  const time = isNaN(when) ? '' : ' · ' + when.toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' });
+  return `<span style="color:#3B6D11">✅ ${escapeHtml(c.user_name||'')}${time}</span>`;
+}
+
+function refreshDishwareInvRow(itemId) {
+  const sub = document.getElementById('dinv-sub-'+itemId);
+  if(sub) sub.innerHTML = dishwareCountSub(itemId);
+  const row = document.getElementById('dinv-row-'+itemId);
+  if(row) row.style.borderLeftColor = dishwareCounts[itemId] ? '#3B6D11' : 'transparent';
+  const p = dishwareInvProgress();
+  const bar = document.getElementById('dinv-bar');
+  if(bar) bar.style.width = p.pct + '%';
+  const txt = document.getElementById('dinv-progress');
+  if(txt) txt.textContent = t('dinv.progress', { done: p.done, total: p.total });
+}
+
+async function saveDishwareCount(itemId, input) {
+  if(!dishwareInv) return showToast(t('dinv.notRunning'));
+  const raw = String(input.value || '').trim().replace(',', '.');
+  const sub = document.getElementById('dinv-sub-'+itemId);
+
+  // Пустое поле — стереть свой пересчёт: ошиблись строкой, убрали цифру
+  if(raw === '') {
+    if(!dishwareCounts[itemId]) return;
+    try {
+      const { error } = await sb.from('dishware_counts').delete()
+        .eq('inventory_id', dishwareInv.id).eq('item_id', itemId);
+      if(error) throw error;
+      delete dishwareCounts[itemId];
+      refreshDishwareInvRow(itemId);
+    } catch(e) { showToast(t('common.error')+e.message); }
+    return;
+  }
+
+  const qty = parseFloat(raw);
+  if(isNaN(qty) || qty < 0) {
+    showToast(t('dinv.badQty'));
+    input.value = dishwareCounts[itemId] ? dishwareFmt(dishwareCounts[itemId].qty) : '';
+    return;
+  }
+
+  if(sub) sub.innerHTML = `<span style="color:var(--text-muted)">${t('dinv.saving')}</span>`;
+  try {
+    const it = dishwareStock.find(x => x.id === itemId);
+    // expected_qty — снимок учётного остатка на момент ввода: если потом
+    // возникнет спор «почему списали шесть», видно, от чего считали
+    const { data, error } = await sb.from('dishware_counts').upsert({
+      inventory_id: dishwareInv.id, item_id: itemId, qty,
+      expected_qty: Number(it?.qty) || 0,
+      user_name: currentProfile?.name || currentUser?.email,
+    }, { onConflict: 'inventory_id,item_id' }).select().single();
+    if(error) throw error;
+    dishwareCounts[itemId] = data;
+    refreshDishwareInvRow(itemId);
+  } catch(e) {
+    if(sub) sub.innerHTML = `<span style="color:#A32D2D">${t('dinv.saveErr')}</span>`;
+    showToast(t('common.error')+e.message);
+  }
+}
+
+async function startDishwareInventory() {
+  if(!dishwareCanManage()) return showToast(t('common.observerMode'));
+  try {
+    const { data, error } = await sb.from('dishware_inventories').insert({
+      filial: currentFilial,
+      started_by: currentUser.id,
+      started_by_name: currentProfile?.name || currentUser?.email,
+    }).select().single();
+    // 23505 — частичный уникальный индекс: кто-то уже открыл пересчёт с другого телефона
+    if(error) return showToast(error.code === '23505' ? t('dinv.alreadyOpen') : t('common.error')+error.message);
+    dishwareInv = data;
+    showToast(t('dinv.startedToast'));
+    notifyDishwareWaiters(`📋 <b>${t('dinv.tgStarted')}</b>\n\n📍 ${tgEscape(getFilialName(currentFilial))}\n👤 ${tgEscape(currentProfile?.name||'')}\n\n${tgEscape(t('dinv.tgStartedBody'))}`);
+    loadDishwareInventory();
+  } catch(e) { showToast(t('common.error')+e.message); }
+}
+
+async function cancelDishwareInventory() {
+  if(!dishwareCanManage() || !dishwareInv) return;
+  if(!await confirmDialog(t('dinv.cancelConfirm'), { title: t('dinv.cancelBtn'), okText: t('dinv.cancelOk') })) return;
+  try {
+    const { error } = await sb.from('dishware_inventories').update({
+      status: 'cancelled', closed_at: new Date().toISOString(),
+      closed_by: currentUser.id, closed_by_name: currentProfile?.name || currentUser?.email,
+    }).eq('id', dishwareInv.id);
+    if(error) return showToast(t('common.error')+error.message);
+    dishwareInv = null; dishwareCounts = {};
+    showToast(t('dinv.cancelled'));
+    loadDishwareInventory();
+  } catch(e) { showToast(t('common.error')+e.message); }
+}
+
+// Официантам филиала — «идёт пересчёт». Логика та же, что в го/стоп-листе:
+// у сотрудника без филиалов их считаем оба.
+async function notifyDishwareWaiters(msg) {
+  try {
+    const { data: emps } = await sb.from('employees').select('id,filials').eq('department','Официанты').neq('status','Уволен');
+    const ids = (emps||[])
+      .filter(e => (e.filials && e.filials.length ? e.filials : ['istikbol','chekhov']).includes(currentFilial))
+      .map(e => e.id);
+    if(ids.length === 0) return;
+    const { data: profs } = await sb.from('profiles').select('user_id,telegram_id,notify_prefs').in('employee_id', ids);
+    for(const p of (profs||[])) {
+      if(p.user_id !== currentUser?.id && p.telegram_id && _wantsNotif(p.notify_prefs, 'dishware')) {
+        await sendTelegram(p.telegram_id, msg);
+      }
+    }
+  } catch(e) { console.error('notify inventory', e); }
+}
+
+// ===== Расхождения и утверждение =====
+async function openDishwareDiff() {
+  if(!dishwareCanManage() || !dishwareInv) return;
+  openModal('modal-dishware-diff');
+  const body = document.getElementById('dishware-diff-body');
+  body.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
+  try {
+    // Данные берём заново: пока считали, могли записать бой или добавить позицию
+    const [{ data: items }, { data: counts }] = await Promise.all([
+      sb.from('dishware_items').select('*').eq('filial', currentFilial),
+      sb.from('dishware_counts').select('*').eq('inventory_id', dishwareInv.id),
+    ]);
+    const itemMap = {}; (items||[]).forEach(it => { itemMap[it.id] = it; });
+    const rows = (counts||[]).map(c => {
+      const it = itemMap[c.item_id];
+      if(!it) return null;
+      const was = Number(it.qty) || 0, now = Number(c.qty) || 0;
+      return { it, was, now, diff: now - was, loss: (now - was) * (Number(it.cost) || 0), who: c.user_name };
+    }).filter(r => r && r.diff !== 0).sort((a,b) => a.loss - b.loss || a.diff - b.diff);
+
+    const notCounted = (items||[]).length - (counts||[]).length;
+    if(!counts || counts.length === 0) {
+      body.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">${t('dinv.nothingCounted')}</div></div>`;
+      return;
+    }
+
+    const short = rows.filter(r => r.diff < 0), surp = rows.filter(r => r.diff > 0);
+    const shortQty = short.reduce((s,r) => s - r.diff, 0), shortLoss = short.reduce((s,r) => s - r.loss, 0);
+    const surpQty = surp.reduce((s,r) => s + r.diff, 0);
+
+    body.innerHTML = `
+      <div class="card" style="background:linear-gradient(135deg,#3a1f1f,#5a2d2d);border:none;color:#f5e9e9;text-align:center">
+        <div style="font-size:12px;opacity:0.7">${t('dinv.shortage')}</div>
+        <div style="font-size:26px;font-weight:700;margin-top:2px">${dishwareFmt(shortQty)} ${t('dish.pcs')}</div>
+        <div style="font-size:15px;opacity:0.85">${t('dish.loss',{n:formatNum(Math.round(shortLoss))})}</div>
+        ${surpQty>0?`<div style="font-size:13px;opacity:0.75;margin-top:6px">${t('dinv.surplus')}: +${dishwareFmt(surpQty)} ${t('dish.pcs')}</div>`:''}
+      </div>
+      ${notCounted>0?`<div class="card" style="background:#FFF8E6;border:1px solid #f0dfae"><div style="font-size:13px;color:#7a5c11;line-height:1.5">⚠️ ${t('dinv.notCountedWarn',{n:notCounted})}</div></div>`:''}
+      <div class="card">
+        <div class="section-label">${t('dinv.diffList',{n:rows.length})}</div>
+        ${rows.length===0
+          ? `<div class="empty"><div class="empty-text">${t('dinv.noDiff')}</div></div>`
+          : rows.map(r=>`<div class="list-item" style="display:flex;align-items:center;gap:10px">
+              ${dishwareThumb(r.it, 36)}
+              <div class="item-info">
+                <div class="item-name">${escapeHtml(r.it.name)}</div>
+                <div class="item-sub">${t('dinv.wasNow',{was:dishwareFmt(r.was),now:dishwareFmt(r.now)})}${r.who?' · '+escapeHtml(r.who):''}</div>
+              </div>
+              <div style="font-weight:700;white-space:nowrap;color:${r.diff<0?'#A32D2D':'#3B6D11'}">${r.diff>0?'+':''}${dishwareFmt(r.diff)}</div>
+            </div>`).join('')}
+      </div>
+      <button class="btn btn-primary" onclick="applyDishwareInventory()">${t('dinv.applyBtn')}</button>`;
+  } catch(e) { body.innerHTML = `<div class="empty"><div class="empty-text">${t('common.error')+e.message}</div></div>`; }
+}
+
+async function applyDishwareInventory() {
+  if(!dishwareCanManage() || !dishwareInv) return;
+  // Окно расхождений закрываем до вопроса: у всех модалок один z-index, и
+  // подтверждение, объявленное в разметке раньше, оказалось бы под ним
+  closeModal('modal-dishware-diff');
+  if(!await confirmDialog(t('dinv.applyConfirm'), { title: t('dinv.applyBtn'), okText: t('dinv.applyOk'), danger: false })) {
+    openDishwareDiff();
+    return;
+  }
+  try {
+    // Одна транзакция в базе: остатки, движения и закрытие сессии либо
+    // проходят целиком, либо не проходят вовсе
+    const { data, error } = await sb.rpc('apply_dishware_inventory', { p_inventory_id: dishwareInv.id });
+    if(error) return showToast(t('common.error')+error.message);
+    const res = data || {};
+    showToast(t('dinv.applied',{ n: res.changed || 0 }));
+    const loss = Number(res.diff_loss) || 0;
+    await notifyAdminsAll(`📋 <b>${t('dinv.tgApplied')}</b>\n\n📍 ${tgEscape(getFilialName(currentFilial))}\n👤 ${tgEscape(currentProfile?.name||'')}\n🔢 ${t('dinv.tgCounted',{n:res.counted||0,m:res.changed||0})}`
+      + (loss<0?`\n💸 ${t('dish.loss',{n:formatNum(Math.round(-loss))})}`:''), 'dishware');
+    dishwareInv = null; dishwareCounts = {};
+    loadDishwareInventory();
+  } catch(e) { showToast(t('common.error')+e.message); }
 }
