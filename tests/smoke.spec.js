@@ -779,3 +779,58 @@ test('база знаний: кто может править статьи и з
     expect(r[k], `${k} НЕ должен иметь право`).toBe(false);
   }
 });
+
+// Регресс-тест на жалобу «сотрудник подошёл спросить, где отметить приход».
+// Карточка со сменой и кнопкой отметки должна стоять выше всех прочих
+// карточек главного экрана и попадать в первый экран телефона без прокрутки.
+test('кнопка отметки прихода видна сразу, без прокрутки', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 780 });
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.renderShiftAndAttendance === 'function');
+
+  const res = await page.evaluate(() => {
+    const login = document.getElementById('login-page');
+    if (login) login.style.display = 'none';
+    document.getElementById('app-page').style.display = '';
+    currentProfile = { role: 'employee', name: 'Тест', employee_id: 1 };
+    const shift = { shift_start: '12:00', shift_end: '03:00', filial: 'istikbol', is_day_off: false };
+
+    // Прочие карточки главной заполнены — как в обычный рабочий день
+    for (const id of ['home-stoplist-card', 'home-announcements', 'install-app-card']) {
+      document.getElementById(id).innerHTML = '<div class="card" style="height:90px;margin-bottom:12px"></div>';
+    }
+
+    const out = {};
+    renderShiftAndAttendance(shift, null);
+    const att = document.getElementById('home-attendance-card');
+    const btn = att.querySelector('button');
+    out.hasButton = !!btn && /startCheckIn/.test(btn.getAttribute('onclick') || '');
+    out.buttonBottom = btn ? btn.getBoundingClientRect().bottom : 99999;
+
+    // Порядок в разметке: отметка выше стоп-листа, объявлений и установки
+    const pos = id => [...document.querySelectorAll('#screen-home .content > div')].indexOf(document.getElementById(id));
+    out.attPos = pos('home-attendance-card');
+    out.othersPos = ['home-stoplist-card', 'home-announcements', 'install-app-card'].map(pos);
+
+    // Уже отметился — кнопки съёмки нет, есть время прихода
+    renderShiftAndAttendance(shift, { id: 7, check_in_time: '11:58', is_late: false, checkin_video: 'x' });
+    out.afterText = document.getElementById('home-attendance-card').textContent;
+    out.afterHasRecordBtn = /startCheckIn/.test(document.getElementById('home-attendance-card').innerHTML);
+
+    // Выходной — отмечаться нечего
+    renderShiftAndAttendance({ is_day_off: true }, null);
+    out.dayOffAtt = document.getElementById('home-attendance-card').innerHTML;
+    out.dayOffShift = document.getElementById('home-shift-card').innerHTML;
+    return out;
+  });
+
+  expect(res.hasButton, 'на карточке смены есть кнопка отметки').toBe(true);
+  // 780 — высота экрана недорогого телефона; кнопка должна помещаться целиком
+  expect(res.buttonBottom, 'кнопка попадает в первый экран').toBeLessThan(780);
+  for (const p of res.othersPos) expect(res.attPos).toBeLessThan(p);
+  expect(res.afterText).toContain('11:58');
+  expect(res.afterHasRecordBtn, 'повторно отметиться нельзя').toBe(false);
+  expect(res.dayOffAtt, 'в выходной отметки нет').toBe('');
+  expect(res.dayOffShift.length, 'в выходной видно, что он выходной').toBeGreaterThan(0);
+});
+

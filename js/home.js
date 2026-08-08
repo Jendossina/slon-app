@@ -50,29 +50,12 @@ async function loadHome() {
       }
     }
 
-    // Show my shift on home screen
+    // Смена и отметка прихода — одной карточкой в самом верху экрана
     if(empId) {
       const myShifts = shiftsRes.data;
       const myShift = myShifts && myShifts.length > 0 ? myShifts[0] : null;
-      const shiftEl = document.getElementById('home-shift-card');
-      if(shiftEl) {
-        if(myShift) {
-          if(myShift.is_day_off) {
-            shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#EAF3DE,#d4edda);border:none;margin-bottom:12px"><div style="text-align:center;padding:8px"><div style="font-size:28px">🌴</div><div style="font-size:15px;font-weight:600;color:#3B6D11;margin-top:4px">${t('home.dayOff')}</div></div></div>`;
-          } else {
-            shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2b6b);border:none;color:#fff;margin-bottom:12px"><div style="font-size:11px;opacity:0.7;margin-bottom:4px">${t('home.shiftToday')} · ${getFilialName(myShift.filial||'istikbol')}</div><div style="font-size:24px;font-weight:700">🕐 ${myShift.shift_start||''} — ${myShift.shift_end||''}</div>${myShift.note?`<div style="font-size:12px;opacity:0.7;margin-top:4px">${escapeHtml(myShift.note)}</div>`:''}</div>`;
-          }
-        } else { shiftEl.innerHTML = ''; }
-      }
-
-      // Attendance check-in/out
       const attRecord = (attRes.data && attRes.data[0]) || null;
-      if(myShift && !myShift.is_day_off) {
-        renderAttendanceCard(myShift, attRecord);
-      } else {
-        const attEl = document.getElementById('home-attendance-card');
-        if(attEl) attEl.innerHTML = '';
-      }
+      renderShiftAndAttendance(myShift, attRecord);
 
       // Моя зарплата за сегодня
       loadSalaryCard(attRecord);
@@ -84,18 +67,26 @@ async function loadHome() {
     const tgCard = document.getElementById('telegram-link-card');
     if(tgCard) {
       if(!currentProfile?.telegram_id) {
+        // Инструкция из четырёх шагов свёрнута: она нужна один раз в жизни, а
+        // места на главной занимала больше, чем отметка прихода. Развернётся по
+        // нажатию — заголовок остаётся на виду, чтобы про уведомления не забыли.
         tgCard.innerHTML = `<div class="card" style="background:#E8F4FD;border:1px solid #b3d9f2;margin-bottom:12px">
-          <div style="font-size:13px;font-weight:600;color:#1A6FA8;margin-bottom:6px">${t('home.tg.title')}</div>
-          <div style="font-size:12px;color:#666;margin-bottom:10px">${t('home.tg.desc')}</div>
-          <ol style="font-size:12px;color:#666;margin:0 0 10px 16px;padding:0;line-height:1.6">
-            <li>Открой бота <b>@SlonShishaBot</b> в Telegram</li>
-            <li>Напиши ему <b>/start</b></li>
-            <li>Найди бота <b>@userinfobot</b>, напиши <b>/start</b> — он покажет твой ID</li>
-            <li>Введи этот ID ниже</li>
-          </ol>
-          <div style="display:flex;gap:8px">
-            <input class="form-input" id="tg-id-input" placeholder="Например: 123456789" style="flex:1;padding:10px">
-            <button onclick="saveTelegramId()" style="background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:600;cursor:pointer">${t('home.tg.save')}</button>
+          <div onclick="toggleTelegramCard()" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <div style="font-size:13px;font-weight:600;color:#1A6FA8">${t('home.tg.title')}</div>
+            <span style="margin-left:auto;font-size:12px;color:#1A6FA8;white-space:nowrap">${t('home.tg.connect')} ›</span>
+          </div>
+          <div id="tg-card-body" style="display:none;margin-top:10px">
+            <div style="font-size:12px;color:#666;margin-bottom:10px">${t('home.tg.desc')}</div>
+            <ol style="font-size:12px;color:#666;margin:0 0 10px 16px;padding:0;line-height:1.6">
+              <li>Открой бота <b>@SlonShishaBot</b> в Telegram</li>
+              <li>Напиши ему <b>/start</b></li>
+              <li>Найди бота <b>@userinfobot</b>, напиши <b>/start</b> — он покажет твой ID</li>
+              <li>Введи этот ID ниже</li>
+            </ol>
+            <div style="display:flex;gap:8px">
+              <input class="form-input" id="tg-id-input" placeholder="Например: 123456789" style="flex:1;padding:10px">
+              <button onclick="saveTelegramId()" style="background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:600;cursor:pointer">${t('home.tg.save')}</button>
+            </div>
           </div>
         </div>`;
       } else {
@@ -118,26 +109,47 @@ async function loadHome() {
   } catch(e) { console.error(e); }
 }
 
+function toggleTelegramCard() {
+  const b = document.getElementById('tg-card-body');
+  if(b) b.style.display = b.style.display === 'none' ? 'block' : 'none';
+}
+
 // ATTENDANCE
 function getCurrentTimeStr() {
   const d = new Date();
   return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
 }
 
+// Смена и отметка прихода рисуются вместе: раньше это были две отдельные
+// карточки подряд — тёмная с часами смены и белая с кнопкой. Вместе они
+// занимали пол-экрана, из-за чего кнопку сдвигало вниз. Теперь один блок:
+// часы смены и кнопка под ними, всё видно без прокрутки.
 // Запись о приходе приезжает вместе с остальными данными главного экрана
 // (loadHome), поэтому карточка только рисует — своего запроса у неё нет.
-function renderAttendanceCard(myShift, record) {
+function renderShiftAndAttendance(myShift, record) {
+  const shiftEl = document.getElementById('home-shift-card');
   const attEl = document.getElementById('home-attendance-card');
+  if(shiftEl) shiftEl.innerHTML = '';
+  if(attEl) attEl.innerHTML = '';
+
+  if(!myShift) return;                       // смены сегодня нет — и отмечаться нечего
+  if(myShift.is_day_off) {
+    if(shiftEl) shiftEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#EAF3DE,#d4edda);border:none;margin-bottom:12px"><div style="text-align:center;padding:8px"><div style="font-size:28px">🌴</div><div style="font-size:15px;font-weight:600;color:#3B6D11;margin-top:4px">${t('home.dayOff')}</div></div></div>`;
+    return;
+  }
   if(!attEl) return;
+
   try {
+    const head = `<div style="font-size:11px;opacity:0.7;margin-bottom:4px">${t('home.shiftToday')} · ${getFilialName(myShift.filial||'istikbol')}</div>
+      <div style="font-size:24px;font-weight:700">🕐 ${myShift.shift_start||''} — ${myShift.shift_end||''}</div>
+      ${myShift.note?`<div style="font-size:12px;opacity:0.7;margin-top:4px">${escapeHtml(myShift.note)}</div>`:''}`;
+
+    let body;
     if(!record) {
-      attEl.innerHTML = `<div class="card" style="margin-bottom:12px">
-        <div class="card-title">${t('att.title')}</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${t('att.startsAt',{time:myShift.shift_start})}</div>
-        <input type="file" accept="video/*" capture="user" id="checkin-video-file" style="display:none" onchange="onCheckInVideo(this)">
-        <button class="btn btn-primary" onclick="startCheckIn()">${t('att.recordBtn')}</button>
-        <div id="checkin-status" style="font-size:12px;color:var(--text-muted);margin-top:8px;text-align:center;line-height:1.4"></div>
-      </div>`;
+      // Главное действие начала смены — кнопка золотая и во всю ширину карточки
+      body = `<input type="file" accept="video/*" capture="user" id="checkin-video-file" style="display:none" onchange="onCheckInVideo(this)">
+        <button onclick="startCheckIn()" style="width:100%;margin-top:14px;background:var(--gold);color:#1a1a1a;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer">${t('att.recordBtn')}</button>
+        <div style="font-size:11px;opacity:0.65;margin-top:8px;line-height:1.4">${t('att.startsAt',{time:myShift.shift_start})}</div>`;
     } else {
       // Отметки ухода нет: смену закрывает график, а не кнопка в телефоне.
       const lateBadge = record.is_late ? `<span class="badge badge-red" style="margin-left:6px">${t('att.late')}</span>` : `<span class="badge badge-green" style="margin-left:6px">${t('att.onTime')}</span>`;
@@ -145,15 +157,17 @@ function renderAttendanceCard(myShift, record) {
       // при этом засчитан, и человек досылает видео одной кнопкой.
       const needVideo = !record.checkin_video ? `
         <input type="file" accept="video/*" capture="user" id="checkin-resend-file" style="display:none" onchange="resendCheckinVideo(this, ${record.id})">
-        <button class="btn btn-secondary" onclick="startResendVideo(${record.id})" style="margin-top:10px">${t('att.resendVideoBtn')}</button>
-        <div style="font-size:12px;color:#A32D2D;margin-top:6px;text-align:center;line-height:1.4">${t('att.noVideoYet')}</div>` : '';
-      attEl.innerHTML = `<div class="card" style="margin-bottom:12px">
-        <div class="card-title">${t('att.title')}</div>
-        <div style="font-size:14px;color:var(--text-primary)">${t('att.arrivedAt')} <b>${record.check_in_time}</b>${lateBadge}</div>
-        ${needVideo}
-        <div id="checkin-status" style="font-size:12px;color:var(--text-muted);margin-top:8px;text-align:center;line-height:1.4"></div>
-      </div>`;
+        <button onclick="startResendVideo(${record.id})" style="width:100%;margin-top:10px;background:rgba(255,255,255,0.14);color:#fff;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:600;cursor:pointer">${t('att.resendVideoBtn')}</button>
+        <div style="font-size:12px;color:#ff9b9b;margin-top:6px;line-height:1.4">${t('att.noVideoYet')}</div>` : '';
+      body = `<div style="font-size:14px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.12)">✅ ${t('att.arrivedAt')} <b>${record.check_in_time}</b>${lateBadge}</div>
+        ${needVideo}`;
     }
+
+    attEl.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#1a1a2e,#2d2b6b);border:none;color:#fff;margin-bottom:12px">
+      ${head}
+      ${body}
+      <div id="checkin-status" style="font-size:12px;opacity:0.75;margin-top:8px;text-align:center;line-height:1.4"></div>
+    </div>`;
   } catch(e) { console.error(e); attEl.innerHTML = `<div class="card" style="margin-bottom:12px"><div class="card-title">${t('att.title')}</div><div style="font-size:12px;color:#A32D2D">${t('att.loadErr')}</div></div>`; }
 }
 
@@ -326,7 +340,9 @@ async function onCheckInVideo(input) {
 function setCheckInStatus(text, kind) {
   const el = document.getElementById('checkin-status');
   if(!el) return;
-  el.style.color = kind === 'bad' ? '#A32D2D' : 'var(--text-muted)';
+  // Строка живёт на тёмной карточке смены — обычный текст наследует её белый,
+  // «плохой» берёт светло-красный: тёмно-красный на тёмном фоне не читался
+  el.style.color = kind === 'bad' ? '#ff9b9b' : '';
   el.textContent = text || '';
 }
 

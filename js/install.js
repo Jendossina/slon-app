@@ -70,8 +70,28 @@ function isNativeShell() {
   return !!window.Capacitor;
 }
 
+// Предложение установки можно отложить. Раньше карточка висела на главной
+// каждый день у всех, кто открывает приложение из браузера, и вместе с
+// остальными карточками отжимала вниз то, ради чего человек зашёл. Кто ставить
+// не собирается — убирает её на месяц одной кнопкой.
+const INSTALL_SNOOZE_KEY = 'installCardSnoozedUntil';
+const INSTALL_SNOOZE_DAYS = 30;
+
+function installCardSnoozed() {
+  try {
+    const until = Number(localStorage.getItem(INSTALL_SNOOZE_KEY) || 0);
+    return until > Date.now();
+  } catch(e) { return false; }
+}
+
+function snoozeInstallCard() {
+  try { localStorage.setItem(INSTALL_SNOOZE_KEY, String(Date.now() + INSTALL_SNOOZE_DAYS*24*60*60*1000)); } catch(e) {}
+  renderInstallCard();
+}
+
 function canInstallApp() {
   if(isNativeShell()) return false;
+  if(installCardSnoozed()) return false;
   return !isStandaloneApp();
 }
 
@@ -113,6 +133,7 @@ function renderInstallCard() {
         <div style="font-size:14px;font-weight:600;color:var(--text-primary)">${t('install.installedTitle')}</div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${t('install.installedDesc')}</div>
       </div>
+      <button onclick="snoozeInstallCard()" aria-label="${t('install.later')}" style="background:none;border:none;color:var(--text-muted);font-size:20px;line-height:1;padding:4px 2px;cursor:pointer;flex:0 0 auto">×</button>
     </div>`;
     return;
   }
@@ -124,7 +145,10 @@ function renderInstallCard() {
         <div style="font-size:12px;opacity:0.75;margin-top:2px">${t('install.desc')}</div>
       </div>
     </div>
-    <button onclick="installApp()" style="width:100%;margin-top:12px;background:var(--gold);color:#1a1a1a;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:600;cursor:pointer">${t('install.btn')}</button>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button onclick="installApp()" style="flex:1;background:var(--gold);color:#1a1a1a;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:600;cursor:pointer">${t('install.btn')}</button>
+      <button onclick="snoozeInstallCard()" style="background:rgba(255,255,255,0.12);color:#fff;border:none;border-radius:10px;padding:11px 14px;font-size:14px;cursor:pointer;flex:0 0 auto">${t('install.later')}</button>
+    </div>
   </div>`;
 }
 
