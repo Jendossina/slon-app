@@ -63,18 +63,22 @@ async function loadSchedule() {
   const role = currentProfile?.role;
   const fabBtn = document.getElementById('fab-schedule-btn');
   const fabWeekBtn = document.getElementById('fab-week-btn');
+
+  // If employee, jump to their department automatically — но только один раз,
+  // иначе это откатывает ручной выбор другой вкладки при каждой перезагрузке.
+  // Прыжок делаем ДО расчёта прав: иначе старший цеха при первом открытии
+  // экрана смотрит на свой отдел, а кнопки скрыты по правам на «Официантов».
+  if(role === 'employee' && currentProfile?.employee_id && !scheduleAutoJumped) {
+    scheduleAutoJumped = true;
+    const dept = currentEmployee?.department
+      || (await sb.from('employees').select('department').eq('id', currentProfile.employee_id).single()).data?.department;
+    if(dept) currentDept = dept;
+  }
+
   // Права считаем на ТЕКУЩИЙ отдел: старший цеха правит только свой
   const canEdit = canEditScheduleDept(currentDept);
   if(fabBtn) fabBtn.style.display = canEdit ? 'block' : 'none';
   if(fabWeekBtn) fabWeekBtn.style.display = canEdit ? 'block' : 'none';
-
-  // If employee, jump to their department automatically — но только один раз,
-  // иначе это откатывает ручной выбор другой вкладки при каждой перезагрузке
-  if(role === 'employee' && currentProfile?.employee_id && !scheduleAutoJumped) {
-    scheduleAutoJumped = true;
-    const { data: emp } = await sb.from('employees').select('department').eq('id', currentProfile.employee_id).single();
-    if(emp?.department) currentDept = emp.department;
-  }
 
   // Department tabs
   const nav = document.getElementById('schedule-dept-nav');
