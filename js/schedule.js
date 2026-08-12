@@ -4,25 +4,34 @@ const DEPARTMENTS = ['Официанты','Бармены','Кальянные �
 // Готовые варианты смен по цехам — управляющий выбирает кнопкой, а не вводит время вручную.
 // end <= start означает переход через полночь (напр. 15:00–03:00). Цеха без списка (Техперсонал,
 // Менеджеры) используют ручной ввод времени.
+//
+// Смена с label — не «ещё один вариант времени», а постоянный распорядок дня:
+// по субботам открываемся в 15:00, и весь штат выходит одной смедой позже
+// обычного. Раньше эти времена набивали руками и каждый раз по-разному, из-за
+// чего сроки чек-листов не совпадали с графиком ни в одну субботу.
 const SHIFT_PRESETS = {
   'Официанты': [
     { start: '11:00', end: '23:00' },
     { start: '15:00', end: '03:00' },
     { start: '18:00', end: '03:00' },
+    { start: '13:00', end: '03:00', label: 'sch.presetSaturday' },
   ],
   'Бармены': [
     { start: '11:30', end: '00:00' },
     { start: '15:00', end: '02:00' },
     { start: '11:30', end: '02:00', full: true }, // весь день, +100 000
+    { start: '13:00', end: '02:00', label: 'sch.presetSaturday' },
   ],
   'Кальянные мастера': [
     { start: '11:30', end: '00:00' },
     { start: '12:45', end: '01:00' },
     { start: '14:45', end: '03:00' },
+    { start: '13:30', end: '03:00', label: 'sch.presetSaturday' },
   ],
   'Повара': [
     { start: '11:00', end: '23:00' },
     { start: '14:30', end: '02:30' },
+    { start: '13:00', end: '02:00', label: 'sch.presetSaturday' },
   ],
 };
 
@@ -245,9 +254,9 @@ function renderShiftPresets(containerId, applyFn) {
      <div style="display:flex;flex-wrap:wrap;gap:6px">
        ${presets.map(p=>`
          <button type="button" onclick="${applyFn}('${p.start}','${p.end}')"
-           style="display:flex;flex-direction:column;align-items:center;gap:1px;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer">
+           style="display:flex;flex-direction:column;align-items:center;gap:1px;background:var(--surface-2);color:var(--text-primary);border:1px solid ${p.label?'var(--gold)':'var(--border)'};border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer">
            <span>${p.start}–${p.end}</span>
-           <span style="font-size:10px;font-weight:400;color:var(--text-muted)">${shiftDurLabel(p.start,p.end)}${p.full?' · '+t('sch.fullDay'):''}</span>
+           <span style="font-size:10px;font-weight:400;color:var(--text-muted)">${p.label?t(p.label)+' · ':''}${shiftDurLabel(p.start,p.end)}${p.full?' · '+t('sch.fullDay'):''}</span>
          </button>`).join('')}
      </div>`;
 }
