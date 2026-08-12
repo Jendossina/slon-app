@@ -147,6 +147,8 @@ const I18N = {
     'att.resendVideoBtn': '🎥 Дослать видео', 'att.noVideoYet': 'К этой отметке ещё не приложено видео',
     'att.videoAttached': '✅ Видео приложено к отметке',
     'att.videoErr': 'Ошибка загрузки видео: ', 'att.lateToast': '⏰ Опоздание {min} мин · штраф {pen} сум', 'att.onTimeToast': '✅ Отмечено вовремя!', 'att.already': 'Ты уже отметился сегодня',
+    // Позиция официанта в зале (карточка на главной)
+    'pos.myToday': 'Моя позиция сегодня', 'pos.tables': 'Столы',
     // Зарплата (карточка на главной)
     'salary.todayTitle': 'Моя зарплата · сегодня', 'salary.rate': 'Ставка', 'salary.notMarked': 'Смена сегодня ещё не отмечена', 'salary.penalty': 'Штраф',
     // Задачи
@@ -656,6 +658,7 @@ const I18N = {
     'att.videoAttached': '✅ Видео белгига илова қилинди',
     'att.videoErr': 'Видео юклашда хато: ', 'att.lateToast': '⏰ Кечикиш {min} дақиқа · жарима {pen} сўм', 'att.onTimeToast': '✅ Ўз вақтида белгиланди!', 'att.already': 'Сен бугун аллақачон белгилагансан',
     // Зарплата (карточка на главной)
+    'pos.myToday': 'Бугунги позициям', 'pos.tables': 'Столлар',
     'salary.todayTitle': 'Менинг маошим · бугун', 'salary.rate': 'Ставка', 'salary.notMarked': 'Бугунги смена ҳали белгиланмаган', 'salary.penalty': 'Жарима',
     // Задачи
     'tasks.title': 'Вазифалар', 'tasks.viewReport': 'Ҳисоботни кўриш', 'tasks.attachReport': 'Ҳисобот бириктириш', 'tasks.noPhotoReport': 'Фотоҳисоботсиз',

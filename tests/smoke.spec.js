@@ -903,6 +903,51 @@ test('кнопка отметки прихода видна сразу, без �
   expect(res.dayOffShift.length, 'в выходной видно, что он выходной').toBeGreaterThan(0);
 });
 
+// Официант открывает приложение в начале смены, чтобы узнать свои столы.
+// Карточка позиции должна показать и свои столы, и кто стоит на остальных.
+test('официант видит свою позицию и столы на главном экране', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/waiter_position_assignments**', (route) => {
+    const url = route.request().url();
+    // свой запрос идёт с employee_id=eq.1, чужие — с neq.1
+    const body = url.includes('employee_id=eq.1')
+      ? [{ position_ids: [2], employee_name: 'Тест' }]
+      : [{ employee_name: 'Соснин Владислав Николаевич', position_ids: [1] },
+         { employee_name: 'Атаханов Агабек Пайзуллаевич', position_ids: [3] }];
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+  await page.route('**/rest/v1/waiter_positions**', (route) => {
+    const url = route.request().url();
+    const all = [{ id: 1, name: 'Позиция 1', tables_list: '1, 2, 3, 4, 15', sort: 1 },
+                 { id: 2, name: 'Позиция 2', tables_list: '5, 6, 7, 8, 9, 10, 11', sort: 2 },
+                 { id: 3, name: 'Позиция 3', tables_list: '12, 13, 14, 16, 17', sort: 3 }];
+    const ids = (url.match(/id=in\.%28([^)]*)%29/) || [])[1];
+    const body = ids ? all.filter(p => ids.split('%2C').includes(String(p.id))) : all;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.loadPositionCard === 'function');
+
+  const res = await page.evaluate(async () => {
+    document.getElementById('app-page').style.display = '';
+    currentProfile = { role: 'employee', name: 'Тест', employee_id: 1 };
+    await loadPositionCard({ shift_start: '11:00', is_day_off: false });
+    const card = document.getElementById('home-position-card');
+    const out = { text: card.textContent };
+    // В выходной делить нечего — карточки быть не должно
+    await loadPositionCard({ is_day_off: true });
+    out.dayOff = document.getElementById('home-position-card').innerHTML;
+    return out;
+  });
+
+  expect(res.text, 'видно свою позицию').toContain('Позиция 2');
+  expect(res.text, 'видно свои столы').toContain('5, 6, 7, 8, 9, 10, 11');
+  expect(res.text, 'видно, кто на соседней позиции').toContain('Соснин Владислав');
+  expect(res.text, 'отчество в списке не показываем').not.toContain('Николаевич');
+  expect(res.dayOff, 'в выходной позиции нет').toBe('');
+});
+
 // Регресс-тест на жалобу «сотрудники не могут отметить приход» (12.08.2026).
 // На сборках APK до 07.08 в манифесте не было разрешения на камеру: getUserMedia
 // падал всегда, съёмка уходила в системную камеру, Android выгружал приложение

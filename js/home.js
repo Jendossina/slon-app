@@ -56,6 +56,9 @@ async function loadHome() {
       const myShift = myShifts && myShifts.length > 0 ? myShifts[0] : null;
       const attRecord = (attRes.data && attRes.data[0]) || null;
       renderShiftAndAttendance(myShift, attRecord);
+      // Позиция в зале — сразу под сменой: официант открывает приложение в
+      // начале смены как раз чтобы узнать свои столы. Свой запрос, экран не держим.
+      loadPositionCard(myShift);
 
       // Моя зарплата за сегодня
       loadSalaryCard(attRecord);
@@ -168,6 +171,55 @@ function renderShiftAndAttendance(myShift, record) {
       <div id="checkin-status" style="font-size:12px;opacity:0.75;margin-top:8px;text-align:center;line-height:1.4"></div>
     </div>`;
   } catch(e) { console.error(e); attEl.innerHTML = `<div class="card" style="margin-bottom:12px"><div class="card-title">${t('att.title')}</div><div style="font-size:12px;color:#A32D2D">${t('att.loadErr')}</div></div>`; }
+}
+
+// Позиция официанта в зале: какие столы он сегодня обслуживает.
+// Раздачу считает база (waiter_positions_assign) — здесь только показываем.
+// Карточка рисуется всем, у кого позиция на сегодня есть; у остальных цехов её
+// не будет просто потому, что раздача касается только официантов.
+async function loadPositionCard(myShift) {
+  const el = document.getElementById('home-position-card');
+  if(!el) return;
+  el.innerHTML = '';
+  try {
+    if(!currentProfile?.employee_id) return;
+    if(myShift && myShift.is_day_off) return;          // в выходной столов нет
+    const day = businessToday();
+    const { data: rows } = await sb.from('waiter_position_assignments')
+      .select('position_ids,employee_name').eq('date', day).eq('employee_id', currentProfile.employee_id);
+    const mine = rows && rows[0];
+    if(!mine || !mine.position_ids || !mine.position_ids.length) return;
+
+    const { data: positions } = await sb.from('waiter_positions')
+      .select('id,name,tables_list,sort').in('id', mine.position_ids).order('sort');
+    if(!positions || !positions.length) return;
+
+    // Кто на остальных позициях — официанту это нужно не меньше своей: понятно,
+    // к кому идти с чужим столом и кого подменять.
+    const { data: others } = await sb.from('waiter_position_assignments')
+      .select('employee_name,position_ids').eq('date', day).eq('filial', currentFilial)
+      .neq('employee_id', currentProfile.employee_id);
+
+    const otherNames = [];
+    for(const o of (others||[])) {
+      const { data: op } = await sb.from('waiter_positions').select('name').in('id', o.position_ids||[]);
+      otherNames.push(`${(op||[]).map(p=>escapeHtml(p.name)).join(' + ')} — ${escapeHtml(shortName(o.employee_name))}`);
+    }
+
+    el.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#16352b,#1f5e43);border:none;color:#fff;margin-bottom:12px">
+      <div style="font-size:11px;opacity:0.75;margin-bottom:4px;text-transform:uppercase">${t('pos.myToday')}</div>
+      <div style="font-size:22px;font-weight:700">${positions.map(p=>escapeHtml(p.name)).join(' + ')}</div>
+      <div style="font-size:15px;margin-top:6px;line-height:1.5">${t('pos.tables')}: <b>${positions.map(p=>escapeHtml(p.tables_list)).join(' · ')}</b></div>
+      ${otherNames.length?`<div style="font-size:12px;opacity:0.8;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.15);line-height:1.6">${otherNames.join('<br>')}</div>`:''}
+    </div>`;
+  } catch(e) { console.error('position card', e); }
+}
+
+// «Соснин Владислав Николаевич» → «Соснин Владислав»: в карточку помещается
+// список из трёх человек, а отчество в зале никто не использует.
+function shortName(full) {
+  const parts = String(full||'').trim().split(/\s+/);
+  return parts.slice(0, 2).join(' ');
 }
 
 // Карточка "Моя зарплата" на главном экране — за СЕГОДНЯ (за период — в личном кабинете)
