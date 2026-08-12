@@ -147,16 +147,15 @@ function renderShiftAndAttendance(myShift, record) {
     let body;
     if(!record) {
       // Главное действие начала смены — кнопка золотая и во всю ширину карточки
-      body = `<input type="file" accept="video/*" capture="user" id="checkin-video-file" style="display:none" onchange="onCheckInVideo(this)">
-        <button onclick="startCheckIn()" style="width:100%;margin-top:14px;background:var(--gold);color:#1a1a1a;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer">${t('att.recordBtn')}</button>
+      body = `<button onclick="startCheckIn()" style="width:100%;margin-top:14px;background:var(--gold);color:#1a1a1a;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer">${t('att.recordBtn')}</button>
         <div style="font-size:11px;opacity:0.65;margin-top:8px;line-height:1.4">${t('att.startsAt',{time:myShift.shift_start})}</div>`;
     } else {
       // Отметки ухода нет: смену закрывает график, а не кнопка в телефоне.
       const lateBadge = record.is_late ? `<span class="badge badge-red" style="margin-left:6px">${t('att.late')}</span>` : `<span class="badge badge-green" style="margin-left:6px">${t('att.onTime')}</span>`;
-      // Видео могло не долететь (связь оборвалась, приложение выгрузили) — приход
-      // при этом засчитан, и человек досылает видео одной кнопкой.
+      // Видео могло не долететь (камера не открылась, связь оборвалась,
+      // приложение выгрузили) — приход при этом засчитан, и человек досылает
+      // видео одной кнопкой, хоть через час.
       const needVideo = !record.checkin_video ? `
-        <input type="file" accept="video/*" capture="user" id="checkin-resend-file" style="display:none" onchange="resendCheckinVideo(this, ${record.id})">
         <button onclick="startResendVideo(${record.id})" style="width:100%;margin-top:10px;background:rgba(255,255,255,0.14);color:#fff;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:600;cursor:pointer">${t('att.resendVideoBtn')}</button>
         <div style="font-size:12px;color:#ff9b9b;margin-top:6px;line-height:1.4">${t('att.noVideoYet')}</div>` : '';
       body = `<div style="font-size:14px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.12)">✅ ${t('att.arrivedAt')} <b>${record.check_in_time}</b>${lateBadge}</div>
@@ -226,14 +225,35 @@ function pickRecorderMime() {
   return '';
 }
 
-// onReady(file) — что делать с записанным роликом: новая отметка или досылка
+// onReady(file) — куда девать снятый ролик: к какой записи о приходе его дописать
 let checkinOnReady = null;
+let checkinBusy = false;          // защита от второго нажатия, пока идёт отметка
 
+// ПОРЯДОК: сначала приход в базу, потом камера. Раньше было наоборот, и на
+// телефонах, где WebView снимать не даёт (сборки APK до 07.08.2026 — в манифесте
+// не было разрешения на камеру), человек не мог отметиться ВООБЩЕ: съёмка
+// уходила в системную камеру, Android выгружал приложение из памяти, отметка
+// не появлялась ни разу за смену. Теперь приход засчитан до того, как что-либо
+// может сломаться, а видео — отдельный шаг, который можно повторить кнопкой
+// «Дослать видео»; пока его нет, отметка помечена красным и старшие уведомлены.
 async function startCheckIn() {
-  checkinOnReady = file => checkIn(file);
-  await recordCheckinVideo();
+  if(checkinBusy) return;
+  checkinBusy = true;
+  try {
+    const ctx = await checkIn();
+    if(!ctx) return;
+    const { rec, myShift } = ctx;
+    checkinOnReady = file => sendResendVideo(rec.id, file);
+    const how = await recordCheckinVideo();
+    // Камеру внутри приложения открыть не дали — сняться человек, может, ещё и
+    // успеет системной, но управляющему это знать нужно сразу: такой телефон
+    // теряет видео и ему нужна свежая сборка приложения.
+    if(how !== 'recording') notifyCheckinNoVideo(rec, myShift);
+  } finally { checkinBusy = false; }
 }
 
+// Возвращает 'recording' — снимаем внутри приложения; 'fallback' — открыли
+// системную камеру; 'none' — не вышло ни так, ни так.
 async function recordCheckinVideo() {
   if(!canRecordInApp()) return startCheckInFallback();
   try {
@@ -256,7 +276,7 @@ async function recordCheckinVideo() {
   video.muted = true;
   video.playsInline = true;
   await video.play().catch(()=>{});
-  box.style.display = 'block';
+  box.style.display = 'flex';      // оверлей размечен флексом: центрирует превью
   setCheckInStatus('');
 
   const chunks = [];
@@ -280,9 +300,9 @@ async function recordCheckinVideo() {
     let file;
     try { file = new File([blob], name, { type }); }
     catch(e) { file = blob; file.name = name; }
-    const done = checkinOnReady || (f => checkIn(f));
+    const done = checkinOnReady;
     checkinOnReady = null;
-    await done(file);
+    if(done) await done(file);
   };
   checkinRecorder.start();
 
@@ -295,6 +315,7 @@ async function recordCheckinVideo() {
     if(counter) counter.textContent = t('att.recording', { n: Math.max(0, left) });
     if(left <= 0) stopCheckinRecording();
   }, 1000);
+  return 'recording';
 }
 
 function stopCheckinRecording() {
@@ -317,20 +338,26 @@ function cancelCheckinRecording() {
   setCheckInStatus('');
 }
 
-// Запасной путь — системная камера. Такое видео телефон сохраняет в галерею,
-// но лучше так, чем человек не сможет отметиться вовсе.
+// Запасной путь — системная камера. Такое видео телефон сохраняет в галерею, а
+// приложение уходит в фон и на слабых телефонах не возвращается. Приход к этому
+// моменту уже записан, так что потерять можно только ролик.
 function startCheckInFallback() {
   const input = document.getElementById('checkin-video-file');
-  if(!input) return;
+  if(!input) return 'none';
   input.value = '';
   input.click();
+  return 'fallback';
 }
 
+// Ролик из системной камеры. Приход уже записан — ролик просто дописывается к
+// нему, тем же путём, что и кнопка «Дослать видео».
 async function onCheckInVideo(input) {
   const file = input.files && input.files[0];
   if(!file) return;
   if(!file.type || !file.type.startsWith('video')) { showToast(t('att.needVideo')); return; }
-  await checkIn(file);
+  const done = checkinOnReady;
+  checkinOnReady = null;
+  if(done) await done(file);
 }
 
 // Постоянная строка состояния под кнопкой отметки. Всплывающая подсказка живёт
@@ -376,45 +403,28 @@ async function attachCheckinVideo(recordId, videoFile) {
   }
 }
 
-// Дослать видео к отметке, у которой его нет (кнопка на главном экране)
-async function resendCheckinVideo(input, recordId) {
-  const file = input.files && input.files[0];
-  if(!file) return;
-  if(!file.type || !file.type.startsWith('video')) { showToast(t('att.needVideo')); return; }
-  await sendResendVideo(recordId, file);
-}
-
 async function sendResendVideo(recordId, file) {
   const ok = await attachCheckinVideo(recordId, file);
-  if(ok) { showToast(t('att.videoAttached')); loadHome(); }
+  if(ok) { showToast(t('att.videoAttached')); }
+  loadHome();   // и когда долетело, и когда нет: карточка покажет, что вышло
 }
 
+// Дослать видео к отметке, у которой его нет (кнопка на главном экране)
 async function startResendVideo(recordId) {
-  if(canRecordInApp()) {
-    checkinOnReady = file => sendResendVideo(recordId, file);
-    return recordCheckinVideo();
-  }
-  const input = document.getElementById('checkin-resend-file');
-  if(!input) return;
-  input.value = '';
-  input.click();
+  checkinOnReady = file => sendResendVideo(recordId, file);
+  await recordCheckinVideo();
 }
 
-async function checkIn(videoFile) {
+// Записывает приход в базу и возвращает { rec, myShift } — или null, если не
+// вышло. Видео здесь больше нет: оно снимается ПОСЛЕ отметки (см. startCheckIn)
+// и дописывается в ту же строку.
+async function checkIn() {
   try {
-    // Видео обязательно — защита от отметки не на рабочем месте
-    if(!videoFile) { startCheckIn(); return; }
-
     const todayStr = businessToday(); // отметка прихода записывается на кассовый день смены
     const timeStr = getCurrentTimeStr();
     const { data: myShifts } = await sb.from('schedules').select('*').eq('date', todayStr).eq('employee_id', currentProfile.employee_id);
     const myShift = myShifts && myShifts[0];
 
-    // ОТМЕТКА ПИШЕТСЯ ПЕРВОЙ, видео уезжает следом. Раньше было наоборот, и на
-    // недорогих андроидах система успевала выгрузить приложение из памяти, пока
-    // с камеры уходили десятки мегабайт: запрос обрывался, отметки не было
-    // вовсе. Теперь приход засчитан за секунду, а видео догружается и
-    // дописывается в ту же строку; не долетело — сотрудник дошлёт с главной.
     setCheckInStatus(t('att.savingMark'));
     // Время прихода, опоздание и штраф проставляет триггер в базе по часам
     // сервера: часы телефона можно перевести назад, и раньше это давало отметку
@@ -427,7 +437,9 @@ async function checkIn(videoFile) {
     }).select().single();
     if(attErr) {
       const msg = attErr.code === '23505' ? t('att.already') : t('common.error') + attErr.message;
-      setCheckInStatus(msg, 'bad'); showToast(msg); return;
+      setCheckInStatus(msg, 'bad'); showToast(msg);
+      if(attErr.code === '23505') loadHome();   // отметка всё-таки есть — покажем её
+      return null;
     }
 
     const lateMin = Number(rec?.late_minutes) || 0;
@@ -437,21 +449,45 @@ async function checkIn(videoFile) {
 
     showToast(isLate ? t('att.lateToast',{min:lateMin,pen:formatNum(penalty)}) : t('att.onTimeToast'));
 
-    // Приход уже засчитан — теперь видео. Экран не держим: если загрузка
-    // сорвётся, на главной появится кнопка «дослать видео».
-    attachCheckinVideo(rec.id, videoFile).then(ok => { if(ok) loadHome(); });
-
     // Уведомляем вверх по иерархии: старшие по цеху + все управляющие (и владелец)
     try {
-      const { data: me } = await sb.from('employees').select('department,role,name').eq('id', currentProfile.employee_id).single();
+      const me = await checkinWho();
       const myLevel = (typeof JOB_TITLE_LEVEL !== 'undefined' ? (JOB_TITLE_LEVEL[me?.role]||0) : 0);
       const lateTxt = isLate ? `⏰ опоздал ${lateMin} мин · штраф ${formatNum(penalty)} сум` : 'вовремя';
       const msg = `🎥 <b>Отметка прихода</b>\n\n👤 ${tgEscape(me?.name||currentProfile?.name||'')} · ${tgEscape(me?.role||'')}\n🕐 Пришёл в ${timeIn} — ${lateTxt}\n📍 ${getFilialName(myShift?.filial||currentFilial)}`;
       if(me?.department) await notifyDeptSeniors(me.department, myLevel, msg, 'checkin'); // старшим по цеху — все отметки
       if(isLate) await notifyAdminsAll(msg, 'late');                                       // управляющим — только опоздания
     } catch(e) { console.error('notify checkin', e); }
-    loadHome();
-  } catch(e) { setCheckInStatus(t('common.error')+e.message, 'bad'); showToast(t('common.error')+e.message); }
+
+    // Карточка сразу показывает «✅ Пришёл в HH:MM» — человек видит, что приход
+    // засчитан, ДО того как открылась камера. Ждём отрисовки: дальше поверх неё
+    // ляжет окно съёмки, и порядок не должен зависеть от скорости запросов.
+    await loadHome();
+    return { rec, myShift };
+  } catch(e) {
+    setCheckInStatus(t('common.error')+e.message, 'bad'); showToast(t('common.error')+e.message);
+    return null;
+  }
+}
+
+// Кто отмечается — нужно для адресации уведомлений старшим по цеху
+async function checkinWho() {
+  const { data } = await sb.from('employees').select('department,role,name').eq('id', currentProfile.employee_id).single();
+  return data;
+}
+
+// Приход есть, а подтвердить его нечем: камеру в приложении открыть не дали.
+// Старшим это важно знать сразу — и чтобы проверить человека, и чтобы понять,
+// что у него телефон со старой сборкой, которая видео теряет.
+async function notifyCheckinNoVideo(rec, myShift) {
+  try {
+    setCheckInStatus(t('att.cameraBlocked'), 'bad');
+    const me = await checkinWho();
+    const myLevel = (typeof JOB_TITLE_LEVEL !== 'undefined' ? (JOB_TITLE_LEVEL[me?.role]||0) : 0);
+    const msg = `⚠️ <b>Отметка без видео</b>\n\n👤 ${tgEscape(me?.name||currentProfile?.name||'')} · ${tgEscape(me?.role||'')}\n🕐 Пришёл в ${rec?.check_in_time||''}\n📍 ${getFilialName(myShift?.filial||currentFilial)}\n\nКамера в приложении не открылась — видео к отметке не приложено. Проверьте, что на телефоне свежая версия приложения.`;
+    if(me?.department) await notifyDeptSeniors(me.department, myLevel, msg, 'checkin');
+    await notifyAdminsAll(msg, 'checkin');
+  } catch(e) { console.error('notify no video', e); }
 }
 
 // Отметки ухода больше нет — решение владельца. Колонка check_out_time в базе

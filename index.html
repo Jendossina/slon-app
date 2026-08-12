@@ -966,6 +966,12 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <button onclick="cancelCheckinRecording()" style="position:absolute;bottom:28px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:22px;padding:11px 26px;font-size:14px;font-weight:600;cursor:pointer" data-i18n="common.cancel">Отмена</button>
 </div>
 
+<!-- Запасная съёмка системной камерой — для телефонов, где WebView снимать не
+     даёт. Поле живёт ЗДЕСЬ, а не внутри карточки смены: карточка
+     перерисовывается сразу после записи прихода, и поле вместе с ожидающим
+     файлом исчезало бы из документа прямо во время съёмки. -->
+<input type="file" accept="video/*" capture="user" id="checkin-video-file" style="display:none" onchange="onCheckInVideo(this)">
+
 <!-- Отчёт кальянной станции за день: как касса, только по кальянам -->
 <div class="modal-overlay" id="modal-hookah">
   <div class="modal">

@@ -903,3 +903,62 @@ test('кнопка отметки прихода видна сразу, без �
   expect(res.dayOffShift.length, 'в выходной видно, что он выходной').toBeGreaterThan(0);
 });
 
+// Регресс-тест на жалобу «сотрудники не могут отметить приход» (12.08.2026).
+// На сборках APK до 07.08 в манифесте не было разрешения на камеру: getUserMedia
+// падал всегда, съёмка уходила в системную камеру, Android выгружал приложение
+// из памяти — и приход не записывался НИ РАЗУ за смену, потому что раньше код
+// без видео вообще ничего не писал. Теперь приход уходит в базу до камеры.
+test('приход записывается, даже если камера не работает (регресс-тест)', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/functions/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
+  await page.route('**/rest/v1/schedules**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify([{ id: 1, employee_id: 1, shift_start: '12:00', shift_end: '23:00', filial: 'chekhov', is_day_off: false }]),
+  }));
+
+  const record = { id: 55, employee_id: 1, check_in_time: '12:03', is_late: false, late_minutes: 0, penalty: 0, checkin_video: null };
+  const posted = [];
+  await page.route('**/rest/v1/attendance**', (route) => {
+    const req = route.request();
+    if (req.method() !== 'POST') {
+      // до отметки записи нет, после — она приезжает вместе с главным экраном
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(posted.length ? [record] : []) });
+    }
+    posted.push(req.postDataJSON());
+    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(record) });
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.startCheckIn === 'function');
+
+  const res = await page.evaluate(async () => {
+    const login = document.getElementById('login-page');
+    if (login) login.style.display = 'none';
+    document.getElementById('app-page').style.display = '';
+    currentProfile = { role: 'employee', name: 'Тест', employee_id: 1 };
+    currentUser = { id: '00000000-0000-0000-0000-000000000001', email: 'x@slon.uz' };
+
+    // Телефон со старой оболочкой: снимать в приложении не даёт
+    navigator.mediaDevices.getUserMedia = () => Promise.reject(new Error('NotAllowedError'));
+    // Системная камера в тесте открыться не может — считаем, что человек её закрыл
+    let fallbackOpened = false;
+    document.getElementById('checkin-video-file').click = () => { fallbackOpened = true; };
+
+    await startCheckIn();
+    const att = document.getElementById('home-attendance-card');
+    return {
+      fallbackOpened,
+      cardText: att.textContent,
+      hasResendBtn: /startResendVideo/.test(att.innerHTML),
+      hasRecordBtn: /startCheckIn/.test(att.innerHTML),
+    };
+  });
+
+  expect(posted.length, 'приход записан, хотя камера не открылась').toBe(1);
+  expect(posted[0].employee_id).toBe(1);
+  expect(res.fallbackOpened, 'запасная камера всё же предложена').toBe(true);
+  expect(res.cardText, 'на карточке видно время прихода').toContain('12:03');
+  expect(res.hasResendBtn, 'есть кнопка «дослать видео»').toBe(true);
+  expect(res.hasRecordBtn, 'второй раз отмечаться не предлагают').toBe(false);
+});
+
