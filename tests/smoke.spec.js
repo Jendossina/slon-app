@@ -911,7 +911,7 @@ test('официант видит свою позицию и столы на г�
     const url = route.request().url();
     // свой запрос идёт с employee_id=eq.1, чужие — с neq.1
     const body = url.includes('employee_id=eq.1')
-      ? [{ position_ids: [2], employee_name: 'Тест' }]
+      ? [{ position_ids: [2], employee_name: 'Тест', split_from: '18:00:00' }]
       : [{ employee_name: 'Соснин Владислав Николаевич', position_ids: [1] },
          { employee_name: 'Атаханов Агабек Пайзуллаевич', position_ids: [3] }];
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
@@ -935,6 +935,9 @@ test('официант видит свою позицию и столы на г�
     await loadPositionCard({ shift_start: '11:00', is_day_off: false });
     const card = document.getElementById('home-position-card');
     const out = { text: card.textContent };
+    // Кто выходит последним — тот и есть «полный состав», оговорка ему не нужна
+    await loadPositionCard({ shift_start: '18:00', is_day_off: false });
+    out.lastShiftText = document.getElementById('home-position-card').textContent;
     // В выходной делить нечего — карточки быть не должно
     await loadPositionCard({ is_day_off: true });
     out.dayOff = document.getElementById('home-position-card').innerHTML;
@@ -945,6 +948,8 @@ test('официант видит свою позицию и столы на г�
   expect(res.text, 'видно свои столы').toContain('5, 6, 7, 8, 9, 10, 11');
   expect(res.text, 'видно, кто на соседней позиции').toContain('Соснин Владислав');
   expect(res.text, 'отчество в списке не показываем').not.toContain('Николаевич');
+  expect(res.text, 'предупреждаем, что до 18:00 зал общий').toContain('18:00');
+  expect(res.lastShiftText, 'вышедшему последним оговорка не нужна').not.toContain('зал общий');
   expect(res.dayOff, 'в выходной позиции нет').toBe('');
 });
 

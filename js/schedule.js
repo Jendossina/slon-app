@@ -88,6 +88,9 @@ async function loadSchedule() {
   const canEdit = canEditScheduleDept(currentDept);
   if(fabBtn) fabBtn.style.display = canEdit ? 'block' : 'none';
   if(fabWeekBtn) fabWeekBtn.style.display = canEdit ? 'block' : 'none';
+  // Позиции есть только у официантов — кнопку показываем на их вкладке
+  const fabPosBtn = document.getElementById('fab-positions-btn');
+  if(fabPosBtn) fabPosBtn.style.display = (canEdit && currentDept === 'Официанты') ? 'block' : 'none';
 
   // Department tabs
   const nav = document.getElementById('schedule-dept-nav');
@@ -524,3 +527,135 @@ async function deleteSchedule(id) {
 }
 
 
+
+// ===== ПОЗИЦИИ ОФИЦИАНТОВ В ЗАЛЕ =====
+// Раздачу считает база (waiter_positions_assign) по накопленному весу позиций.
+// Здесь — ручная правка: живой зал непредсказуем, и управляющий должен мочь
+// переставить людей. Правки помечаются source='manual' и идут в статистику
+// наравне с авторасстановкой, иначе она соврёт про то, кто где стоял.
+
+let posEditorPositions = [];   // справочник позиций филиала
+let posEditorRows = [];        // [{employee_id, employee_name, ids:[], split_from}]
+
+async function openPositionsEditor() {
+  if(!canEditScheduleDept('Официанты')) return showToast(t('sch.noRightsDept'));
+  document.getElementById('pos-filial-display').textContent = '📍 ' + getFilialName(currentFilial);
+
+  // Дни показываем те же, что и в сетке расписания — правят обычно сегодня или завтра
+  const sel = document.getElementById('pos-date');
+  const today = businessToday();
+  let html = '';
+  for(let i=0; i<7; i++) {
+    const d = new Date(scheduleWeekStart);
+    d.setDate(d.getDate()+i);
+    const ds = fmtDate(d);
+    html += `<option value="${ds}"${ds===today?' selected':''}>${fmtLocale(d,{weekday:'long',day:'numeric',month:'long'})}</option>`;
+  }
+  sel.innerHTML = html;
+  if(!sel.value) sel.value = today;
+
+  openModal('modal-positions');
+  await renderPositionsEditor();
+}
+
+async function renderPositionsEditor() {
+  const body = document.getElementById('pos-editor-body');
+  const day = document.getElementById('pos-date').value;
+  body.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
+  try {
+    const [posRes, schedRes, assignRes] = await Promise.all([
+      sb.from('waiter_positions').select('id,name,tables_list,weight,sort').eq('filial', currentFilial).eq('is_active', true).order('sort'),
+      sb.from('schedules').select('employee_id,employee_name,shift_start,is_day_off').eq('filial', currentFilial).eq('date', day),
+      sb.from('waiter_position_assignments').select('employee_id,position_ids,split_from,source').eq('filial', currentFilial).eq('date', day),
+    ]);
+    posEditorPositions = posRes.data || [];
+
+    // Официанты этого дня. Отдел берём из справочника сотрудников: в графике
+    // его нет, а фильтровать надо именно по цеху.
+    const { data: waiters } = await sb.from('employees').select('id,name').eq('department','Официанты').neq('status','Уволен');
+    const waiterIds = new Set((waiters||[]).map(w=>w.id));
+    const onShift = (schedRes.data||[]).filter(s => !s.is_day_off && waiterIds.has(s.employee_id))
+      .sort((a,b)=>String(a.shift_start||'').localeCompare(String(b.shift_start||'')));
+
+    if(onShift.length === 0) { body.innerHTML = `<div class="empty"><div class="empty-text">${t('pos.nobody')}</div></div>`; posEditorRows = []; return; }
+
+    const byEmp = {}; (assignRes.data||[]).forEach(a => { byEmp[a.employee_id] = a; });
+    const splitFrom = (assignRes.data||[]).map(a=>a.split_from).find(Boolean)
+      || onShift[onShift.length-1].shift_start || null;
+
+    posEditorRows = onShift.map(s => ({
+      employee_id: s.employee_id,
+      employee_name: s.employee_name || (waiters||[]).find(w=>w.id===s.employee_id)?.name || '',
+      shift_start: s.shift_start,
+      ids: (byEmp[s.employee_id]?.position_ids || []).slice(),
+      split_from: splitFrom,
+    }));
+
+    const manual = (assignRes.data||[]).some(a => a.source === 'manual');
+    body.innerHTML =
+      `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5">${t('pos.hint',{time:(splitFrom||'').slice(0,5)})}${manual?` · <b>${t('pos.manualMark')}</b>`:''}</div>` +
+      posEditorRows.map((r,i)=>`
+        <div style="border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px">
+          <div style="font-size:14px;font-weight:600;color:var(--text-primary)">${escapeHtml(r.employee_name)}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">🕐 ${escapeHtml(r.shift_start||'')}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${posEditorPositions.map(p=>`
+              <button type="button" id="pos-chip-${i}-${p.id}" onclick="togglePositionChip(${i},${p.id})"
+                style="${positionChipStyle(r.ids.includes(p.id))}">
+                <span>${escapeHtml(p.name)}</span>
+                <span style="font-size:10px;font-weight:400;opacity:0.75">${escapeHtml(p.tables_list)}</span>
+              </button>`).join('')}
+          </div>
+        </div>`).join('');
+  } catch(e) { body.innerHTML = `<div class="empty"><div class="empty-text">${t('common.error')+e.message}</div></div>`; }
+}
+
+function positionChipStyle(on) {
+  return `display:flex;flex-direction:column;align-items:flex-start;gap:1px;border-radius:10px;padding:7px 10px;font-size:12px;font-weight:600;cursor:pointer;text-align:left;`
+    + (on ? 'background:var(--gold);color:#1a1a1a;border:1px solid var(--gold)'
+          : 'background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border)');
+}
+
+// Позиций у официанта может быть несколько — когда их двое, слабые склеиваются.
+// Поэтому не выпадающий список, а переключатели: жмём сколько нужно.
+function togglePositionChip(rowIdx, posId) {
+  const r = posEditorRows[rowIdx];
+  if(!r) return;
+  const at = r.ids.indexOf(posId);
+  if(at >= 0) r.ids.splice(at,1); else r.ids.push(posId);
+  const btn = document.getElementById(`pos-chip-${rowIdx}-${posId}`);
+  if(btn) btn.style.cssText = positionChipStyle(r.ids.includes(posId));
+}
+
+async function savePositions() {
+  if(!canEditScheduleDept('Официанты')) return showToast(t('sch.noRightsDept'));
+  const day = document.getElementById('pos-date').value;
+  try {
+    const rows = posEditorRows.map(r => ({
+      date: day, filial: currentFilial,
+      employee_id: r.employee_id, employee_name: r.employee_name,
+      position_ids: r.ids,
+      weight: r.ids.reduce((s,id)=> s + (posEditorPositions.find(p=>p.id===id)?.weight || 0), 0),
+      split_from: r.split_from, source: 'manual',
+    }));
+    const { error } = await sb.from('waiter_position_assignments')
+      .upsert(rows, { onConflict: 'date,filial,employee_id' });
+    if(error) return showToast(t('common.error')+error.message);
+    closeModal('modal-positions');
+    showToast(t('pos.saved'));
+  } catch(e) { showToast(t('common.error')+e.message); }
+}
+
+// Пересчёт затирает ручные правки, поэтому спрашиваем. Право на него база
+// проверяет ещё раз у себя — кнопка тут не единственная защита.
+async function reassignPositions() {
+  if(!canEditScheduleDept('Официанты')) return showToast(t('sch.noRightsDept'));
+  if(!await confirmDialog(t('pos.confirmRedistribute'))) return;
+  const day = document.getElementById('pos-date').value;
+  try {
+    const { error } = await sb.rpc('waiter_positions_assign', { p_bday: day, p_filial: currentFilial, p_force: true });
+    if(error) return showToast(t('common.error')+error.message);
+    showToast(t('pos.redistributed'));
+    await renderPositionsEditor();
+  } catch(e) { showToast(t('common.error')+e.message); }
+}

@@ -186,7 +186,7 @@ async function loadPositionCard(myShift) {
     if(myShift && myShift.is_day_off) return;          // в выходной столов нет
     const day = businessToday();
     const { data: rows } = await sb.from('waiter_position_assignments')
-      .select('position_ids,employee_name').eq('date', day).eq('employee_id', currentProfile.employee_id);
+      .select('position_ids,employee_name,split_from').eq('date', day).eq('employee_id', currentProfile.employee_id);
     const mine = rows && rows[0];
     if(!mine || !mine.position_ids || !mine.position_ids.length) return;
 
@@ -206,10 +206,20 @@ async function loadPositionCard(myShift) {
       otherNames.push(`${(op||[]).map(p=>escapeHtml(p.name)).join(' + ')} — ${escapeHtml(shortName(o.employee_name))}`);
     }
 
+    // Пока вышли не все, зал общий: официант с 11:00 до прихода второго и
+    // третьего обслуживает всё. Час деления — начало последней смены дня, он
+    // посчитан при раздаче. Если человек сам выходит последним, оговорка ему не
+    // нужна — он и есть тот, с кого зал делится.
+    const splitFrom = (mine.split_from || '').slice(0,5);
+    const myStart = (myShift?.shift_start || '').slice(0,5);
+    const sharedNote = (splitFrom && myStart && splitFrom > myStart)
+      ? `<div style="font-size:13px;margin-top:8px;padding:8px 10px;background:rgba(255,255,255,0.12);border-radius:8px;line-height:1.45">${t('pos.sharedUntil',{time:splitFrom})}</div>` : '';
+
     el.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#16352b,#1f5e43);border:none;color:#fff;margin-bottom:12px">
       <div style="font-size:11px;opacity:0.75;margin-bottom:4px;text-transform:uppercase">${t('pos.myToday')}</div>
       <div style="font-size:22px;font-weight:700">${positions.map(p=>escapeHtml(p.name)).join(' + ')}</div>
       <div style="font-size:15px;margin-top:6px;line-height:1.5">${t('pos.tables')}: <b>${positions.map(p=>escapeHtml(p.tables_list)).join(' · ')}</b></div>
+      ${sharedNote}
       ${otherNames.length?`<div style="font-size:12px;opacity:0.8;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.15);line-height:1.6">${otherNames.join('<br>')}</div>`:''}
     </div>`;
   } catch(e) { console.error('position card', e); }
