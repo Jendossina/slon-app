@@ -242,12 +242,14 @@ function dashTabList() {
   if(typeof myLeadDept === 'function' && myLeadDept() === 'Кальянные мастера' && !canEditData() && !isBoss()) {
     return [hookah];
   }
+  const positions = { id:'positions', label:t('dash.tab.positions') };
   const all = [
     { id:'overview',   label:t('dash.tab.overview') },
     { id:'attendance', label:t('dash.tab.attendance') },
     { id:'tasks',      label:t('dash.tab.tasks') },
     { id:'checklists', label:t('dash.tab.checklists') },
     { id:'people',     label:t('dash.tab.people') },
+    positions,
     hookah,
   ];
   return isBoss() ? [all[0], hookah] : all;
@@ -279,6 +281,7 @@ async function loadDashboardTab() {
   if(dashTab === 'tasks')      return loadDashTasks();
   if(dashTab === 'checklists') return loadDashChecklists();
   if(dashTab === 'people')     return loadDashPeople();
+  if(dashTab === 'positions')  return loadDashPositions();
   if(dashTab === 'hookah')     return loadDashHookah();
   return loadDashOverview();
 }
@@ -719,5 +722,108 @@ async function loadDashPeople() {
            r.pts > 0 ? `<span style="color:#A32D2D">${t('dash.p.points', { n:r.pts })}</span>` : ''].filter(Boolean).join(' · '),
           formatNum(r.earned - r.penalty))).join('') + '</div>'
       + `<div style="font-size:11px;color:var(--text-muted);padding:0 4px">${t('dash.p.hint')}</div>`;
+  } catch(e) { content.innerHTML = dashEmpty(t('dash.loadErr') + (e?.message || e)); }
+}
+
+// ---- Позиции официантов: честно ли делится зал ----
+// Раздача сама не даёт одну и ту же позицию две смены подряд и выравнивает
+// накопленный вес, так что смотреть сюда каждый день не нужно. Вкладка нужна,
+// когда официант говорит «мне вечно достаётся слабая»: здесь это либо видно,
+// либо опровергается за пять секунд.
+//
+// Главная цифра — не «сколько раз стоял», а ВЕС НА СМЕНУ. Позиции неравноценны,
+// и три смены на топовой стоят больше шести на слабой; сравнивать надо это.
+async function loadDashPositions() {
+  const content = document.getElementById('dashboard-content');
+  content.innerHTML = `<div class="loading">${t('dash.collecting')}</div>`;
+  const fids = dashActiveFilials().map(f => f.id);
+  const { from, to } = dashDateRange();
+  try {
+    const [posRes, asgRes] = await Promise.all([
+      sb.from('waiter_positions').select('id,name,weight,sort').in('filial', fids).order('sort'),
+      sb.from('waiter_position_assignments').select('date,employee_id,employee_name,position_ids,weight,source')
+        .in('filial', fids).gte('date', from).lte('date', to).order('date'),
+    ]);
+    const positions = posRes.data || [];
+    const rows = asgRes.data || [];
+    if(positions.length === 0 || rows.length === 0) {
+      content.innerHTML = dashHead(t('dash.tab.positions')) + dashEmpty(t('dash.pos.noData'));
+      return;
+    }
+
+    const posById = {}; positions.forEach(p => { posById[p.id] = p; });
+
+    // Копим по человеку: сколько смен на каждой позиции, общий вес, ручные
+    // правки и повторы подряд. «Подряд» — по соседним СМЕНАМ человека, а не по
+    // календарю: между сменами могут быть выходные, и это всё равно повтор.
+    const stat = {};
+    rows.forEach(a => {
+      const s = stat[a.employee_id] = stat[a.employee_id] || {
+        name: a.employee_name || '', shifts: 0, weight: 0, manual: 0,
+        byPos: {}, repeats: 0, lastPos: null, days: [],
+      };
+      const primary = (a.position_ids || [])[0] || null;
+      s.shifts++;
+      s.weight += Number(a.weight) || 0;
+      if(a.source === 'manual') s.manual++;
+      (a.position_ids || []).forEach(id => { s.byPos[id] = (s.byPos[id] || 0) + 1; });
+      if(primary && s.lastPos && primary === s.lastPos) s.repeats++;
+      s.lastPos = primary;
+      s.days.push({ date: a.date, ids: a.position_ids || [] });
+    });
+
+    const list = Object.values(stat).sort((a, b) => (b.weight / b.shifts) - (a.weight / a.shifts));
+    const totalShifts = list.reduce((s, r) => s + r.shifts, 0);
+    const totalWeight = list.reduce((s, r) => s + r.weight, 0);
+    const repeats = list.reduce((s, r) => s + r.repeats, 0);
+    const avg = totalShifts ? totalWeight / totalShifts : 0;
+    // Перекос: насколько разошлись лучший и худший по весу на смену. Пока
+    // раздача честная, это около нуля; полбалла — уже заметная разница.
+    const spread = list.length > 1
+      ? (list[0].weight / list[0].shifts) - (list[list.length-1].weight / list[list.length-1].shifts) : 0;
+
+    const fmt1 = x => (Math.round(x * 10) / 10).toFixed(1).replace('.', ',');
+
+    // Матрица: строки — официанты, столбцы — позиции. Уезжает вбок на телефоне,
+    // поэтому в своей прокрутке, а не растягивает экран.
+    const matrix = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="border-collapse:collapse;width:100%;font-size:13px">
+        <thead><tr>
+          <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:600;font-size:11px">${t('dash.pos.waiter')}</th>
+          ${positions.map(p => `<th style="padding:6px 8px;color:var(--text-muted);font-weight:600;font-size:11px;white-space:nowrap">${escapeHtml(p.name)}<br><span style="font-weight:400">${t('dash.pos.weightShort',{n:p.weight})}</span></th>`).join('')}
+          <th style="padding:6px 8px;color:var(--text-muted);font-weight:600;font-size:11px">${t('dash.pos.perShift')}</th>
+        </tr></thead>
+        <tbody>${list.map(r => {
+          const per = r.weight / r.shifts;
+          const tone = Math.abs(per - avg) < 0.35 ? 'var(--ok)' : Math.abs(per - avg) < 0.75 ? 'var(--warn)' : 'var(--bad)';
+          return `<tr style="border-top:1px solid var(--border)">
+            <td style="padding:7px 8px;white-space:nowrap">${escapeHtml(dashShortName(r.name))}</td>
+            ${positions.map(p => `<td style="padding:7px 8px;text-align:center;color:${r.byPos[p.id]?'var(--text-primary)':'var(--text-muted)'}">${r.byPos[p.id] || '—'}</td>`).join('')}
+            <td style="padding:7px 8px;text-align:center;font-weight:700;color:${tone}">${fmt1(per)}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>`;
+
+    // Повторы подряд бывают по двум причинам: расставили руками или у алгоритма
+    // не было выбора (двое в смене — вариантов мало). И то и другое стоит видеть.
+    const repeatRows = list.filter(r => r.repeats > 0)
+      .map(r => dashRow(r.name, t('dash.pos.repeatSub', { n: r.repeats }), String(r.repeats), 'var(--bad)')).join('');
+
+    const manualRows = list.filter(r => r.manual > 0)
+      .map(r => dashRow(r.name, t('dash.pos.manualSub', { n: r.manual, all: r.shifts }), `${r.manual}/${r.shifts}`)).join('');
+
+    content.innerHTML = dashHead(t('dash.tab.positions'))
+      + dashKpis([
+          { val: String(totalShifts), label: t('dash.pos.shifts') },
+          { val: fmt1(avg), label: t('dash.pos.avgWeight') },
+          { val: fmt1(spread), label: t('dash.pos.spread'),
+            color: spread < 0.35 ? 'var(--ok)' : spread < 0.75 ? 'var(--warn)' : 'var(--bad)' },
+          { val: String(repeats), label: t('dash.pos.repeats'),
+            color: repeats === 0 ? 'var(--ok)' : 'var(--bad)' },
+        ])
+      + dashSection(t('dash.pos.matrixTitle'), matrix, { hint: t('dash.pos.matrixHint') })
+      + dashSection(t('dash.pos.repeatsTitle'), repeatRows, { count: repeatRows ? undefined : 0, color: 'var(--bad)', hint: t('dash.pos.repeatsHint') })
+      + dashSection(t('dash.pos.manualTitle'), manualRows, { hint: t('dash.pos.manualHint') })
+      + `<div style="font-size:11px;color:var(--text-muted);padding:0 4px">${t('dash.pos.footHint')}</div>`;
   } catch(e) { content.innerHTML = dashEmpty(t('dash.loadErr') + (e?.message || e)); }
 }

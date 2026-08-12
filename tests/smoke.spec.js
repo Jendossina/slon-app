@@ -953,6 +953,47 @@ test('официант видит свою позицию и столы на г�
   expect(res.dayOff, 'в выходной позиции нет').toBe('');
 });
 
+// Вкладка «Позиции в зале» нужна, когда официант говорит «мне вечно достаётся
+// слабая». Главная цифра — вес на смену, а не количество смен: позиции
+// неравноценны. Плюс отдельно видно повторы подряд и ручные правки.
+test('дашборд показывает перекос по позициям и повторы подряд', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/waiter_positions**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify([{ id: 1, name: 'Позиция 1', weight: 2, sort: 1 },
+                          { id: 2, name: 'Позиция 2', weight: 3, sort: 2 },
+                          { id: 3, name: 'Позиция 3', weight: 1, sort: 3 }]),
+  }));
+  await page.route('**/rest/v1/waiter_position_assignments**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify([
+      // Счастливчик: две смены подряд на топовой — и перекос, и повтор
+      { date: '2026-08-10', employee_id: 1, employee_name: 'Счастливчик Тест', position_ids: [2], weight: 3, source: 'auto' },
+      { date: '2026-08-11', employee_id: 1, employee_name: 'Счастливчик Тест', position_ids: [2], weight: 3, source: 'manual' },
+      // Обделённый: две смены на слабой
+      { date: '2026-08-10', employee_id: 2, employee_name: 'Обделённый Тест', position_ids: [3], weight: 1, source: 'auto' },
+      { date: '2026-08-11', employee_id: 2, employee_name: 'Обделённый Тест', position_ids: [1], weight: 2, source: 'auto' },
+    ]),
+  }));
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.loadDashPositions === 'function');
+
+  const res = await page.evaluate(async () => {
+    document.getElementById('app-page').style.display = '';
+    currentProfile = { role: 'admin', name: 'Тест' };
+    await loadDashPositions();
+    return document.getElementById('dashboard-content').textContent;
+  });
+
+  expect(res, 'видно обоих официантов').toContain('Счастливчик');
+  expect(res, 'вес на смену у счастливчика 3,0').toContain('3,0');
+  expect(res, 'вес на смену у обделённого 1,5').toContain('1,5');
+  expect(res, 'перекос посчитан: 3,0 − 1,5').toContain('1,5');
+  expect(res, 'повтор подряд найден').toContain('Одна позиция две смены подряд');
+  expect(res, 'ручная правка отмечена').toContain('Расставлено вручную');
+});
+
 // Регресс-тест на жалобу «сотрудники не могут отметить приход» (12.08.2026).
 // На сборках APK до 07.08 в манифесте не было разрешения на камеру: getUserMedia
 // падал всегда, съёмка уходила в системную камеру, Android выгружал приложение
