@@ -12,8 +12,7 @@ async function initTeamChat() {
   let myDept = null;
 
   if(role !== 'admin' && currentProfile?.employee_id) {
-    const { data: emp } = await sb.from('employees').select('department').eq('id', currentProfile.employee_id).single();
-    myDept = emp?.department;
+    myDept = await myDepartment();
     // Подставляем канал отдела только один раз при первом открытии чата за сессию,
     // иначе повторный вызов initTeamChat (например, из switchChatChannel) откатывает
     // ручной выбор пользователя обратно на канал его отдела.
@@ -211,10 +210,7 @@ async function checkUnreadMessages() {
 
     const role = currentProfile?.role;
     let myDept = null;
-    if(role !== 'admin' && currentProfile?.employee_id) {
-      const { data: emp } = await sb.from('employees').select('department').eq('id', currentProfile.employee_id).single();
-      myDept = emp?.department;
-    }
+    if(role !== 'admin' && currentProfile?.employee_id) myDept = await myDepartment();
 
     let query = sb.from('team_chat').select('id,created_at,channel').gt('created_at', since).neq('user_id', currentUser.id);
     if(role !== 'admin') {
@@ -240,4 +236,21 @@ function markMessagesSeen() {
   if(menuDot) menuDot.style.display = 'none';
 }
 
-setInterval(checkUnreadMessages, 15000);
+// Точку непрочитанных опрашиваем раз в 15 секунд, но только пока приложение на
+// экране. Свёрнутое опрашивать незачем: увидеть точку всё равно некому, а на
+// телефоне сотрудника этот таймер жил всю смену и жёг батарею впустую.
+// Возвращаясь на экран, проверяем сразу — иначе точка ждала бы следующего тика.
+let unreadPollInterval = null;
+function startUnreadPolling() {
+  if(unreadPollInterval) return;
+  unreadPollInterval = setInterval(checkUnreadMessages, 15000);
+}
+function stopUnreadPolling() {
+  if(unreadPollInterval) { clearInterval(unreadPollInterval); unreadPollInterval = null; }
+}
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden) { stopUnreadPolling(); return; }
+  checkUnreadMessages();
+  startUnreadPolling();
+});
+if(!document.hidden) startUnreadPolling();

@@ -142,6 +142,17 @@ function canSeeSalaryOf(dept) { return canSeeSalaryRole() || canLeadDept(dept); 
 // по должности. Заполняется при входе, чтобы не ходить в базу на каждый клик.
 let currentEmployee = null;
 
+// Цех текущего пользователя. Берём из уже загруженной карточки: цех за смену не
+// меняется, а запрашивать его отдельно — лишний запрос на каждый вызов. В базу
+// идём, только если карточка не доехала при входе, и результат запоминаем.
+async function myDepartment() {
+  if(currentEmployee?.department) return currentEmployee.department;
+  if(!currentProfile?.employee_id) return null;
+  const { data } = await sb.from('employees').select('id,name,role,department,salary').eq('id', currentProfile.employee_id).single();
+  if(data) currentEmployee = data;
+  return data?.department || null;
+}
+
 // Может ли текущий пользователь править график этого отдела
 function canEditScheduleDept(dept) { return canLeadDept(dept); }
 

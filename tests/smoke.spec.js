@@ -1053,3 +1053,44 @@ test('приход записывается, даже если камера не
   expect(res.hasRecordBtn, 'второй раз отмечаться не предлагают').toBe(false);
 });
 
+// Точка непрочитанных сообщений опрашивала чат раз в 15 секунд и на каждый тик
+// заново спрашивала у базы цех сотрудника — тот самый, что уже лежит в
+// currentEmployee с момента входа. В логах это видно как ровный ряд запросов
+// employees?select=department каждые 15 секунд с телефона сотрудника; за смену
+// набегали тысячи. Цех берём из карточки, а свёрнутое приложение не опрашиваем.
+test('опрос непрочитанных не ходит за цехом и молчит в фоне', async ({ page }) => {
+  const deptCalls = [];
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/employees**', (route) => {
+    deptCalls.push(route.request().url());
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.checkUnreadMessages === 'function');
+
+  const res = await page.evaluate(async () => {
+    currentUser = { id: '00000000-0000-0000-0000-000000000001', email: 'x@slon.uz' };
+    currentProfile = { role: 'employee', name: 'Тест', employee_id: 72 };
+    currentEmployee = { id: 72, name: 'Тест', role: 'Бармен', department: 'Бармены', salary: null };
+
+    await checkUnreadMessages();
+    const pollingWhileVisible = unreadPollInterval !== null;
+
+    // Сворачиваем приложение
+    Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    const pollingWhileHidden = unreadPollInterval !== null;
+
+    // и возвращаемся обратно
+    Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    return { pollingWhileVisible, pollingWhileHidden, pollingAfterReturn: unreadPollInterval !== null };
+  });
+
+  expect(deptCalls, 'цех берётся из карточки, а не из базы').toEqual([]);
+  expect(res.pollingWhileVisible, 'на экране опрос идёт').toBe(true);
+  expect(res.pollingWhileHidden, 'в фоне опрос остановлен').toBe(false);
+  expect(res.pollingAfterReturn, 'при возврате опрос возобновляется').toBe(true);
+});
+
