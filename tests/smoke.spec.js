@@ -1194,10 +1194,15 @@ test('фото чек-листа отправляются разом, а не п
   const uploaded = [];
 
   await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
-  await page.route('**/rest/v1/checklist_logs**', (route) => route.fulfill({
-    status: 200, contentType: 'application/json',
-    body: JSON.stringify({ id: 5, items_done: [], items_by: {}, items_media: {} }),
-  }));
+  let savedLog = null;
+  await page.route('**/rest/v1/checklist_logs**', (route) => {
+    const req = route.request();
+    if (req.method() === 'PATCH' || req.method() === 'POST') savedLog = req.postDataJSON();
+    return route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ id: 5, items_done: [], items_by: {}, media: [] }),
+    });
+  });
   await page.route('**/storage/v1/object/**', async (route) => {
     if (route.request().method() !== 'POST') return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     uploaded.push(route.request().url());
@@ -1210,7 +1215,7 @@ test('фото чек-листа отправляются разом, а не п
   await page.goto('/');
   await page.waitForFunction(() => typeof window.uploadChecklistMedia === 'function');
 
-  const elapsed = await page.evaluate(async () => {
+  await page.evaluate(async () => {
     currentUser = { id: '00000000-0000-0000-0000-000000000001', email: 'x@slon.uz' };
     currentProfile = { role: 'employee', name: 'Тест', employee_id: 1 };
 
@@ -1223,19 +1228,58 @@ test('фото чек-листа отправляются разом, а не п
       return new File([blob], name, { type: 'image/jpeg' });
     };
 
-    document.getElementById('cl-media-item-id').value = '3';
     document.getElementById('cl-media-template-id').value = '7';
     clMediaFiles = [await mkFile('a.jpg'), await mkFile('b.jpg'), await mkFile('c.jpg')];
 
-    const t0 = performance.now();
     await uploadChecklistMedia();
-    return performance.now() - t0;
   });
 
   expect(uploaded.length, 'ушли все три файла').toBe(3);
+  // Пик одновременных отправок — точная проверка, в отличие от секундомера:
+  // 1 означал бы прежнюю очередь, 3 — что все три ждут сеть одновременно
   expect(peak, 'файлы отправляются одновременно, а не по одному').toBe(3);
-  // По очереди было бы от 750 мс только на ожидании сети, плюс сжатие
-  expect(elapsed, 'три файла укладываются в одно ожидание, а не в три').toBeLessThan(700);
+  // Фото принадлежат чек-листу целиком, а не отдельному пункту
+  expect(savedLog.media.length, 'все три записаны к чек-листу').toBe(3);
+  expect(savedLog.items_media, 'к пунктам ничего не пишется').toBeUndefined();
+});
+
+// Фото перенесены из-под каждого пункта в один блок в конце: снимают не пункт,
+// а зал, и один кадр закрывает несколько строк. Старые фото по пунктам при
+// этом обязаны остаться открываемыми — по ним разбирают спорные смены.
+test('фото у чек-листа общие, но старые по пунктам открываются', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.checklistMediaBlock === 'function');
+
+  const r = await page.evaluate(() => {
+    const out = {};
+    // Пустой чек-лист: блок есть, зовёт добавить
+    currentChecklistLog = { id: 1, items_done: [], items_by: {}, items_media: {}, media: [] };
+    out.emptyBlock = checklistMediaBlock(7);
+
+    // Есть общие фото — рисуются миниатюрами
+    currentChecklistLog = { id: 1, media: [
+      { url: 'https://x/1.jpg', type: 'image' },
+      { url: 'https://x/2.jpg', type: 'image' },
+    ] };
+    out.filledBlock = checklistMediaBlock(7);
+
+    // Старый формат: одиночный объект вместо массива тоже должен читаться
+    out.legacySingle = clMediaList({ url: 'https://x/old.jpg', type: 'image' }).length;
+    out.legacyEmpty = clMediaList(undefined).length;
+    return out;
+  });
+
+  expect(r.emptyBlock, 'у пустого блока есть кнопка добавления').toContain('openChecklistMediaModal(7)');
+  expect(r.emptyBlock, 'миниатюр нет').not.toContain('<img');
+  expect(r.filledBlock, 'оба фото показаны миниатюрами').toContain('https://x/2.jpg');
+  expect(r.filledBlock, 'миниатюра открывает просмотр').toContain('viewChecklistMedia(0)');
+  expect(r.legacySingle, 'одиночный старый объект читается как список').toBe(1);
+  expect(r.legacyEmpty, 'пусто остаётся пустым').toBe(0);
+
+  // Кнопок «прикрепить» под пунктами больше нет ни в одном языке
+  const html = await page.content();
+  expect(html, 'поле пункта удалено из разметки').not.toContain('cl-media-item-id');
 });
 
 // В чате та же болезнь, что была в чек-листах, но лечится иначе: сюда

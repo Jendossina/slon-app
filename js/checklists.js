@@ -135,14 +135,13 @@ async function loadChecklist(type) {
       html += `<div class="section-label">${section}</div><div class="card" style="padding:10px 14px">`;
       sItems.forEach(item => {
         const isDone = donItems.includes(item.id);
+        // Прикреплять к пункту больше нельзя — фото идут одним блоком в конце.
+        // Но у старых смен фото лежат по пунктам, и открыть их надо: по ним
+        // разбирают спорные случаи через неделю после смены.
         const mediaArr = clMediaList(itemsMedia[item.id]);
-        let mediaSection = '';
-        if(mediaArr.length) {
-          mediaSection = `<button class="report-btn done-report" onclick="event.stopPropagation();viewChecklistItemMedia(${item.id})">📸 ${t('cl.watch',{n:mediaArr.length})}</button>`
-            + `<button class="report-btn" onclick="event.stopPropagation();openChecklistMediaModal(${item.id},${template.id})">➕ ${t('cl.morePhoto')}</button>`;
-        } else {
-          mediaSection = `<button class="report-btn" onclick="event.stopPropagation();openChecklistMediaModal(${item.id},${template.id})">📎 ${t('cl.attachPhoto')}</button>`;
-        }
+        const mediaSection = mediaArr.length
+          ? `<button class="report-btn done-report" onclick="event.stopPropagation();viewChecklistItemMedia(${item.id})">📸 ${t('cl.watch',{n:mediaArr.length})}</button>`
+          : '';
         const byName = itemsBy[item.id];
         html += `<div class="task-row" id="cl-row-${item.id}" onclick="toggleChecklistItem(${item.id}, ${template.id}, '${todayStr}')">
           <div class="check ${isDone?'done':''}"></div>
@@ -155,6 +154,8 @@ async function loadChecklist(type) {
       });
       html += '</div>';
     });
+
+    html += checklistMediaBlock(template.id);
 
     content.innerHTML = html;
     subscribeChecklistRealtime(template.id, todayStr); // мгновенная синхронизация (realtime)
@@ -257,17 +258,64 @@ function clMediaList(m) {
   return Array.isArray(m) ? m : [m];
 }
 
-function openChecklistMediaModal(itemId, templateId) {
-  document.getElementById('cl-media-item-id').value = itemId;
+// Блок фото в конце списка. Фотографируют не пункт, а зал: один снимок
+// закрывает сразу несколько строк, поэтому и место у фото одно — общее.
+function checklistMediaBlock(templateId) {
+  const arr = clMediaList(currentChecklistLog?.media);
+  const thumbs = arr.map((m, i) => m.type === 'video'
+    ? `<video src="${escapeHtml(m.url)}" preload="metadata" onclick="viewChecklistMedia(${i})" style="width:74px;height:74px;border-radius:10px;object-fit:cover;cursor:pointer;background:#000"></video>`
+    : `<img src="${escapeHtml(m.url)}" loading="lazy" decoding="async" onclick="viewChecklistMedia(${i})" style="width:74px;height:74px;border-radius:10px;object-fit:cover;cursor:pointer">`
+  ).join('');
+
+  return `<div class="section-label">${t('cl.photoSection')}</div>
+    <div class="card">
+      ${arr.length
+        ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">${thumbs}</div>`
+        : `<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">${t('cl.photoEmpty')}</div>`}
+      <button onclick="openChecklistMediaModal(${templateId})" style="width:100%;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer">
+        ${arr.length ? '➕ ' + t('cl.photoAddMore') : '📷 ' + t('cl.photoAdd')}
+      </button>
+    </div>`;
+}
+
+function openChecklistMediaModal(templateId) {
   document.getElementById('cl-media-template-id').value = templateId;
   document.getElementById('cl-media-preview').innerHTML = '';
   document.getElementById('cl-media-file').value = '';
+  document.getElementById('cl-media-camera').value = '';
   clMediaFiles = [];
   openModal('modal-checklist-media');
 }
 
+// Просмотр общих фото чек-листа, начиная с выбранного
+function viewChecklistMedia(startIndex) {
+  const arr = clMediaList(currentChecklistLog?.media);
+  if(!arr.length) return;
+  const ordered = arr.slice(startIndex).concat(arr.slice(0, startIndex));
+  const content = document.getElementById('view-report-content');
+  content.innerHTML = `<div style="display:flex;flex-direction:column;gap:12px">` + ordered.map(m =>
+    m.type === 'video'
+      ? `<video src="${escapeHtml(m.url)}" controls preload="none" style="width:100%;border-radius:12px"></video>`
+      : `<img src="${escapeHtml(m.url)}" loading="lazy" decoding="async" style="width:100%;border-radius:12px" onclick="viewReport('${escJsAttr(m.url)}','image')">`
+  ).join('') + `</div>`;
+  openModal('modal-view-report');
+}
+
+// Выбор из галереи и съёмка — два разных поля, и добавляют они к одному списку:
+// «выбрал три из галереи, потом доснял четвёртое» не должно стирать первые три.
+// Поле обнуляем сразу, иначе повторный выбор того же файла не вызовет onchange.
 function previewChecklistMedia(input) {
-  clMediaFiles = Array.from(input.files || []);
+  clMediaFiles = clMediaFiles.concat(Array.from(input.files || []));
+  input.value = '';
+  renderChecklistMediaPreview();
+}
+
+function clearChecklistMedia() {
+  clMediaFiles = [];
+  renderChecklistMediaPreview();
+}
+
+function renderChecklistMediaPreview() {
   const preview = document.getElementById('cl-media-preview');
   if(!clMediaFiles.length) { preview.innerHTML = ''; return; }
   preview.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px">` + clMediaFiles.map(f => {
@@ -276,7 +324,10 @@ function previewChecklistMedia(input) {
       ? `<video src="${url}" style="width:90px;height:90px;border-radius:10px;object-fit:cover"></video>`
       : `<img src="${url}" style="width:90px;height:90px;border-radius:10px;object-fit:cover">`;
   }).join('') + `</div>`
-    + (clMediaFiles.length>1 ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px">Выбрано файлов: ${clMediaFiles.length}</div>` : '');
+    + `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-muted);margin-top:8px">
+         <span>${t('cl.photoChosen',{n:clMediaFiles.length})}</span>
+         <button onclick="clearChecklistMedia()" style="background:none;border:none;color:var(--gold-dark);font-size:12px;font-weight:600;cursor:pointer;padding:2px 4px">${t('cl.photoClear')}</button>
+       </div>`;
 }
 
 // Просмотр всех фото/видео, прикреплённых к пункту
@@ -292,7 +343,6 @@ function viewChecklistItemMedia(itemId) {
 }
 
 async function uploadChecklistMedia() {
-  const itemId = document.getElementById('cl-media-item-id').value;
   const templateId = document.getElementById('cl-media-template-id').value;
   if(!clMediaFiles.length) return showToast(t('cl.selectFile'));
 
@@ -319,7 +369,7 @@ async function uploadChecklistMedia() {
       // чтобы разглядеть, вымыт ли стол, а весит он вдвое меньше прежнего 1280.
       const fileToUpload = isVideo ? file : await compressImage(file, 1024, 0.62);
       const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : (file.name.split('.').pop() || 'bin'));
-      prepared.push({ file: fileToUpload, isVideo, path: `checklist-${templateId}-${itemId}-${Date.now()}-${i}.${ext}` });
+      prepared.push({ file: fileToUpload, isVideo, path: `checklist-${templateId}-${Date.now()}-${i}.${ext}` });
     }
 
     setBar(total > 1 ? t('cl.uploadingN', { n: total }) : t('common.uploadingFile'));
@@ -342,17 +392,16 @@ async function uploadChecklistMedia() {
     // строки и перезагрузка экрана, а отметки ждут своей очереди ещё полсекунды.
     await flushChecklistSave();
 
-    // Дописываем к уже прикреплённым (не затираем старые фото)
-    let itemsMedia = currentChecklistLog?.items_media || {};
-    itemsMedia[itemId] = clMediaList(itemsMedia[itemId]).concat(uploaded);
+    // Дописываем к уже прикреплённым (не затираем то, что сняли до нас)
+    const media = clMediaList(currentChecklistLog?.media).concat(uploaded);
 
     // Проверять надо именно id: при свежем чек-листе объект уже создан галочками,
     // но записи в базе ещё нет, и update уходил в никуда с id = undefined.
     if(currentChecklistLog?.id) {
       const { error: upErr } = await sb.from('checklist_logs')
-        .update({ items_media: itemsMedia }).eq('id', currentChecklistLog.id);
+        .update({ media }).eq('id', currentChecklistLog.id);
       if(upErr) throw upErr;
-      currentChecklistLog.items_media = itemsMedia;
+      currentChecklistLog.media = media;
     } else {
       const dateStr = businessToday();
       // Отметки берём локальные — раньше сюда уходил пустой список и стирал их
@@ -361,19 +410,20 @@ async function uploadChecklistMedia() {
       const { data: newLog, error: insErr } = await sb.from('checklist_logs').insert({
         template_id: templateId, date: dateStr, user_id: currentUser.id,
         user_name: currentProfile?.name || currentUser?.email,
-        items_done: localDone, items_by: localBy, items_media: itemsMedia, filial: currentFilial
+        items_done: localDone, items_by: localBy, media, filial: currentFilial
       }).select().single();
       if(insErr) {
         if(insErr.code !== '23505') throw insErr;
-        // строку уже создал коллега — дописываем фото в неё, не теряя её галочки
+        // строку уже создал коллега — дописываем фото в неё, не теряя ни его
+        // галочек, ни его снимков: списки склеиваем, а не заменяем
         const { data: ex } = await sb.from('checklist_logs').select('*')
           .eq('template_id', templateId).eq('date', dateStr).eq('filial', currentFilial).limit(1).single();
         if(!ex) throw insErr;
-        const mergedMedia = Object.assign({}, ex.items_media || {}, itemsMedia);
+        const mergedMedia = clMediaList(ex.media).concat(uploaded);
         const { error: e2 } = await sb.from('checklist_logs')
-          .update({ items_media: mergedMedia }).eq('id', ex.id);
+          .update({ media: mergedMedia }).eq('id', ex.id);
         if(e2) throw e2;
-        currentChecklistLog = Object.assign({}, ex, { items_media: mergedMedia });
+        currentChecklistLog = Object.assign({}, ex, { media: mergedMedia });
       } else if(newLog) {
         currentChecklistLog = newLog;
       }
