@@ -37,7 +37,7 @@ async function loadHR() {
     if(!emps||emps.length===0) { list.innerHTML=toggleBtn+`<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">${q?t('hr.nobodyFound'):t('hr.noEmpFilial')}</div></div>`; return; }
 
     // Группировка по отделам
-    const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара','Техперсонал'];
+    const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара'];
     const groups = {};
     emps.forEach(e=>{ const d = e.department || 'Без отдела'; (groups[d]=groups[d]||[]).push(e); });
     const orderedDepts = [...DEPT_ORDER.filter(d=>groups[d]), ...Object.keys(groups).filter(d=>!DEPT_ORDER.includes(d))];

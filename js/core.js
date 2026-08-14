@@ -157,7 +157,7 @@ async function myDepartment() {
 function canEditScheduleDept(dept) { return canLeadDept(dept); }
 
 // Единый вид секции цеха для списков сотрудников (HR и админ-панель)
-const DEPT_ICONS = { 'Менеджеры':'📋', 'Официанты':'🍽️', 'Бармены':'🍹', 'Кальянные мастера':'💨', 'Повара':'👨‍🍳', 'Техперсонал':'🔧', 'Без отдела':'👥' };
+const DEPT_ICONS = { 'Менеджеры':'📋', 'Официанты':'🍽️', 'Бармены':'🍹', 'Кальянные мастера':'💨', 'Повара':'👨‍🍳', 'Без отдела':'👥' };
 function deptSection(dept, count, innerHtml) {
   return `<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,0.05)">
     <div style="display:flex;align-items:center;gap:8px;padding:11px 14px;background:linear-gradient(135deg,var(--surface-2),var(--surface));border-bottom:1px solid var(--border)">
@@ -187,7 +187,7 @@ async function taskCountByName() {
 // countByName — необязательный счётчик (бейдж справа от имени).
 function empDeptPickerHTML(emps, selectedName, onPickFn, countByName) {
   countByName = countByName || {};
-  const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара','Техперсонал'];
+  const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара'];
   const groups = {};
   (emps||[]).forEach(e => { const d = e.department || 'Без отдела'; (groups[d]=groups[d]||[]).push(e); });
   const ordered = [...DEPT_ORDER.filter(d=>groups[d]), ...Object.keys(groups).filter(d=>!DEPT_ORDER.includes(d))];

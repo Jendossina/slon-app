@@ -246,7 +246,7 @@ async function loadTaskEmployees() {
   if(!emps || emps.length===0) { list.innerHTML=`<div style="padding:10px;color:var(--text-muted);font-size:13px">${t('tasks.noEmpFilial',{f:getFilialName(currentFilial)})}</div>`; return; }
 
   // Группируем по подразделениям (имена внутри — по алфавиту, emps уже отсортированы)
-  const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара','Техперсонал'];
+  const DEPT_ORDER = ['Менеджеры','Официанты','Бармены','Кальянные мастера','Повара'];
   const groups = {};
   emps.forEach(e=>{ const d = e.department || 'Без отдела'; (groups[d]=groups[d]||[]).push(e); });
   const ordered = [...DEPT_ORDER.filter(d=>groups[d]), ...Object.keys(groups).filter(d=>!DEPT_ORDER.includes(d))];
