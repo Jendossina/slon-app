@@ -628,6 +628,7 @@ const I18N = {
     'cl.completed': '✅ Чек-лист выполнен!', 'cl.watch': 'Смотреть ({n})', 'cl.morePhoto': 'Ещё фото', 'cl.attachPhoto': 'Прикрепить фото',
     'cl.observerMarks': 'Режим наблюдателя — отметки недоступны', 'cl.selectFile': 'Выберите файл',
     'cl.photoAttached': '✅ Фото прикреплено', 'cl.photosAttached': '✅ Прикреплено фото: {n}', 'cl.saveErr': 'Ошибка сохранения: ',
+    'cl.preparing': '📷 Готовлю фото {i} из {n}...', 'cl.uploadingN': '⏳ Отправляю файлов: {n}...',
     'cl.mediaTitle': '📎 Фото/видео к пункту', 'cl.mediaHint': 'Нажми чтобы прикрепить фото или видео', 'cl.mediaHintSub': 'можно выбрать несколько', 'cl.attachBtn': 'Прикрепить',
     // Общее
     'common.loading': 'Загрузка...', 'common.logout': 'Выйти', 'common.sum': 'сум', 'common.error': 'Ошибка: ', 'common.close': 'Закрыть', 'common.cancel': 'Отмена',
@@ -1189,6 +1190,7 @@ const I18N = {
     'cl.completed': '✅ Назорат рўйхати бажарилди!', 'cl.watch': 'Кўриш ({n})', 'cl.morePhoto': 'Яна фото', 'cl.attachPhoto': 'Фото бириктириш',
     'cl.observerMarks': 'Кузатувчи режими — белгилаш мумкин эмас', 'cl.selectFile': 'Файл танланг',
     'cl.photoAttached': '✅ Фото бириктирилди', 'cl.photosAttached': '✅ Бириктирилган фото: {n}', 'cl.saveErr': 'Сақлашда хато: ',
+    'cl.preparing': '📷 {n} тадан {i} - фото тайёрланмоқда...', 'cl.uploadingN': '⏳ Юборилмоқда: {n} та файл...',
     'cl.mediaTitle': '📎 Бандга фото/видео', 'cl.mediaHint': 'Фото ёки видео бириктириш учун босинг', 'cl.mediaHintSub': 'бир нечтасини танлаш мумкин', 'cl.attachBtn': 'Бириктириш',
     // Общее
     'common.loading': 'Юкланмоқда...', 'common.logout': 'Чиқиш', 'common.sum': 'сўм', 'common.error': 'Хато: ', 'common.close': 'Ёпиш', 'common.cancel': 'Бекор қилиш',

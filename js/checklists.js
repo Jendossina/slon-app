@@ -297,21 +297,46 @@ async function uploadChecklistMedia() {
   if(!clMediaFiles.length) return showToast(t('cl.selectFile'));
 
   const bar = document.getElementById('cl-media-uploading-bar');
+  const total = clMediaFiles.length;
+  const setBar = (msg) => { bar.textContent = msg; };
+  const hideBar = () => { bar.style.display = 'none'; setBar(t('common.uploadingFile')); };
   bar.style.display = 'block';
 
   try {
-    const uploaded = [];
+    // Сжимаем по очереди, отправляем разом.
+    //
+    // По очереди — потому что декодирование двенадцатимегапиксельного снимка
+    // держит в памяти под полсотни мегабайт, и три штуки сразу кладут слабый
+    // телефон. Разом — потому что узкое место здесь не процессор, а мобильный
+    // интернет: три файла, отправленные по очереди, ждут три раза подряд.
+    // Именно это и выглядело как «фото грузятся вечно».
+    const prepared = [];
     for(let i=0; i<clMediaFiles.length; i++) {
       const file = clMediaFiles[i];
       const isVideo = file.type.startsWith('video');
-      const fileToUpload = await compressImage(file);
-      const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : file.name.split('.').pop());
-      const path = `checklist-${templateId}-${itemId}-${Date.now()}-${i}.${ext}`;
-      const { error: upErr } = await sb.storage.from('task-reports').upload(path, fileToUpload);
-      if(upErr) { showToast(t('common.uploadErr')+upErr.message); bar.style.display='none'; return; }
-      const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
-      uploaded.push({ url: urlData.publicUrl, type: isVideo?'video':'image' });
+      setBar(t('cl.preparing', { i: i+1, n: total }));
+      // Снимок в чек-листе — доказательство, а не витрина: 1024 px хватает,
+      // чтобы разглядеть, вымыт ли стол, а весит он вдвое меньше прежнего 1280.
+      const fileToUpload = isVideo ? file : await compressImage(file, 1024, 0.62);
+      const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : (file.name.split('.').pop() || 'bin'));
+      prepared.push({ file: fileToUpload, isVideo, path: `checklist-${templateId}-${itemId}-${Date.now()}-${i}.${ext}` });
     }
+
+    setBar(total > 1 ? t('cl.uploadingN', { n: total }) : t('common.uploadingFile'));
+    const results = await Promise.all(prepared.map(async p => {
+      // cacheControl — чтобы просмотр уже загруженного фото не тянул его заново:
+      // файл под этим именем никогда не меняется.
+      const { error } = await sb.storage.from('task-reports')
+        .upload(p.path, p.file, { contentType: p.file.type || undefined, cacheControl: '31536000' });
+      return Object.assign({}, p, { error });
+    }));
+    const failed = results.find(r => r.error);
+    if(failed) { showToast(t('common.uploadErr') + failed.error.message); hideBar(); return; }
+
+    const uploaded = results.map(r => ({
+      url: sb.storage.from('task-reports').getPublicUrl(r.path).data.publicUrl,
+      type: r.isVideo ? 'video' : 'image',
+    }));
 
     // Сначала дописываем отложенные галочки. Иначе они терялись: ниже идёт запись
     // строки и перезагрузка экрана, а отметки ждут своей очереди ещё полсекунды.
@@ -355,11 +380,11 @@ async function uploadChecklistMedia() {
       clBaseline = (currentChecklistLog?.items_done || []).slice();
     }
 
-    bar.style.display = 'none';
+    hideBar();
     closeModal('modal-checklist-media');
     showToast(uploaded.length>1 ? t('cl.photosAttached',{n:uploaded.length}) : t('cl.photoAttached'));
     loadChecklist(currentChecklistType);
-  } catch(e) { bar.style.display='none'; showToast(t('common.error')+e.message); }
+  } catch(e) { hideBar(); showToast(t('common.error')+e.message); }
 }
 
 // Клик по пункту: мгновенно обновляем интерфейс, а запись в базу — в фоне (с задержкой),

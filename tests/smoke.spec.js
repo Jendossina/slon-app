@@ -1128,6 +1128,59 @@ test('заявки: кто может одобрять, а кто нет', async
   }
 });
 
+// Жалоба «фото в чек-листах грузятся вечно» (14.08.2026). Файлы отправлялись
+// по очереди: три снимка = три ожидания подряд на мобильном интернете. Сжатие
+// оставляем последовательным (декодирование снимка съедает память), а отправку
+// пускаем разом — узкое место именно сеть.
+test('фото чек-листа отправляются разом, а не по очереди', async ({ page }) => {
+  let inFlight = 0, peak = 0;
+  const uploaded = [];
+
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/checklist_logs**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ id: 5, items_done: [], items_by: {}, items_media: {} }),
+  }));
+  await page.route('**/storage/v1/object/**', async (route) => {
+    if (route.request().method() !== 'POST') return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    uploaded.push(route.request().url());
+    inFlight++; peak = Math.max(peak, inFlight);
+    await new Promise((r) => setTimeout(r, 250));   // изображаем медленную связь
+    inFlight--;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{"Key":"ok"}' });
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.uploadChecklistMedia === 'function');
+
+  const elapsed = await page.evaluate(async () => {
+    currentUser = { id: '00000000-0000-0000-0000-000000000001', email: 'x@slon.uz' };
+    currentProfile = { role: 'employee', name: 'Тест', employee_id: 1 };
+
+    const mkFile = async (name) => {
+      const c = document.createElement('canvas');
+      c.width = 900; c.height = 600;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#8a6a2f'; ctx.fillRect(0, 0, 900, 600);
+      const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.9));
+      return new File([blob], name, { type: 'image/jpeg' });
+    };
+
+    document.getElementById('cl-media-item-id').value = '3';
+    document.getElementById('cl-media-template-id').value = '7';
+    clMediaFiles = [await mkFile('a.jpg'), await mkFile('b.jpg'), await mkFile('c.jpg')];
+
+    const t0 = performance.now();
+    await uploadChecklistMedia();
+    return performance.now() - t0;
+  });
+
+  expect(uploaded.length, 'ушли все три файла').toBe(3);
+  expect(peak, 'файлы отправляются одновременно, а не по одному').toBe(3);
+  // По очереди было бы от 750 мс только на ожидании сети, плюс сжатие
+  expect(elapsed, 'три файла укладываются в одно ожидание, а не в три').toBeLessThan(700);
+});
+
 // Вход в список заявок должен быть всегда, а не только когда что-то висит:
 // первым делом после релиза управляющий идёт смотреть, где же подтверждать, и
 // при пустом списке не находил ничего.
