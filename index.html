@@ -506,6 +506,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <div id="home-shift-card"></div>
       <div id="home-attendance-card"></div>
       <div id="home-position-card"></div>
+      <div id="home-requests-card"></div>
       <div id="home-stoplist-card"></div>
       <div id="home-announcements"></div>
       <div id="home-quiz-card"></div>
@@ -1683,6 +1684,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <script defer src="js/feed.js"></script>
 <script defer src="js/reviews.js"></script>
 <script defer src="js/teamchat.js"></script>
+<script defer src="js/requests.js"></script>
 <script defer src="js/menu.js"></script>
 <script defer src="js/hookah.js"></script>
 <script defer src="js/stoplist.js"></script>
@@ -1786,6 +1788,33 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="modal-title" data-i18n="sch.pickTitle">Кому назначить смену?</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:12px" id="pick-emp-subtitle">—</div>
     <div id="pick-emp-list"></div>
+  </div>
+</div>
+
+<!-- ЗАЯВКА НА ЗАМЕНУ СМЕНЫ -->
+<div class="modal-overlay" id="modal-swap-request">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-swap-request')">✕</button>
+    <div class="modal-title" data-i18n="req.swapTitle">🔄 Заявка на замену</div>
+    <div id="swap-form-body"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
+  </div>
+</div>
+
+<!-- ЗАЯВКА: ПРЕДУПРЕЖДЕНИЕ ОБ ОПОЗДАНИИ -->
+<div class="modal-overlay" id="modal-late-request">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-late-request')">✕</button>
+    <div class="modal-title" data-i18n="req.lateModalTitle">⏰ Предупредить об опоздании</div>
+    <div id="late-form-body"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
+  </div>
+</div>
+
+<!-- ЗАЯВКИ: СПИСОК И РЕШЕНИЯ -->
+<div class="modal-overlay" id="modal-requests">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-requests')">✕</button>
+    <div class="modal-title" data-i18n="req.inboxTitle">📥 Заявки</div>
+    <div id="requests-inbox-body"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
   </div>
 </div>
 

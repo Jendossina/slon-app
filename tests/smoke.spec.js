@@ -1094,3 +1094,94 @@ test('опрос непрочитанных не ходит за цехом и �
   expect(res.pollingAfterReturn, 'при возврате опрос возобновляется').toBe(true);
 });
 
+// Заявки на замену и об опоздании: кто вправе вынести решение. Список тот же,
+// что правит график, плюс два исключения — владелец только смотрит, а свою
+// заявку старший цеха не утверждает сам, она уходит наверх.
+test('заявки: кто может одобрять, а кто нет', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.canDecideRequest === 'function');
+
+  const r = await page.evaluate(() => {
+    const check = (role, empRole, empDept, req) => {
+      currentProfile = { role, employee_id: 1 };
+      currentEmployee = empRole ? { id: 1, role: empRole, department: empDept } : null;
+      return window.canDecideRequest(Object.assign({ status: 'pending', employee_id: 2 }, req));
+    };
+    return {
+      adminAnyDept:     check('admin', null, null, { department: 'Бармены' }),
+      managerAnyDept:   check('manager', null, null, { department: 'Официанты' }),
+      bossDenied:       check('boss', null, null, { department: 'Бармены' }),
+      seniorOwnDept:    check('employee', 'Старший бармен', 'Бармены', { department: 'Бармены' }),
+      seniorOtherDept:  check('employee', 'Старший бармен', 'Бармены', { department: 'Повара' }),
+      seniorOwnRequest: check('employee', 'Старший бармен', 'Бармены', { department: 'Бармены', employee_id: 1 }),
+      adminOwnRequest:  check('admin', null, null, { department: 'Бармены', employee_id: 1 }),
+      lineWaiter:       check('employee', 'Официант', 'Официанты', { department: 'Официанты' }),
+      alreadyDecided:   check('admin', null, null, { department: 'Бармены', status: 'approved' }),
+    };
+  });
+
+  for (const k of ['adminAnyDept','managerAnyDept','seniorOwnDept','adminOwnRequest']) {
+    expect(r[k], `${k} должен мочь решать`).toBe(true);
+  }
+  for (const k of ['bossDenied','seniorOtherDept','seniorOwnRequest','lineWaiter','alreadyDecided']) {
+    expect(r[k], `${k} НЕ должен мочь решать`).toBe(false);
+  }
+});
+
+// Заявка на замену уходит в базу целиком: без вида замены, напарника и второго
+// дня одобрять её нечем — база такую и не примет (constraint shift_requests_shape).
+test('заявка на замену собирается и уходит целиком', async ({ page }) => {
+  const posted = [];
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/employees**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify([{ id: 1, name: 'Я Сам' }, { id: 2, name: 'Напарник' }]),
+  }));
+  await page.route('**/rest/v1/schedules**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify([
+      { id: 10, date: '2026-08-20', shift_start: '11:00', shift_end: '23:00', filial: 'chekhov', is_day_off: false },
+      { id: 11, date: '2026-08-22', shift_start: '15:00', shift_end: '23:00', filial: 'chekhov', is_day_off: false },
+    ]),
+  }));
+  await page.route('**/rest/v1/shift_requests**', (route) => {
+    const req = route.request();
+    if (req.method() === 'POST') posted.push(req.postDataJSON());
+    return route.fulfill({ status: 201, contentType: 'application/json', body: '[]' });
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.openSwapRequest === 'function');
+
+  const shown = await page.evaluate(async () => {
+    currentUser = { id: '00000000-0000-0000-0000-000000000001', email: 'x@slon.uz' };
+    currentProfile = { role: 'employee', name: 'Я Сам', employee_id: 1 };
+    currentEmployee = { id: 1, name: 'Я Сам', role: 'Официант', department: 'Официанты' };
+
+    await openSwapRequest();
+    // По умолчанию предлагается обмен днями — второй день обязателен
+    const exchangeVisible = document.getElementById('swap-partner-date-group').style.display !== 'none';
+    await submitSwapRequest();
+
+    // Подмена вторым днём не интересуется
+    await openSwapRequest();
+    await setSwapKind('cover');
+    const coverHidden = document.getElementById('swap-partner-date-group').style.display === 'none';
+    await submitSwapRequest();
+    return { exchangeVisible, coverHidden };
+  });
+
+  expect(shown.exchangeVisible, 'у обмена спрашивают второй день').toBe(true);
+  expect(shown.coverHidden, 'у подмены второго дня нет').toBe(true);
+  expect(posted.length, 'обе заявки ушли').toBe(2);
+
+  expect(posted[0], 'обмен днями').toMatchObject({
+    kind: 'swap', swap_kind: 'exchange', employee_id: 1, partner_id: 2,
+    date: '2026-08-20', partner_date: '2026-08-20', department: 'Официанты',
+  });
+  expect(posted[1], 'подмена').toMatchObject({
+    kind: 'swap', swap_kind: 'cover', employee_id: 1, partner_id: 2, date: '2026-08-20',
+  });
+  expect(posted[1].partner_date, 'у подмены второго дня быть не должно').toBeFalsy();
+});
+

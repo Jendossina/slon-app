@@ -66,6 +66,11 @@ async function loadHome() {
       loadQuizCard();
     }
 
+    // Заявки на замену и об опоздании. Снаружи блока «если есть employee_id»:
+    // у управляющего аккаунт бывает не привязан к сотруднику, а решать по
+    // заявкам ему всё равно нужно. Свой запрос, экран не держим.
+    if(typeof loadRequestsCard === 'function') loadRequestsCard();
+
     // Telegram link card
     const tgCard = document.getElementById('telegram-link-card');
     if(tgCard) {

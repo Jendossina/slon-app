@@ -86,7 +86,7 @@ async function loadBonusWeek() {
     sb.from('employees_view').select('id,name,department,filials,status').eq('department','Официанты').order('name'),
     sb.from('waiter_week_stats').select('*').eq('filial', currentFilial).eq('week_start', from),
     sb.from('waiter_points').select('*').eq('filial', currentFilial).gte('date', from).lte('date', to).order('created_at', {ascending:false}),
-    sb.from('attendance').select('employee_id,date,is_late').eq('filial', currentFilial).gte('date', from).lte('date', to),
+    sb.from('attendance').select('employee_id,date,is_late,late_excused').eq('filial', currentFilial).gte('date', from).lte('date', to),
     // practice = тренировочный прогон: в проценты не идёт, поэтому не берём его вовсе
     sb.from('quiz_attempts').select('employee_id,score,passed,finished_at,q_total').eq('week_start', from).eq('superseded', false).eq('practice', false),
   ]);
@@ -96,7 +96,8 @@ async function loadBonusWeek() {
 
   const stats = {}; (statsR.data||[]).forEach(s => { stats[s.employee_id] = s; });
   const points = {}; (pointsR.data||[]).forEach(p => { (points[p.employee_id] = points[p.employee_id] || []).push(p); });
-  const lates = {}; (attR.data||[]).forEach(a => { if(a.is_late) lates[a.employee_id] = (lates[a.employee_id]||0) + 1; });
+  // Опоздание, о котором предупредили заранее и заявку одобрили, балл не снимает
+  const lates = {}; (attR.data||[]).forEach(a => { if(a.is_late && !a.late_excused) lates[a.employee_id] = (lates[a.employee_id]||0) + 1; });
   const quiz = {}; (quizR.data||[]).forEach(q => { quiz[q.employee_id] = q; });
   bonusData = { emps, stats, points, lates, quiz };
   return bonusData;
@@ -394,7 +395,7 @@ async function loadWaiterBonusForMonth(firstStr, lastStr) {
     const [statsR, pointsR, attR, quizR] = await Promise.all([
       sb.from('waiter_week_stats').select('*').eq('filial', currentFilial).gte('week_start', firstStr).lte('week_start', lastStr),
       sb.from('waiter_points').select('employee_id,date,category,points').eq('filial', currentFilial).gte('date', weekFrom).lte('date', weekEndOf(weekTo)),
-      sb.from('attendance').select('employee_id,date,is_late').eq('filial', currentFilial).gte('date', weekFrom).lte('date', weekEndOf(weekTo)),
+      sb.from('attendance').select('employee_id,date,is_late,late_excused').eq('filial', currentFilial).gte('date', weekFrom).lte('date', weekEndOf(weekTo)),
       sb.from('quiz_attempts').select('employee_id,week_start,score,passed,finished_at,q_total').gte('week_start', weekFrom).lte('week_start', weekTo).eq('superseded', false).eq('practice', false),
     ]);
     const quizByWeek = {}; (quizR.data||[]).forEach(q => { quizByWeek[q.employee_id+'_'+q.week_start] = q; });
@@ -406,7 +407,7 @@ async function loadWaiterBonusForMonth(firstStr, lastStr) {
       if(cat === 'service') w.svc += n; else w.disc += n;
     };
     (pointsR.data||[]).forEach(p => bump(p.employee_id, p.date, p.category, Number(p.points)||0));
-    (attR.data||[]).forEach(a => { if(a.is_late) bump(a.employee_id, a.date, 'discipline', 1); });
+    (attR.data||[]).forEach(a => { if(a.is_late && !a.late_excused) bump(a.employee_id, a.date, 'discipline', 1); });
 
     (statsR.data||[]).forEach(s => {
       const w = byWeek[s.employee_id + '_' + s.week_start] || { svc:0, disc:0 };
