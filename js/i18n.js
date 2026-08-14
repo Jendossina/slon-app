@@ -610,7 +610,7 @@ const I18N = {
     'chat.onlyAdminPin': 'Только управляющий может закреплять', 'chat.observerRead': 'Режим наблюдателя — вы можете только читать чат',
     'chat.inputPh': 'Написать сообщение...', 'chat.pinned': '📌 Закреплённые',
     'chat.filesPicked': 'файлов: {n}', 'chat.tooManyFiles': 'За раз можно отправить не больше {n} файлов',
-    'chat.uploading': '⏳ Загружаю {i} из {n}...',
+    'chat.preparing': '📷 Готовлю {i} из {n}...', 'chat.uploading': '⏳ Отправляю файлов: {n}...',
     // График
     'sch.title': '📅 Расписание', 'sch.week': '📆 На неделю', 'sch.addShift': '+ Смена', 'sch.dayHeader': 'День',
     'sch.prevWeek': '← Пред. неделя', 'sch.nextWeek': 'След. неделя →', 'sch.dayOffShort': 'Вых',
@@ -1172,7 +1172,7 @@ const I18N = {
     'chat.onlyAdminPin': 'Фақат бошқарувчи қадай олади', 'chat.observerRead': 'Кузатувчи режими — чатни фақат ўқий оласиз',
     'chat.inputPh': 'Хабар ёзиш...', 'chat.pinned': '📌 Қадалганлар',
     'chat.filesPicked': 'файл: {n} та', 'chat.tooManyFiles': 'Бир вақтда {n} тадан кўп файл юборилмайди',
-    'chat.uploading': '⏳ {n} тадан {i} таси юкланмоқда...',
+    'chat.preparing': '📷 {n} тадан {i} таси тайёрланмоқда...', 'chat.uploading': '⏳ Юборилмоқда: {n} та файл...',
     // График
     'sch.title': '📅 Жадвал', 'sch.week': '📆 Ҳафтага', 'sch.addShift': '+ Смена', 'sch.dayHeader': 'Кун',
     'sch.prevWeek': '← Олдинги ҳафта', 'sch.nextWeek': 'Кейинги ҳафта →', 'sch.dayOffShort': 'Дам',

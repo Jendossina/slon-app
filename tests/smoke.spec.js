@@ -1238,6 +1238,65 @@ test('фото чек-листа отправляются разом, а не п
   expect(elapsed, 'три файла укладываются в одно ожидание, а не в три').toBeLessThan(700);
 });
 
+// В чате та же болезнь, что была в чек-листах, но лечится иначе: сюда
+// прикладывают и по десятку файлов, и десяток параллельных отправок с телефона
+// рвётся чаще, чем ускоряет. Поэтому по три за раз — и строго с сохранением
+// порядка, потому что первое вложение дублируется в media_url для старых версий.
+test('чат отправляет вложения по три и не путает порядок', async ({ page }) => {
+  let inFlight = 0, peak = 0;
+  const order = [];
+  let posted = null;
+
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/team_chat**', (route) => {
+    if (route.request().method() === 'POST') posted = route.request().postDataJSON();
+    return route.fulfill({ status: 201, contentType: 'application/json', body: '[]' });
+  });
+  await page.route('**/storage/v1/object/**', async (route) => {
+    if (route.request().method() !== 'POST') return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    const name = decodeURIComponent(route.request().url().split('/').pop());
+    order.push(name);
+    inFlight++; peak = Math.max(peak, inFlight);
+    // Первый файл отвечает дольше остальных: если порядок собирается по
+    // времени ответа, а не по индексу, он уедет с первого места
+    await new Promise((r) => setTimeout(r, name.endsWith('-0.jpg') ? 400 : 100));
+    inFlight--;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{"Key":"ok"}' });
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.sendTeamChat === 'function');
+
+  await page.evaluate(async () => {
+    currentUser = { id: '00000000-0000-0000-0000-000000000001', email: 'x@slon.uz' };
+    currentProfile = { role: 'employee', name: 'Тест', employee_id: 1 };
+    currentEmployee = { id: 1, role: 'Официант', department: 'Официанты' };
+
+    const mkFile = async (name, shade) => {
+      const c = document.createElement('canvas');
+      c.width = 800; c.height = 600;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = shade; ctx.fillRect(0, 0, 800, 600);
+      const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.9));
+      return new File([blob], name, { type: 'image/jpeg' });
+    };
+    teamChatMediaFiles = [];
+    for (const shade of ['#111', '#333', '#555', '#777', '#999']) {
+      teamChatMediaFiles.push(await mkFile('f.jpg', shade));
+    }
+    document.getElementById('teamchat-input').value = 'пять фото';
+    await sendTeamChat();
+  });
+
+  expect(order.length, 'ушли все пять файлов').toBe(5);
+  expect(peak, 'одновременно не больше трёх').toBe(3);
+  expect(peak, 'но и не по одному').toBeGreaterThan(1);
+  expect(posted.media.length, 'все пять попали в сообщение').toBe(5);
+  // Первый файл отвечал дольше всех — и всё равно обязан остаться первым
+  expect(posted.media[0].url, 'порядок вложений сохранён').toContain('-0.jpg');
+  expect(posted.media_url, 'дубль для старых версий — тоже первый файл').toBe(posted.media[0].url);
+});
+
 // Вход в список заявок должен быть всегда, а не только когда что-то висит:
 // первым делом после релиза управляющий идёт смотреть, где же подтверждать, и
 // при пустом списке не находил ничего.

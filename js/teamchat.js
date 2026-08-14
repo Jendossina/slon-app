@@ -157,20 +157,48 @@ async function sendTeamChat() {
   try {
     const uploaded = [];
     if(teamChatMediaFiles.length) {
-      // Грузим по одному: параллельная загрузка десятка файлов с телефона
-      // чаще рвётся, чем ускоряет. Пока идёт — показываем, сколько осталось.
-      for(let i = 0; i < teamChatMediaFiles.length; i++) {
+      const total = teamChatMediaFiles.length;
+
+      // Сжимаем по очереди: декодирование снимка держит в памяти десятки
+      // мегабайт, и пачка разом кладёт слабый телефон.
+      const prepared = [];
+      for(let i = 0; i < total; i++) {
         const file = teamChatMediaFiles[i];
-        if(teamChatMediaFiles.length > 1) showToast(t('chat.uploading', {i: i+1, n: teamChatMediaFiles.length}));
+        if(total > 1) showToast(t('chat.preparing', {i: i+1, n: total}));
         const isVideo = file.type.startsWith('video');
-        const fileToUpload = await compressImage(file);
-        const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : file.name.split('.').pop());
-        const path = `chat-${Date.now()}-${i}.${ext}`;
-        const { error: upErr } = await sb.storage.from('task-reports').upload(path, fileToUpload);
-        if(upErr) { showToast(t('common.uploadErr')+upErr.message); return; }
-        const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
-        uploaded.push({ url: urlData.publicUrl, type: isVideo ? 'video' : 'image' });
+        const fileToUpload = isVideo ? file : await compressImage(file);
+        const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : (file.name.split('.').pop() || 'bin'));
+        prepared.push({ file: fileToUpload, isVideo, path: `chat-${Date.now()}-${i}.${ext}` });
       }
+
+      // Отправляем по три за раз. Строго по очереди — это N ожиданий подряд, и
+      // так было раньше; все разом — тоже плохо, в чат прикладывают и по
+      // десятку файлов, а десяток параллельных отправок с телефона на слабой
+      // связи рвётся чаще, чем ускоряет. Три — середина: сеть занята полностью,
+      // но очередь не бесконечная.
+      if(total > 1) showToast(t('chat.uploading', {n: total}));
+      const results = new Array(total);
+      let next = 0;
+      const worker = async () => {
+        while(next < total) {
+          const i = next++;
+          const p = prepared[i];
+          // cacheControl: имя файла уникально, содержимое не меняется никогда
+          const { error } = await sb.storage.from('task-reports')
+            .upload(p.path, p.file, { contentType: p.file.type || undefined, cacheControl: '31536000' });
+          results[i] = Object.assign({}, p, { error });
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(3, total) }, worker));
+
+      const failed = results.find(r => r && r.error);
+      if(failed) { showToast(t('common.uploadErr') + failed.error.message); return; }
+      // Порядок сохраняем строго по индексу: в пузыре вложения должны лежать
+      // так же, как их выбрали, а первое ещё и дублируется в media_url
+      results.forEach(r => uploaded.push({
+        url: sb.storage.from('task-reports').getPublicUrl(r.path).data.publicUrl,
+        type: r.isVideo ? 'video' : 'image',
+      }));
     }
 
     await sb.from('team_chat').insert({
