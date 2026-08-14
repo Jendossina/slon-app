@@ -1,12 +1,11 @@
 // ============ ДАШБОРД ВЛАДЕЛЬЦА ============
 let dashPeriod = 'month'; // today | week | month
 
-// Пока идёт пилот (PILOT_MODE) — дашборд показывает только пилотный филиал.
-// Когда пилот выключат, автоматически развернётся на все филиалы сети.
+// Дашборд считает по тем филиалам, которые человеку доступны: руководству — по
+// обоим, старшему кальянной станции — по своему. Раньше здесь был жёсткий
+// пилотный филиал, но с запуском Истикбола сводка обязана видеть оба.
 function dashActiveFilials() {
-  return (typeof PILOT_MODE !== 'undefined' && PILOT_MODE)
-    ? FILIALS.filter(f => f.id === PILOT_FILIAL)
-    : FILIALS;
+  return (typeof myFilials === 'function') ? myFilials() : FILIALS;
 }
 
 function dashPeriodLabel() {

@@ -148,7 +148,7 @@ let currentEmployee = null;
 async function myDepartment() {
   if(currentEmployee?.department) return currentEmployee.department;
   if(!currentProfile?.employee_id) return null;
-  const { data } = await sb.from('employees').select('id,name,role,department,salary').eq('id', currentProfile.employee_id).single();
+  const { data } = await sb.from('employees').select('id,name,role,department,salary,filials').eq('id', currentProfile.employee_id).single();
   if(data) currentEmployee = data;
   return data?.department || null;
 }
@@ -321,12 +321,25 @@ let currentFilial = localStorage.getItem('slon-filial') || FILIALS[0].id;
 
 function getFilialName(id) { return FILIALS.find(f=>f.id===id)?.name || id; }
 
-// ===== ПИЛОТ: 2-недельный тест только на одном филиале =====
-// После пилота просто поставь PILOT_MODE = false — переключатель и доступ
-// к обоим филиалам вернутся всем как раньше. Админ/владелец видит оба
-// филиала всегда, ограничение касается только рядовых ролей.
-const PILOT_MODE = true;
-const PILOT_FILIAL = 'chekhov';
+// Филиалы, доступные текущему пользователю.
+//
+// До 16.08.2026 весь состав, кроме управляющих, был приколочен к пилотному
+// Чехову одной константой. С запуском Истикбола так больше нельзя: филиалов
+// работает два, и человек должен видеть тот, где он работает, а не тот, что
+// выбрали за него. Теперь филиал берётся из карточки сотрудника (employees.
+// filials), и это же защищает от чужой смены: официант Чехова не отметится в
+// Истикболе, потому что просто не сможет туда переключиться.
+//
+// Руководство видит оба — им нужен и обзор, и правка по обоим. Пустая карточка
+// (аккаунт без сотрудника) тоже видит оба: иначе новый человек остался бы
+// вообще без филиала и без данных.
+function myFilials() {
+  if(canSeeAdminPanel()) return FILIALS;
+  const mine = currentEmployee?.filials;
+  if(!mine || !mine.length) return FILIALS;
+  const list = FILIALS.filter(f => mine.includes(f.id));
+  return list.length ? list : FILIALS;
+}
 
 // ===== EXIF-ориентация фото =====
 // Телефон не поворачивает пиксели, а пишет в EXIF «показывать повёрнутым/зеркальным».
@@ -495,13 +508,18 @@ function canManageStaffFully() { return currentRole() === 'admin'; }
 function renderFilialSwitcher() {
   const el = document.getElementById('filial-switcher');
   if(!el) return;
-  if(PILOT_MODE && !canSeeAdminPanel()) { el.style.display = 'none'; return; }
+  const list = myFilials();
+  // Один филиал — переключать нечего, полоска только занимала бы место
+  if(list.length < 2) { el.style.display = 'none'; return; }
   el.style.display = 'flex';
-  el.innerHTML = FILIALS.map(f=>`<button class="filial-tab ${f.id===currentFilial?'active':''}" onclick="switchFilial('${f.id}')">${f.name}</button>`).join('');
+  el.innerHTML = list.map(f=>`<button class="filial-tab ${f.id===currentFilial?'active':''}" onclick="switchFilial('${f.id}')">${f.name}</button>`).join('');
 }
 
 function switchFilial(id) {
   if(id === currentFilial) return;
+  // Чужой филиал не открываем даже по прямому вызову: там чужой график, и
+  // отметка прихода ушла бы не в то заведение
+  if(!myFilials().some(f => f.id === id)) return;
   currentFilial = id;
   localStorage.setItem('slon-filial', id);
   renderFilialSwitcher();
@@ -779,7 +797,7 @@ async function loadProfile(attempt = 1) {
     if(data.employee_id) {
       // salary тянем сразу: карточка зарплаты и аттестация на главной раньше
       // ходили за той же строкой ещё двумя отдельными запросами
-      const { data: emp } = await sb.from('employees').select('id,name,role,department,salary').eq('id', data.employee_id).single();
+      const { data: emp } = await sb.from('employees').select('id,name,role,department,salary,filials').eq('id', data.employee_id).single();
       if(emp) currentEmployee = emp;
     }
     return { ok: true };
@@ -839,7 +857,10 @@ function showApp() {
   hideSplashSafe();
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app-page').style.display = 'block';
-  if(PILOT_MODE && !canSeeAdminPanel()) currentFilial = PILOT_FILIAL;
+  // Человек начинает в своём филиале. В сохранённом выборе может лежать чужой —
+  // например, остался с пилота, когда всем подставляли Чехов.
+  const allowedFilials = myFilials();
+  if(!allowedFilials.some(f => f.id === currentFilial)) currentFilial = allowedFilials[0].id;
   applyRolePermissions();
   renderFilialSwitcher();
   loadHome();

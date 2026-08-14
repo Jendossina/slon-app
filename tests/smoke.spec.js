@@ -1128,6 +1128,63 @@ test('заявки: кто может одобрять, а кто нет', async
   }
 });
 
+// Запуск Истикбола (16.08.2026). До него весь состав, кроме управляющих, был
+// приколочен к пилотному Чехову. Теперь филиал берётся из карточки сотрудника:
+// человек видит тот, где работает, и не может отметиться в чужом.
+test('филиал берётся из карточки сотрудника', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.myFilials === 'function');
+
+  const r = await page.evaluate(() => {
+    const setup = (role, filials) => {
+      currentProfile = { role, employee_id: filials ? 1 : null };
+      currentEmployee = filials ? { id: 1, role: 'Официант', department: 'Официанты', filials } : null;
+    };
+    const ids = () => myFilials().map(f => f.id);
+    const out = {};
+
+    setup('admin', null);            out.admin = ids();
+    setup('boss', null);             out.boss = ids();
+    setup('employee', ['chekhov']);  out.chekhovOnly = ids();
+    setup('employee', ['istikbol']); out.istikbolOnly = ids();
+    setup('employee', ['istikbol','chekhov']); out.both = ids();
+    setup('employee', []);           out.noCard = ids();
+
+    // Переключатель: одному филиалу переключать нечего
+    setup('employee', ['istikbol']);
+    renderFilialSwitcher();
+    out.switcherHiddenForOne = document.getElementById('filial-switcher').style.display === 'none';
+    setup('employee', ['istikbol','chekhov']);
+    renderFilialSwitcher();
+    out.switcherShownForTwo = document.getElementById('filial-switcher').style.display !== 'none';
+
+    // Чужой филиал не открывается даже прямым вызовом
+    setup('employee', ['istikbol']);
+    currentFilial = 'istikbol';
+    switchFilial('chekhov');
+    out.afterForeignSwitch = currentFilial;
+
+    // Застрявший с пилота чужой филиал чинится при входе
+    setup('employee', ['istikbol']);
+    currentFilial = 'chekhov';
+    showApp();
+    out.afterShowApp = currentFilial;
+    return out;
+  });
+
+  expect(r.admin, 'управляющий видит оба').toEqual(['istikbol','chekhov']);
+  expect(r.boss, 'владелец видит оба').toEqual(['istikbol','chekhov']);
+  expect(r.chekhovOnly, 'сотрудник Чехова — только Чехов').toEqual(['chekhov']);
+  expect(r.istikbolOnly, 'сотрудник Истикбола — только Истикбол').toEqual(['istikbol']);
+  expect(r.both, 'кто работает в обоих — видит оба').toEqual(['istikbol','chekhov']);
+  expect(r.noCard, 'аккаунт без карточки не остаётся без филиала').toEqual(['istikbol','chekhov']);
+  expect(r.switcherHiddenForOne, 'при одном филиале переключателя нет').toBe(true);
+  expect(r.switcherShownForTwo, 'при двух переключатель есть').toBe(true);
+  expect(r.afterForeignSwitch, 'в чужой филиал не пускает').toBe('istikbol');
+  expect(r.afterShowApp, 'чужой филиал из памяти исправляется на свой').toBe('istikbol');
+});
+
 // Жалоба «фото в чек-листах грузятся вечно» (14.08.2026). Файлы отправлялись
 // по очереди: три снимка = три ожидания подряд на мобильном интернете. Сжатие
 // оставляем последовательным (декодирование снимка съедает память), а отправку
