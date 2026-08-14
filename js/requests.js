@@ -357,7 +357,13 @@ async function loadRequestsCard() {
     const rows = data || [];
     const toDecide = rows.filter(canDecideRequest).length;
     const myPending = canApply ? rows.filter(r => r.employee_id === currentProfile.employee_id).length : 0;
-    if(!canApply && !toDecide) { el.innerHTML = ''; return; }
+    // Список заявок открывается и когда решать нечего: посмотреть, чем кончились
+    // прошлые, нужно не реже, чем одобрить новую.
+    const canDecideAny = canEditData() || !!myLeadDept();
+    if(!canApply && !canDecideAny) { el.innerHTML = ''; return; }
+    const inboxLabel = toDecide ? t('req.toDecide',{n:toDecide})
+                     : myPending ? t('req.myPending',{n:myPending})
+                     : t('req.openInbox');
 
     const btn = (onclick, label) =>
       `<button onclick="${onclick}" style="flex:1;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">${label}</button>`;
@@ -367,9 +373,9 @@ async function loadRequestsCard() {
         ${btn('openLateRequest()', '⏰ ' + t('req.lateBtn'))}
         ${btn('openSwapRequest()', '🔄 ' + t('req.swapBtn'))}
       </div>` : ''}
-      ${(toDecide || myPending) ? `<button onclick="openRequestsInbox()" style="width:100%;${canApply?'margin-top:8px;':''}background:none;border:none;color:var(--gold-dark);font-size:12px;font-weight:600;cursor:pointer;padding:4px">
-        ${toDecide ? t('req.toDecide',{n:toDecide}) : t('req.myPending',{n:myPending})} →
-      </button>` : ''}
+      <button onclick="openRequestsInbox()" style="width:100%;${canApply?'margin-top:8px;':''}background:none;border:none;color:var(--gold-dark);font-size:12px;font-weight:600;cursor:pointer;padding:4px">
+        ${inboxLabel} →
+      </button>
     </div>`;
   } catch(e) { console.error('requests card', e); }
 }

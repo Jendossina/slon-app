@@ -186,6 +186,7 @@ const I18N = {
     'req.confirmReject': 'Отклонить заявку? График останется прежним.',
     'req.decisionSaved': '✅ Решение сохранено',
     'req.toDecide': 'Заявок ждёт решения: {n}', 'req.myPending': 'Моих заявок на рассмотрении: {n}',
+    'req.openInbox': 'Все заявки', 'req.inboxBtn': '📥 Заявки',
     // Зарплата (карточка на главной)
     'salary.todayTitle': 'Моя зарплата · сегодня', 'salary.rate': 'Ставка', 'salary.notMarked': 'Смена сегодня ещё не отмечена', 'salary.penalty': 'Штраф',
     // Задачи
@@ -747,6 +748,7 @@ const I18N = {
     'req.confirmReject': 'Ариза рад этилсинми? График ўзгармайди.',
     'req.decisionSaved': '✅ Қарор сақланди',
     'req.toDecide': 'Қарор кутаётган аризалар: {n}', 'req.myPending': 'Кўриб чиқилаётган аризаларим: {n}',
+    'req.openInbox': 'Барча аризалар', 'req.inboxBtn': '📥 Аризалар',
     'salary.todayTitle': 'Менинг маошим · бугун', 'salary.rate': 'Ставка', 'salary.notMarked': 'Бугунги смена ҳали белгиланмаган', 'salary.penalty': 'Жарима',
     // Задачи
     'tasks.title': 'Вазифалар', 'tasks.viewReport': 'Ҳисоботни кўриш', 'tasks.attachReport': 'Ҳисобот бириктириш', 'tasks.noPhotoReport': 'Фотоҳисоботсиз',

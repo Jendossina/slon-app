@@ -92,6 +92,12 @@ async function loadSchedule() {
   const fabPosBtn = document.getElementById('fab-positions-btn');
   if(fabPosBtn) fabPosBtn.style.display = (canEdit && currentDept === 'Официанты') ? 'block' : 'none';
 
+  // Заявки на замену и опоздание — постоянный вход для тех, кто по ним решает.
+  // Не зависит от выбранной вкладки: заявки приходят из своего цеха, а не из
+  // того, на который сейчас смотрят.
+  const fabReqBtn = document.getElementById('fab-requests-btn');
+  if(fabReqBtn) fabReqBtn.style.display = (canEditData() || !!myLeadDept()) ? 'block' : 'none';
+
   // Department tabs
   const nav = document.getElementById('schedule-dept-nav');
   nav.innerHTML = DEPARTMENTS.map(d => {

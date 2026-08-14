@@ -688,6 +688,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <div class="header-row">
         <div><h1 data-i18n="sch.title">📅 Расписание</h1><p id="schedule-week"></p></div>
         <div style="display:flex;gap:6px">
+          <button id="fab-requests-btn" onclick="openRequestsInbox()" style="display:none;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="req.inboxBtn">📥 Заявки</button>
           <button id="fab-positions-btn" onclick="openPositionsEditor()" style="display:none;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="pos.editBtn">🍽️ Позиции</button>
           <button id="fab-week-btn" onclick="openWeekFillPicker()" style="display:none;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="sch.week">📆 На неделю</button>
           <button id="fab-schedule-btn" onclick="pickEmployeeForSchedule()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="sch.addShift">+ Смена</button>

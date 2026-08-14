@@ -1128,6 +1128,35 @@ test('заявки: кто может одобрять, а кто нет', async
   }
 });
 
+// Вход в список заявок должен быть всегда, а не только когда что-то висит:
+// первым делом после релиза управляющий идёт смотреть, где же подтверждать, и
+// при пустом списке не находил ничего.
+test('в список заявок можно войти, даже когда решать нечего', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.loadRequestsCard === 'function');
+
+  const res = await page.evaluate(async () => {
+    const render = async (role, empId) => {
+      currentUser = { id: '00000000-0000-0000-0000-000000000001', email: 'x@slon.uz' };
+      currentProfile = { role, employee_id: empId, name: 'Тест' };
+      currentEmployee = empId ? { id: empId, role: 'Официант', department: 'Официанты' } : null;
+      document.getElementById('home-requests-card').innerHTML = '';
+      await loadRequestsCard();
+      return document.getElementById('home-requests-card').innerHTML;
+    };
+    return {
+      adminNoEmp: await render('admin', null),   // управляющий без карточки сотрудника
+      waiter:     await render('employee', 7),   // рядовой официант
+    };
+  });
+
+  expect(res.adminNoEmp, 'управляющий видит вход в список').toContain('openRequestsInbox()');
+  expect(res.adminNoEmp, 'подавать заявку ему не от чьего имени').not.toContain('openSwapRequest()');
+  expect(res.waiter, 'официант видит обе кнопки').toContain('openSwapRequest()');
+  expect(res.waiter, 'и вход в список своих заявок').toContain('openRequestsInbox()');
+});
+
 // Заявка на замену уходит в базу целиком: без вида замены, напарника и второго
 // дня одобрять её нечем — база такую и не примет (constraint shift_requests_shape).
 test('заявка на замену собирается и уходит целиком', async ({ page }) => {
