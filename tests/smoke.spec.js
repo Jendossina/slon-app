@@ -1282,6 +1282,43 @@ test('фото у чек-листа общие, но старые по пунк�
   expect(html, 'поле пункта удалено из разметки').not.toContain('cl-media-item-id');
 });
 
+// Окно подтверждения вызывается ИЗ другого окна и обязано лежать поверх него.
+// У всех окон один z-index, а порядок наложения решал порядок в документе —
+// и подтверждение, объявленное выше по файлу, открывалось ЗА окном заявок:
+// человек жал «Одобрить», окно не закрывалось, а сзади всплывало ещё одно.
+test('подтверждение открывается поверх окна, из которого вызвано', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.confirmDialog === 'function');
+
+  const r = await page.evaluate(() => {
+    // Окна, из которых реально зовут подтверждение
+    const hosts = ['modal-requests', 'modal-positions', 'modal-checklist-media'];
+    const out = {};
+    for (const host of hosts) {
+      openModal(host);
+      confirmDialog('Проверка', { title: 'Тест', okText: 'Да', danger: false });
+
+      const confirmEl = document.getElementById('modal-confirm');
+      const box = confirmEl.querySelector('.modal').getBoundingClientRect();
+      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + 10);
+      out[host] = {
+        onTop: !!(hit && confirmEl.contains(hit)),
+        confirmZ: Number(getComputedStyle(confirmEl).zIndex),
+        hostZ: Number(getComputedStyle(document.getElementById(host)).zIndex),
+      };
+      closeModal('modal-confirm');
+      closeModal(host);
+    }
+    return out;
+  });
+
+  for (const host of Object.keys(r)) {
+    expect(r[host].onTop, `подтверждение поверх ${host}`).toBe(true);
+    expect(r[host].confirmZ, `у подтверждения z-index выше, чем у ${host}`).toBeGreaterThan(r[host].hostZ);
+  }
+});
+
 // В чате та же болезнь, что была в чек-листах, но лечится иначе: сюда
 // прикладывают и по десятку файлов, и десяток параллельных отправок с телефона
 // рвётся чаще, чем ускоряет. Поэтому по три за раз — и строго с сохранением

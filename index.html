@@ -152,6 +152,12 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; display: none; align-items: flex-end; }
 .modal-overlay.open { display: flex; }
+/* Подтверждение вызывается ИЗ другого окна и обязано лежать поверх него. При
+   равном z-index порядок наложения решает порядок в документе, а окно
+   подтверждения объявлено выше по файлу — и пряталось за всеми, кто ниже:
+   заявки, позиции, посуда. Кнопку «Одобрить» нажимали, а подтверждение
+   открывалось за спиной. */
+#modal-confirm { z-index: 260; }
 .modal { background: var(--surface); border-radius: 20px 20px 0 0; width: 100%; padding: 20px 20px 40px; max-height: 90vh; overflow-y: auto; }
 .modal-title { font-family: var(--font-display); font-size: 20px; font-weight: 700; margin-bottom: 18px; color: var(--text-primary); }
 .modal-close { float: right; background: var(--surface-2); border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 16px; cursor: pointer; color: var(--text-secondary); }
