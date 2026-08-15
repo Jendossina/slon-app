@@ -354,7 +354,9 @@ async function uploadReport() {
     // Get task info and notify admin
     const { data: task } = await sb.from('tasks').select('title,assigned_to_name').eq('id', taskId).single();
     await logActivity('task_done', task?.title + ' (с фото)');
-    await notifyAdmin(`✅ <b>Задача выполнена!</b>\n\n📋 ${task?.title||''}\n👤 Сотрудник: ${task?.assigned_to_name||''}\n${isVideo?'🎥 Прикреплено видео':'📸 Прикреплено фото'}\n\nОткрой приложение: https://slon-app.vercel.app`);
+    const doneMsg = `✅ <b>Задача выполнена!</b>\n\n📋 ${task?.title||''}\n👤 Сотрудник: ${task?.assigned_to_name||''}\n${isVideo?'🎥 Прикреплено видео':'📸 Прикреплено фото'}\n\nОткрой приложение: https://slon-app.vercel.app`;
+    await notifyAdmin(doneMsg);
+    await notifyTaskDoneSeniors(doneMsg);
     bar.style.display = 'none';
     closeModal('modal-report');
     showToast(t('tasks.reportSent'));
@@ -366,10 +368,25 @@ async function markDoneNoReport() {
   const taskId = document.getElementById('report-task-id').value;
   await sb.from('tasks').update({status:'done'}).eq('id',taskId);
   const { data: task } = await sb.from('tasks').select('title,assigned_to_name').eq('id', taskId).single();
-  await notifyAdmin(`✅ <b>Задача выполнена!</b>\n\n📋 ${task?.title||''}\n👤 Сотрудник: ${task?.assigned_to_name||''}\n📝 Без фотоотчёта\n\nОткрой приложение: https://slon-app.vercel.app`);
+  const doneMsg = `✅ <b>Задача выполнена!</b>\n\n📋 ${task?.title||''}\n👤 Сотрудник: ${task?.assigned_to_name||''}\n📝 Без фотоотчёта\n\nОткрой приложение: https://slon-app.vercel.app`;
+  await notifyAdmin(doneMsg);
+  await notifyTaskDoneSeniors(doneMsg);
   closeModal('modal-report');
   showToast(t('tasks.done'));
   loadTasks(); loadHome();
+}
+
+// Выполненная задача уходила только владельцу. Старшему цеха она нужна не
+// меньше: он отвечает за своих людей, а узнавал о сделанном случайно.
+// Уведомляем тех, кто выше исполнителя по должности в его же цехе.
+async function notifyTaskDoneSeniors(text) {
+  try {
+    if(!currentProfile?.employee_id) return;
+    const { data: me } = await sb.from('employees').select('department,role').eq('id', currentProfile.employee_id).single();
+    if(!me?.department) return;
+    const myLevel = JOB_TITLE_LEVEL[me.role] || 0;
+    await notifyDeptSeniors(me.department, myLevel, text, 'task_done');
+  } catch(e) { console.error('notify task done', e); }
 }
 
 function viewReport(url, type) {
