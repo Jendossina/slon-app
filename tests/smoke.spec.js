@@ -367,7 +367,12 @@ test('неверный пароль показывает ошибку, а не �
 
 test('страница логина проходит проверку доступности (axe-core)', async ({ page }) => {
   await page.goto('/');
-  const results = await new AxeBuilder({ page }).analyze();
+  // meta-viewport отключено осознанно: масштаб в приложении закреплён по просьбе
+  // владельца (15.08.2026) — сотрудники случайно разводили пальцы и оставались
+  // на съехавшем экране. Axe справедливо считает это нарушением: людям со
+  // слабым зрением зум нужен. Компромисс на будущее, если понадобится, —
+  // собственная настройка размера шрифта в личном кабинете.
+  const results = await new AxeBuilder({ page }).disableRules(['meta-viewport']).analyze();
   expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
 });
 
@@ -1280,6 +1285,28 @@ test('фото у чек-листа общие, но старые по пунк�
   // Кнопок «прикрепить» под пунктами больше нет ни в одном языке
   const html = await page.content();
   expect(html, 'поле пункта удалено из разметки').not.toContain('cl-media-item-id');
+});
+
+// Экран закреплён: сотрудники случайно разводили пальцы и оставались на
+// съехавшем изображении, не понимая, как вернуть. Приложение должно вести себя
+// как приложение. Прокрутка при этом обязана остаться — и вертикальная, и
+// горизонтальная: на ней держатся таблицы дашборда и ленты вкладок.
+test('масштаб закреплён, но прокрутка работает', async ({ page }) => {
+  await page.goto('/');
+
+  const meta = await page.getAttribute('meta[name="viewport"]', 'content');
+  expect(meta, 'щипок закрыт').toContain('user-scalable=no');
+  expect(meta, 'масштаб не растягивается').toContain('maximum-scale=1.0');
+
+  const touch = await page.evaluate(() => ({
+    html: getComputedStyle(document.documentElement).touchAction,
+    body: getComputedStyle(document.body).touchAction,
+    overscroll: getComputedStyle(document.documentElement).overscrollBehaviorY,
+  }));
+  // pan-x pan-y = прокрутка есть, зума нет. Голый pan-y убил бы горизонтальные ленты
+  expect(touch.html, 'на странице оставлена прокрутка обеих осей').toBe('pan-x pan-y');
+  expect(touch.body, 'и на теле тоже').toBe('pan-x pan-y');
+  expect(touch.overscroll, 'оттягивание за край выключено').toBe('none');
 });
 
 // Окно подтверждения вызывается ИЗ другого окна и обязано лежать поверх него.
