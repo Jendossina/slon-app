@@ -1310,12 +1310,15 @@ test('смены подставляются по филиалу, а не общ�
   });
 
   const times = (arr) => arr.map(x => x.t);
-  expect(times(r.istikbolWaiters), 'смены официантов Истикбола').toEqual(['11:00-23:00', '13:00-01:00', '15:00-03:00']);
+  expect(times(r.istikbolWaiters), 'смены официантов Истикбола')
+    .toEqual(['11:00-23:00', '13:00-01:00', '15:00-03:00', '13:00-03:00']);
   expect(times(r.istikbolWaiters), 'смены 18:00 в Истикболе нет').not.toContain('18:00-03:00');
   expect(times(r.chekhovWaiters), 'в Чехове смена 18:00 осталась').toContain('18:00-03:00');
 
-  // День позднего открытия у филиалов разный
-  expect(r.istikbolWaiters.find(x => x.label)?.label, 'в Истикболе помечено воскресенье').toBe('sch.presetSunday');
+  // День позднего открытия у филиалов разный, и это отдельная смена до закрытия
+  const istikbolLate = r.istikbolWaiters.find(x => x.label);
+  expect(istikbolLate?.label, 'в Истикболе помечено воскресенье').toBe('sch.presetSunday');
+  expect(istikbolLate?.t, 'воскресная смена — с 13:00 до 03:00').toBe('13:00-03:00');
   expect(r.chekhovWaiters.find(x => x.label)?.label, 'в Чехове осталась суббота').toBe('sch.presetSaturday');
 
   // Цеха без своего списка заполняются руками, а не чужими временами
