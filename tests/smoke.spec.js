@@ -1287,6 +1287,42 @@ test('фото у чек-листа общие, но старые по пунк�
   expect(html, 'поле пункта удалено из разметки').not.toContain('cl-media-item-id');
 });
 
+// Смены у филиалов разные: в Истикболе у официантов нет смены с 18:00, а
+// позднее открытие там не в субботу, как в Чехове, а в воскресенье. Пока список
+// был общим, кнопки в Истикболе предлагали чеховские времена — а по ним потом
+// считаются сроки чек-листов.
+test('смены подставляются по филиалу, а не общие', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.shiftPresets === 'function');
+
+  const r = await page.evaluate(() => {
+    const snapshot = (filial, dept) => {
+      currentFilial = filial;
+      return shiftPresets(dept).map(p => ({ t: p.start + '-' + p.end, label: p.label || null }));
+    };
+    return {
+      chekhovWaiters:  snapshot('chekhov', 'Официанты'),
+      istikbolWaiters: snapshot('istikbol', 'Официанты'),
+      istikbolCooks:   snapshot('istikbol', 'Повара'),
+      chekhovCooks:    snapshot('chekhov', 'Повара'),
+    };
+  });
+
+  const times = (arr) => arr.map(x => x.t);
+  expect(times(r.istikbolWaiters), 'смены официантов Истикбола').toEqual(['11:00-23:00', '13:00-01:00', '15:00-03:00']);
+  expect(times(r.istikbolWaiters), 'смены 18:00 в Истикболе нет').not.toContain('18:00-03:00');
+  expect(times(r.chekhovWaiters), 'в Чехове смена 18:00 осталась').toContain('18:00-03:00');
+
+  // День позднего открытия у филиалов разный
+  expect(r.istikbolWaiters.find(x => x.label)?.label, 'в Истикболе помечено воскресенье').toBe('sch.presetSunday');
+  expect(r.chekhovWaiters.find(x => x.label)?.label, 'в Чехове осталась суббота').toBe('sch.presetSaturday');
+
+  // Цеха без своего списка заполняются руками, а не чужими временами
+  expect(r.istikbolCooks, 'поварам Истикбола чеховские смены не подставляются').toEqual([]);
+  expect(times(r.chekhovCooks), 'у поваров Чехова смены на месте').toContain('11:00-23:00');
+});
+
 // Экран закреплён: сотрудники случайно разводили пальцы и оставались на
 // съехавшем изображении, не понимая, как вернуть. Приложение должно вести себя
 // как приложение. Прокрутка при этом обязана остаться — и вертикальная, и

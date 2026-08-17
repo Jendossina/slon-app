@@ -9,31 +9,53 @@ const DEPARTMENTS = ['Официанты','Бармены','Кальянные �
 // по субботам открываемся в 15:00, и весь штат выходит одной смедой позже
 // обычного. Раньше эти времена набивали руками и каждый раз по-разному, из-за
 // чего сроки чек-листов не совпадали с графиком ни в одну субботу.
+// Смены свои у каждого филиала: заведения открываются в разное время и позднее
+// открытие у них в разные дни — Чехов по субботам, Истикбол по воскресеньям.
+// Пока список был общим, кнопки в Истикболе предлагали чеховские времена.
 const SHIFT_PRESETS = {
-  'Официанты': [
-    { start: '11:00', end: '23:00' },
-    { start: '15:00', end: '03:00' },
-    { start: '18:00', end: '03:00' },
-    { start: '13:00', end: '03:00', label: 'sch.presetSaturday' },
-  ],
-  'Бармены': [
-    { start: '11:30', end: '00:00' },
-    { start: '15:00', end: '02:00' },
-    { start: '11:30', end: '02:00', full: true }, // весь день, +100 000
-    { start: '13:00', end: '02:00', label: 'sch.presetSaturday' },
-  ],
-  'Кальянные мастера': [
-    { start: '11:30', end: '00:00' },
-    { start: '12:45', end: '01:00' },
-    { start: '14:45', end: '03:00' },
-    { start: '13:30', end: '03:00', label: 'sch.presetSaturday' },
-  ],
-  'Повара': [
-    { start: '11:00', end: '23:00' },
-    { start: '14:30', end: '02:30' },
-    { start: '13:00', end: '02:00', label: 'sch.presetSaturday' },
-  ],
+  chekhov: {
+    'Официанты': [
+      { start: '11:00', end: '23:00' },
+      { start: '15:00', end: '03:00' },
+      { start: '18:00', end: '03:00' },
+      { start: '13:00', end: '03:00', label: 'sch.presetSaturday' },
+    ],
+    'Бармены': [
+      { start: '11:30', end: '00:00' },
+      { start: '15:00', end: '02:00' },
+      { start: '11:30', end: '02:00', full: true }, // весь день, +100 000
+      { start: '13:00', end: '02:00', label: 'sch.presetSaturday' },
+    ],
+    'Кальянные мастера': [
+      { start: '11:30', end: '00:00' },
+      { start: '12:45', end: '01:00' },
+      { start: '14:45', end: '03:00' },
+      { start: '13:30', end: '03:00', label: 'sch.presetSaturday' },
+    ],
+    'Повара': [
+      { start: '11:00', end: '23:00' },
+      { start: '14:30', end: '02:30' },
+      { start: '13:00', end: '02:00', label: 'sch.presetSaturday' },
+    ],
+  },
+  istikbol: {
+    // Смены 18:00 здесь нет. Позднее открытие — воскресенье, 15:00, и в этот
+    // день штат выходит в 13:00; время совпадает с одной из обычных смен,
+    // поэтому она же и помечена днём недели.
+    'Официанты': [
+      { start: '11:00', end: '23:00' },
+      { start: '13:00', end: '01:00', label: 'sch.presetSunday' },
+      { start: '15:00', end: '03:00' },
+    ],
+  },
 };
+
+// Смены цеха для ТЕКУЩЕГО филиала. Нет списка — цех заполняют временем руками:
+// подставить чужие времена хуже, чем не подставлять никаких, потому что по ним
+// потом считаются сроки чек-листов.
+function shiftPresets(dept) {
+  return (SHIFT_PRESETS[currentFilial] || {})[dept] || [];
+}
 
 // Длина смены в минутах с учётом перехода через полночь
 function shiftDurationMin(start, end) {
@@ -237,7 +259,7 @@ function quickEditSchedule(empId, empName, date) {
   document.getElementById('sch-filial-display').textContent = '📍 ' + getFilialName(currentFilial);
   document.getElementById('sch-dayoff').checked = false;
   document.getElementById('sch-time-fields').style.display = 'block';
-  const firstPreset = (SHIFT_PRESETS[currentDept]||[])[0];
+  const firstPreset = shiftPresets(currentDept)[0];
   document.getElementById('sch-start').value = firstPreset ? firstPreset.start : '11:00';
   document.getElementById('sch-end').value = firstPreset ? firstPreset.end : '23:00';
   document.getElementById('sch-note').value = '';
@@ -248,15 +270,15 @@ function quickEditSchedule(empId, empName, date) {
 function toggleDayOff(cb) {
   document.getElementById('sch-time-fields').style.display = cb.checked ? 'none' : 'block';
   const presets = document.getElementById('sch-presets');
-  if(presets) presets.style.display = (cb.checked || !SHIFT_PRESETS[currentDept]) ? 'none' : 'block';
+  if(presets) presets.style.display = (cb.checked || !shiftPresets(currentDept).length) ? 'none' : 'block';
 }
 
 // Кнопки смен цеха. applyFn — имя функции, которой передаём start/end при нажатии.
 function renderShiftPresets(containerId, applyFn) {
   const el = document.getElementById(containerId);
   if(!el) return;
-  const presets = SHIFT_PRESETS[currentDept];
-  if(!presets || !presets.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
+  const presets = shiftPresets(currentDept);
+  if(!presets.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
   el.style.display = 'block';
   el.innerHTML =
     `<div class="form-label" style="margin-bottom:6px">${t('sch.presetsLabel',{dept:escapeHtml(currentDept)})}</div>
@@ -324,7 +346,7 @@ async function openWeekFillPicker() {
   const sel = document.getElementById('week-employee');
   sel.innerHTML = emps.map(e=>`<option value="${e.id}" data-name="${escapeHtml(e.name)}">${escapeHtml(e.name)}</option>`).join('');
   document.getElementById('wf-filial-display').textContent = '📍 ' + getFilialName(currentFilial);
-  const hasPresets = !!(SHIFT_PRESETS[currentDept]||[]).length;
+  const hasPresets = !!shiftPresets(currentDept).length;
   // Ручной блок «Начало/Конец/Всем дням» нужен только цехам без пресетов
   const manualRow = document.getElementById('wf-manual-default');
   if(manualRow) manualRow.style.display = hasPresets ? 'none' : 'flex';
@@ -352,7 +374,7 @@ async function renderWeekFillDays() {
   const existingMap = {};
   (existing||[]).forEach(s => { existingMap[s.date] = s; });
 
-  const presets = SHIFT_PRESETS[currentDept] || [];
+  const presets = shiftPresets(currentDept);
   const dayLabel = (d,i) => `<div style="width:96px;flex:0 0 auto;font-size:13px;color:var(--text-primary);font-weight:500">${dayNames[i]}<div style="font-size:11px;color:var(--text-muted)">${d.getDate()}.${d.getMonth()+1}</div></div>`;
 
   const container = document.getElementById('week-fill-days');
