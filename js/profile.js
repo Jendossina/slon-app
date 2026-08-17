@@ -33,7 +33,9 @@ async function loadProfile2() {
       const [empR, schedFutR, upcomingR, activeTasksR, myTasksR, monthAttR, shiftsR] = await Promise.all([
         sb.from('employees').select('*').eq('id', empId).single(),
         sb.from('schedules').select('date,is_day_off').eq('employee_id', empId).gt('date',todayStr).lte('date',lastStr),
-        sb.from('schedules').select('*').eq('employee_id', empId).gte('date',todayStr).order('date').limit(5),
+        // Берём с запасом: на день бывает две строки (смена в одном филиале и
+        // выходной в другом), а показать надо пять РАЗНЫХ дней
+        sb.from('schedules').select('*').eq('employee_id', empId).gte('date',todayStr).order('date').limit(12),
         sb.from('tasks').select('*').eq('assigned_to_id', currentUser.id).eq('status','pending').order('due_date').limit(6),
         sb.from('tasks').select('status').eq('assigned_to_id', currentUser.id),
         sb.from('attendance').select('*').eq('employee_id', empId).gte('date',firstStr).lte('date',lastStr).order('date',{ascending:false}),
@@ -61,8 +63,8 @@ async function loadProfile2() {
       }
 
       // --- ОБЗОР: ближайшие смены ---
-      const upcoming = upcomingR.data;
-      if(upcoming && upcoming.length) {
+      const upcoming = dedupeShiftsByDate(upcomingR.data).slice(0, 5);
+      if(upcoming.length) {
         tabsContent.overview += `<div class="section-label">${t('pf.upcomingShifts')}</div><div class="card">`;
         tabsContent.overview += upcoming.map(s=>`<div class="list-item"><div class="item-info"><div class="item-name">${fmtLocale(new Date(s.date), {weekday:'short',day:'numeric',month:'short'})}${s.date===todayStr?' · <span style="color:var(--gold-dark)">'+t('pf.today')+'</span>':''}</div><div class="item-sub">${s.is_day_off?t('pf.dayOff'):'🕐 '+s.shift_start+'–'+s.shift_end+' · '+getFilialName(s.filial||'istikbol')}</div></div></div>`).join('');
         tabsContent.overview += '</div>';
@@ -97,7 +99,8 @@ async function loadProfile2() {
           ${lateItems.map(a=>`<div class="list-item"><div class="item-info"><div class="item-name">${fmtLocale(new Date(a.date), {day:'numeric',month:'short'})}</div><div class="item-sub">${t('pf.lateByMin',{min:a.late_minutes||'?'})}</div></div><span class="badge badge-red">−${formatNum(a.penalty)}</span></div>`).join('')}
         </div>`;
       }
-      const shifts = shiftsR.data;
+      // История смен — тоже по одной строке на день, в обратном порядке
+      const shifts = dedupeShiftsByDate(shiftsR.data).reverse();
       tabsContent.history += `<div class="section-label">${t('pf.shiftHistory')}</div><div class="card">`;
       if(!shifts || shifts.length===0) tabsContent.history += `<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">${t('pf.noShifts')}</div></div>`;
       else tabsContent.history += shifts.map(s => `<div class="list-item"><div class="item-info"><div class="item-name">${fmtLocale(new Date(s.date), {day:'numeric',month:'short',weekday:'short'})}</div><div class="item-sub">${s.is_day_off?t('pf.dayOff'):'🕐 '+s.shift_start+'–'+s.shift_end+' · '+getFilialName(s.filial||'istikbol')}</div></div></div>`).join('');

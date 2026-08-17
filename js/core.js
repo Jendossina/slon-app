@@ -563,6 +563,28 @@ function fmtDateShort(d, opts) {
 // Локальная дата в формате YYYY-MM-DD. Берём компоненты по местному времени телефона,
 // а НЕ через toISOString() — иначе на UTC+5 (наша зона) дата после полуночи и до 5 утра,
 // а также границы месяца (new Date(y,m,1/0)) уезжают на день назад.
+// Одна значимая смена на день из нескольких строк графика.
+//
+// Строк на день у человека может быть две: рабочая смена в одном филиале и
+// выходной в другом — так график показывает его на обеих вкладках, и на чужой
+// видно, что сегодня он не здесь. Значимая строка — рабочая, где бы она ни
+// была: главный экран и отметка прихода не должны зависеть от того, какая
+// строка пришла из базы первой.
+function pickDayShift(rows) {
+  const list = rows || [];
+  return list.find(s => !s.is_day_off && s.filial === currentFilial)
+      || list.find(s => !s.is_day_off)
+      || list.find(s => s.filial === currentFilial)
+      || list[0] || null;
+}
+
+// То же для списка за несколько дней: по одной строке на дату, по возрастанию.
+function dedupeShiftsByDate(rows) {
+  const byDate = {};
+  (rows || []).forEach(s => { (byDate[s.date] = byDate[s.date] || []).push(s); });
+  return Object.keys(byDate).sort().map(d => pickDayShift(byDate[d]));
+}
+
 function ymdLocal(d) {
   d = d ? new Date(d) : new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;

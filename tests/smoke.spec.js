@@ -1287,6 +1287,50 @@ test('фото у чек-листа общие, но старые по пунк�
   expect(html, 'поле пункта удалено из разметки').not.toContain('cl-media-item-id');
 });
 
+// У человека, работающего в двух филиалах, на день теперь ДВЕ строки графика:
+// смена там, где он работает, и выходной во втором — чтобы на обеих вкладках
+// было видно, где он сегодня. Главный экран и отметка прихода берут первую
+// строку из базы, и без разбора она могла оказаться выходным: человек выходит
+// на смену, а приложение говорит «сегодня выходной».
+test('из двух строк дня выбирается рабочая смена, а не выходной', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.pickDayShift === 'function');
+
+  const r = await page.evaluate(() => {
+    currentFilial = 'chekhov';
+    const off = (f) => ({ date: '2026-08-17', filial: f, is_day_off: true, shift_start: null });
+    const work = (f, st) => ({ date: '2026-08-17', filial: f, is_day_off: false, shift_start: st });
+
+    const out = {};
+    // Выходной идёт первым — всё равно должна выбраться смена соседнего филиала
+    out.offFirst = pickDayShift([off('chekhov'), work('istikbol', '14:45')]);
+    out.workFirst = pickDayShift([work('istikbol', '14:45'), off('chekhov')]);
+    // Обе строки выходные — тогда выходной, но из текущего филиала
+    out.bothOff = pickDayShift([off('istikbol'), off('chekhov')]);
+    out.empty = pickDayShift([]);
+
+    // Список за неделю: по одной строке на дату, рабочая в приоритете
+    const week = [
+      off('chekhov'), work('istikbol', '11:30'),
+      { date: '2026-08-18', filial: 'chekhov', is_day_off: false, shift_start: '12:45' },
+      { date: '2026-08-18', filial: 'istikbol', is_day_off: true, shift_start: null },
+    ];
+    out.week = dedupeShiftsByDate(week).map(s => s.date + ' ' + (s.is_day_off ? 'вых' : s.filial + ' ' + s.shift_start));
+    return out;
+  });
+
+  expect(r.offFirst?.shift_start, 'смена найдена, хотя выходной шёл первым').toBe('14:45');
+  expect(r.offFirst?.filial, 'и она из того филиала, где человек работает').toBe('istikbol');
+  expect(r.workFirst?.shift_start, 'порядок строк ничего не меняет').toBe('14:45');
+  expect(r.bothOff?.is_day_off, 'два выходных так и остаются выходным').toBe(true);
+  expect(r.bothOff?.filial, 'берётся строка текущего филиала').toBe('chekhov');
+  expect(r.empty, 'пусто остаётся пустым').toBeNull();
+  expect(r.week, 'на каждый день по одной строке, рабочая').toEqual([
+    '2026-08-17 istikbol 11:30',
+    '2026-08-18 chekhov 12:45',
+  ]);
+});
+
 // В форме добавления обе галочки филиалов стояли прямо в разметке, и каждый
 // заведённый человек попадал сразу в оба заведения: в графике Истикбола висел
 // весь штат Чехова и наоборот. Новый сотрудник принадлежит тому филиалу, в

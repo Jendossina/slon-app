@@ -53,7 +53,8 @@ async function loadHome() {
     // Смена и отметка прихода — одной карточкой в самом верху экрана
     if(empId) {
       const myShifts = shiftsRes.data;
-      const myShift = myShifts && myShifts.length > 0 ? myShifts[0] : null;
+      // Строк на день может быть две — смена в одном филиале и выходной в другом
+      const myShift = pickDayShift(myShifts);
       const attRecord = (attRes.data && attRes.data[0]) || null;
       renderShiftAndAttendance(myShift, attRecord);
       // Позиция в зале — сразу под сменой: официант открывает приложение в
@@ -490,7 +491,7 @@ async function checkIn() {
     const todayStr = businessToday(); // отметка прихода записывается на кассовый день смены
     const timeStr = getCurrentTimeStr();
     const { data: myShifts } = await sb.from('schedules').select('*').eq('date', todayStr).eq('employee_id', currentProfile.employee_id);
-    const myShift = myShifts && myShifts[0];
+    const myShift = pickDayShift(myShifts);
 
     setCheckInStatus(t('att.savingMark'));
     // Время прихода, опоздание и штраф проставляет триггер в базе по часам
