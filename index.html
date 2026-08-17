@@ -548,7 +548,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="header"><h1 data-i18n="hr.title">Сотрудники</h1><p id="hr-count" data-i18n="common.loading">Загрузка...</p></div>
     <div style="padding:8px 12px 0"><input class="form-input" id="hr-search" placeholder="🔍 Поиск по имени, должности..." data-i18n-ph="hr.searchPh" oninput="hrSearch(this.value)" style="margin:0"></div>
     <div class="content"><div id="hr-payroll-btn"></div><div class="card" id="hr-list"><div class="loading">Загрузка...</div></div></div>
-    <button class="fab" id="fab-hr" onclick="openModal('modal-add-employee')" style="display:none">+</button>
+    <button class="fab" id="fab-hr" onclick="openAddEmployee()" style="display:none">+</button>
   </div>
 
   <div class="screen" id="screen-tasks">
@@ -1499,8 +1499,11 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     </div>
     <div class="form-group"><label class="form-label" data-i18n="hr.filialsCanWork">На каких филиалах может работать</label>
       <div class="filial-checkbox-group" id="emp-filials-group">
-        <label><input type="checkbox" class="emp-filial-checkbox" value="istikbol" checked> Истикбол</label>
-        <label><input type="checkbox" class="emp-filial-checkbox" value="chekhov" checked> Чехов</label>
+        <!-- Без checked: галочку ставит openAddEmployee() по текущему филиалу.
+             Пока стояли обе, каждый заведённый человек попадал сразу в оба
+             заведения, и в Истикболе висел весь штат Чехова. -->
+        <label><input type="checkbox" class="emp-filial-checkbox" value="istikbol"> Истикбол</label>
+        <label><input type="checkbox" class="emp-filial-checkbox" value="chekhov"> Чехов</label>
       </div>
     </div>
     <button class="btn btn-primary" onclick="addEmployee()" data-i18n="hr.addEmpSubmit">Добавить сотрудника</button>

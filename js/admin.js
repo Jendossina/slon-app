@@ -204,13 +204,16 @@ async function saveEmployee() {
   const status = document.getElementById('edit-emp-status').value;
   const sysRole = document.getElementById('edit-emp-system-role').value;
   const empFilials = Array.from(document.querySelectorAll('.edit-emp-filial-checkbox:checked')).map(c=>c.value);
+  // Ни одного филиала — это не «оба», а недосмотр: человек без филиала нигде не
+  // виден, а «оба» по умолчанию расселяли штат по чужим заведениям.
+  if(!empFilials.length) return showToast(t('hr.pickFilial'));
   // Старший цеха сохраняет только своих. Отдел не шлём (его меняет руководство),
   // свою ставку и должность — тоже: границы продублированы триггером в базе.
   const lead = !canEditData();
   if(lead && !canLeadDept(department)) return showToast(t('common.observerMode'));
   const isSelf = lead && String(currentProfile?.employee_id || '') === String(id);
   try {
-    const fields = { name, phone, status, filials: empFilials.length ? empFilials : ['istikbol','chekhov'] };
+    const fields = { name, phone, status, filials: empFilials };
     if(!lead) Object.assign(fields, { role, department, salary: salary || null });
     else if(!isSelf) Object.assign(fields, { role, salary: salary || null });
     await sb.from('employees').update(fields).eq('id',id);

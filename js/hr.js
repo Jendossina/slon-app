@@ -249,6 +249,18 @@ async function deletePremium(id) {
   } catch(e){ showToast(t('common.error')+e.message); }
 }
 
+// Новый человек по умолчанию принадлежит тому филиалу, в котором его заводят.
+// Раньше в разметке стояли обе галочки, и каждый заведённый попадал сразу в оба
+// заведения: в графике Истикбола висел весь штат Чехова и наоборот.
+function setAddEmployeeFilials() {
+  document.querySelectorAll('.emp-filial-checkbox').forEach(c => { c.checked = (c.value === currentFilial); });
+}
+
+function openAddEmployee() {
+  setAddEmployeeFilials();
+  openModal('modal-add-employee');
+}
+
 async function addEmployee() {
   // Старший цеха заводит людей только в свой отдел и только рядовыми
   const dept = document.getElementById('emp-department').value;
@@ -261,8 +273,11 @@ async function addEmployee() {
   if(!email||!password) return showToast(t('hr.enterEmailPass'));
   if(password.length<6) return showToast(t('pf.passMin'));
   try {
+    // Пустой список молча превращать в «оба филиала» нельзя — именно так штат
+    // и расползался по чужим заведениям. Лучше спросить.
     const empFilials = Array.from(document.querySelectorAll('.emp-filial-checkbox:checked')).map(c=>c.value);
-    const { data: emp, error: empError } = await sb.from('employees').insert({ name, role: document.getElementById('emp-role').value, department: document.getElementById('emp-department').value, phone: document.getElementById('emp-phone').value, salary: document.getElementById('emp-salary').value||null, status:'Активен', filials: empFilials.length?empFilials:['istikbol','chekhov'] }).select().single();
+    if(!empFilials.length) return showToast(t('hr.pickFilial'));
+    const { data: emp, error: empError } = await sb.from('employees').insert({ name, role: document.getElementById('emp-role').value, department: document.getElementById('emp-department').value, phone: document.getElementById('emp-phone').value, salary: document.getElementById('emp-salary').value||null, status:'Активен', filials: empFilials }).select().single();
     if(empError || !emp) { showToast('Ошибка создания карточки: '+(empError?.message||'неизвестная ошибка')); return; }
     // sbAuthOnly — изолированный клиент, чтобы signUp не подменил сессию админа в sb
     const { data: authData, error: authError } = await sbAuthOnly.auth.signUp({ email, password });
@@ -284,7 +299,7 @@ async function addEmployee() {
     if(typeof invalidateScheduleEmps === 'function') invalidateScheduleEmps();
     closeModal('modal-add-employee');
     ['emp-name','emp-phone','emp-salary','emp-email','emp-password'].forEach(id=>document.getElementById(id).value='');
-    document.querySelectorAll('.emp-filial-checkbox').forEach(c=>c.checked=true);
+    setAddEmployeeFilials();
     showToast(t('hr.empAdded'));
     loadHR();
   } catch(e) { showToast(t('common.error')+e.message); }

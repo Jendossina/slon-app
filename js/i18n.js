@@ -509,6 +509,7 @@ const I18N = {
     'hr.phone': 'Телефон', 'hr.salaryPerShift': 'Ставка за смену (сум)', 'hr.login': 'Логин (без @slon.uz)', 'hr.password': 'Пароль', 'hr.systemRole': 'Роль в системе',
     'hr.roleEmployee': 'Сотрудник', 'hr.roleManager': 'Менеджер', 'hr.roleAdmin': 'Управляющий', 'hr.roleBoss': 'Владелец (наблюдатель)',
     'hr.filialsCanWork': 'На каких филиалах может работать', 'hr.addEmpSubmit': 'Добавить сотрудника',
+    'hr.pickFilial': 'Отметь хотя бы один филиал',
     'hr.grpHall': 'Зал', 'hr.grpBar': 'Бар', 'hr.grpHookah': 'Кальянная', 'hr.grpKitchen': 'Кухня', 'hr.grpMgmt': 'Руководство', 'hr.grpOther': 'Прочее',
     // Финансы
     'fin.title': 'Финансы', 'fin.income': 'Доходы', 'fin.expenses': 'Расходы', 'fin.sumPerMonth': 'сум за месяц',
@@ -1075,6 +1076,7 @@ const I18N = {
     'hr.phone': 'Телефон', 'hr.salaryPerShift': 'Смена ставкаси (сўм)', 'hr.login': 'Логин (@slon.uz сиз)', 'hr.password': 'Парол', 'hr.systemRole': 'Тизимдаги роль',
     'hr.roleEmployee': 'Ходим', 'hr.roleManager': 'Менежер', 'hr.roleAdmin': 'Бошқарувчи', 'hr.roleBoss': 'Эга (кузатувчи)',
     'hr.filialsCanWork': 'Қайси филиалларда ишлай олади', 'hr.addEmpSubmit': 'Ходим қўшиш',
+    'hr.pickFilial': 'Камида битта филиални белгила',
     'hr.grpHall': 'Зал', 'hr.grpBar': 'Бар', 'hr.grpHookah': 'Кальянхона', 'hr.grpKitchen': 'Ошхона', 'hr.grpMgmt': 'Раҳбарият', 'hr.grpOther': 'Бошқа',
     // Финансы
     'fin.title': 'Молия', 'fin.income': 'Даромадлар', 'fin.expenses': 'Харажатлар', 'fin.sumPerMonth': 'ой учун сўм',

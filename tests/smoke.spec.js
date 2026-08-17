@@ -1287,6 +1287,48 @@ test('фото у чек-листа общие, но старые по пунк�
   expect(html, 'поле пункта удалено из разметки').not.toContain('cl-media-item-id');
 });
 
+// В форме добавления обе галочки филиалов стояли прямо в разметке, и каждый
+// заведённый человек попадал сразу в оба заведения: в графике Истикбола висел
+// весь штат Чехова и наоборот. Новый сотрудник принадлежит тому филиалу, в
+// котором его заводят.
+test('новый сотрудник заводится в текущий филиал, а не в оба', async ({ page }) => {
+  const posted = [];
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/employees**', (route) => {
+    const req = route.request();
+    if (req.method() === 'POST') posted.push(req.postDataJSON());
+    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id: 500, name: 'Тест' }) });
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.openAddEmployee === 'function');
+
+  const r = await page.evaluate(async () => {
+    currentUser = { id: '00000000-0000-0000-0000-000000000001', email: 'x@slon.uz' };
+    currentProfile = { role: 'admin', name: 'Админ', employee_id: 1 };
+    currentEmployee = { id: 1, role: 'Управляющий', department: '', filials: ['istikbol','chekhov'] };
+
+    const ticked = () => Array.from(document.querySelectorAll('.emp-filial-checkbox:checked')).map(c => c.value);
+    currentFilial = 'istikbol'; openAddEmployee();
+    const inIstikbol = ticked();
+    currentFilial = 'chekhov';  openAddEmployee();
+    const inChekhov = ticked();
+
+    // Снимаем обе — сохранять такое нельзя, иначе снова разъедется по филиалам
+    document.querySelectorAll('.emp-filial-checkbox').forEach(c => { c.checked = false; });
+    document.getElementById('emp-name').value = 'Тестовый Сотрудник';
+    document.getElementById('emp-email').value = 'testov';
+    document.getElementById('emp-password').value = 'secret123';
+    await addEmployee();
+    return { inIstikbol, inChekhov, toast: document.getElementById('toast').textContent };
+  });
+
+  expect(r.inIstikbol, 'в Истикболе отмечен только Истикбол').toEqual(['istikbol']);
+  expect(r.inChekhov, 'в Чехове — только Чехов').toEqual(['chekhov']);
+  expect(posted.length, 'без филиала сотрудник не создан').toBe(0);
+  expect(r.toast, 'и сказано, почему').toContain('филиал');
+});
+
 // Смены у филиалов разные: в Истикболе у официантов нет смены с 18:00, а
 // позднее открытие там не в субботу, как в Чехове, а в воскресенье. Пока список
 // был общим, кнопки в Истикболе предлагали чеховские времена — а по ним потом
