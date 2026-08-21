@@ -1287,6 +1287,37 @@ test('фото у чек-листа общие, но старые по пунк�
   expect(html, 'поле пункта удалено из разметки').not.toContain('cl-media-item-id');
 });
 
+// Старые заявки чистятся тем же механизмом, что и остальные разделы, а не
+// отдельной кнопкой. Раздел должен быть в списке и уметь показывать результат
+// человеческой подписью, иначе в отчёте появится сырое «shift_requests: 12».
+test('заявки попали в очистку старых данных', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.renderCleanupSections === 'function');
+
+  const r = await page.evaluate(() => {
+    currentProfile = { role: 'admin', name: 'Админ', employee_id: 1 };
+    renderCleanupSections();
+    const boxes = Array.from(document.querySelectorAll('.cleanup-sec')).map(c => c.value);
+    const labelFor = (key) => {
+      const box = Array.from(document.querySelectorAll('.cleanup-sec')).find(c => c.value === key);
+      return box ? box.closest('label').textContent.trim() : null;
+    };
+    return {
+      sections: boxes,
+      requestsLabel: labelFor('requests'),
+      rowLabel: t(CLEANUP_ROW_LABELS['shift_requests'] || ''),
+      allChecked: Array.from(document.querySelectorAll('.cleanup-sec')).every(c => c.checked),
+    };
+  });
+
+  expect(r.sections, 'раздел заявок есть в списке').toContain('requests');
+  expect(r.requestsLabel, 'подписан по-человечески').toContain('аявк');
+  expect(r.rowLabel, 'строка результата тоже подписана').toBe('Заявки');
+  expect(r.rowLabel, 'а не сырое имя таблицы').not.toContain('shift_requests');
+  expect(r.allChecked, 'разделы отмечены по умолчанию, как и раньше').toBe(true);
+});
+
 // Отчёт кальянной станции распознаётся с фото: модель заполняет количество,
 // сумму и разбивку. Заполняет — но не сохраняет: последнее слово за человеком,
 // и то, что он уже набрал руками, затирать нельзя.

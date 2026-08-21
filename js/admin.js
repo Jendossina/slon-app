@@ -482,6 +482,7 @@ const CLEANUP_SECTIONS = [
   { key:'bookings',   label:'clp.s.bookings' },
   { key:'activity',   label:'clp.s.activity' },
   { key:'notes',      label:'clp.s.notes' },
+  { key:'requests',   label:'clp.s.requests' },
 ];
 // Подписи строк результата — чтобы показывать «Задачи: 9», а не «tasks: 9»
 const CLEANUP_ROW_LABELS = {
@@ -489,6 +490,7 @@ const CLEANUP_ROW_LABELS = {
   reviews:'clp.r.reviews', checklist_logs:'clp.r.checklists', announcements:'clp.r.announcements',
   polls:'clp.r.polls', team_chat:'clp.r.chat', bookings:'clp.r.bookings',
   activity_log:'clp.r.activity', my_notes:'clp.r.notes',
+  shift_requests:'clp.r.requests',
 };
 
 function renderCleanupSections() {
