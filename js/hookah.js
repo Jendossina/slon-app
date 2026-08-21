@@ -62,20 +62,68 @@ function openHookahModal() {
 
 async function onHookahPhoto(input) {
   const file = input.files && input.files[0];
+  input.value = '';   // иначе повторный выбор того же файла не вызовет onchange
   if(!file) return;
   const status = document.getElementById('hookah-photo-status');
   if(status) status.textContent = t('hk.uploading');
   try {
-    const compressed = await compressImage(file);
+    // Отчёт распознаёт модель, и мелкие цифры в таблице ей нужны читаемыми:
+    // 2000 px против обычных 1280. Снимок уходит один раз в день, вес терпим.
+    const compressed = await compressImage(file, 2000, 0.85);
     const path = `hookah-${currentFilial}-${Date.now()}.jpg`;
-    const { error } = await sb.storage.from('task-reports').upload(path, compressed);
+    const { error } = await sb.storage.from('task-reports')
+      .upload(path, compressed, { contentType: 'image/jpeg', cacheControl: '31536000' });
     if(error) { if(status) status.textContent = t('common.error') + error.message; return; }
     const { data } = sb.storage.from('task-reports').getPublicUrl(path);
     document.getElementById('hookah-photo-url').value = data.publicUrl;
     document.getElementById('hookah-photo-preview').innerHTML =
       `<img src="${escapeHtml(data.publicUrl)}" style="max-width:100%;border-radius:10px;max-height:160px;object-fit:cover">`;
     if(status) status.textContent = t('hk.photoReady');
+    readHookahPhoto(data.publicUrl);
   } catch(e) { if(status) status.textContent = t('common.error') + e.message; }
+}
+
+// Распознавание отчёта по фото. Заполняет поля, но НЕ сохраняет: последнее
+// слово за человеком — он видит подставленные цифры рядом со снимком и правит
+// их, если модель ошиблась. Пустые поля заполняем всегда, заполненные не
+// трогаем: набранное руками важнее угаданного.
+async function readHookahPhoto(url) {
+  const status = document.getElementById('hookah-photo-status');
+  if(status) status.textContent = t('hk.reading');
+  try {
+    const res = await fetch('https://omeomdkurvtvirhfkffu.supabase.co/functions/v1/read-hookah', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
+      body: JSON.stringify({ imageUrl: url }),
+    });
+    const out = await res.json();
+    if(!out?.ok || !out.data) { if(status) status.textContent = t('hk.readFailed'); return; }
+
+    const d = out.data;
+    const countEl = document.getElementById('hookah-count');
+    const amountEl = document.getElementById('hookah-amount');
+    const noteEl = document.getElementById('hookah-note');
+    if(d.count != null && !countEl.value) countEl.value = d.count;
+    if(d.amount != null && !amountEl.value) amountEl.value = d.amount;
+
+    // Разбивка «чего сколько» ложится в комментарий: отдельного поля под неё
+    // нет, а в комментарии её видно и на карточке, и в сводке.
+    const items = Array.isArray(d.items) ? d.items.filter(i => i && i.name) : [];
+    if(items.length && !noteEl.value) {
+      noteEl.value = items
+        .map(i => `${i.name}${i.qty != null ? ' — ' + i.qty : ''}${i.sum ? ' · ' + formatNum(i.sum) : ''}`)
+        .join('; ');
+    }
+    if(status) {
+      status.textContent = (d.count != null || d.amount != null)
+        ? t('hk.readOk', { n: d.count ?? '—', sum: d.amount != null ? formatNum(d.amount) : '—' })
+        : t('hk.readFailed');
+    }
+  } catch(e) {
+    // Распознавание — помощь, а не условие: не вышло, значит вносят руками
+    console.error('read-hookah', e);
+    if(status) status.textContent = t('hk.readFailed');
+  }
 }
 
 async function saveHookahReport() {

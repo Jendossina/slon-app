@@ -1287,6 +1287,56 @@ test('фото у чек-листа общие, но старые по пунк�
   expect(html, 'поле пункта удалено из разметки').not.toContain('cl-media-item-id');
 });
 
+// Отчёт кальянной станции распознаётся с фото: модель заполняет количество,
+// сумму и разбивку. Заполняет — но не сохраняет: последнее слово за человеком,
+// и то, что он уже набрал руками, затирать нельзя.
+test('отчёт по кальянам подставляется с фото, но не затирает набранное', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/functions/v1/read-hookah', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ ok: true, data: {
+      count: 45, amount: 7123372,
+      items: [{ name: 'Кальян C', qty: 13, sum: 2311672 }, { name: 'Кальян C Expert', qty: 19, sum: 2610995 }],
+    } }),
+  }));
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.readHookahPhoto === 'function');
+
+  const r = await page.evaluate(async () => {
+    currentUser = { id: '00000000-0000-0000-0000-000000000001', email: 'x@slon.uz' };
+    currentProfile = { role: 'employee', name: 'Тест', employee_id: 1 };
+    currentEmployee = { id: 1, role: 'Кальянный мастер', department: 'Кальянные мастера' };
+    const fields = () => ({
+      count: document.getElementById('hookah-count').value,
+      amount: document.getElementById('hookah-amount').value,
+      note: document.getElementById('hookah-note').value,
+      status: document.getElementById('hookah-photo-status').textContent,
+    });
+
+    // Пустая форма — подставляется всё
+    ['hookah-count','hookah-amount','hookah-note'].forEach(id => { document.getElementById(id).value = ''; });
+    await readHookahPhoto('https://x/report.jpg');
+    const empty = fields();
+
+    // Человек уже вписал своё количество — его не трогаем, сумму дополняем
+    document.getElementById('hookah-count').value = '30';
+    document.getElementById('hookah-amount').value = '';
+    document.getElementById('hookah-note').value = '';
+    await readHookahPhoto('https://x/report.jpg');
+    const typed = fields();
+    return { empty, typed };
+  });
+
+  expect(r.empty.count, 'количество с фото').toBe('45');
+  expect(r.empty.amount, 'сумма с фото').toBe('7123372');
+  expect(r.empty.note, 'разбивка попала в комментарий').toContain('Кальян C Expert');
+  expect(r.empty.status, 'человеку сказано проверить').toContain('45');
+
+  expect(r.typed.count, 'набранное руками количество сохранено').toBe('30');
+  expect(r.typed.amount, 'пустая сумма всё равно подставлена').toBe('7123372');
+});
+
 // У человека, работающего в двух филиалах, на день теперь ДВЕ строки графика:
 // смена там, где он работает, и выходной во втором — чтобы на обеих вкладках
 // было видно, где он сегодня. Главный экран и отметка прихода берут первую
