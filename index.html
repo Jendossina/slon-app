@@ -764,6 +764,17 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </div>
 
   <!-- DISHWARE (ПОСУДА) SCREEN -->
+  <div class="screen" id="screen-cleaning">
+    <div class="header">
+      <div class="header-row">
+        <div><h1 data-i18n="cln.screenTitle">🧹 Ген-уборка</h1><p id="cleaning-subtitle">—</p></div>
+      </div>
+    </div>
+    <div class="content" id="cleaning-content" style="padding:12px">
+      <div class="loading" data-i18n="common.loading">Загрузка...</div>
+    </div>
+  </div>
+
   <div class="screen" id="screen-dishware">
     <div class="header">
       <div class="header-row">
@@ -1704,6 +1715,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <script defer src="js/kb.js"></script>
 <script defer src="js/supply.js"></script>
 <script defer src="js/dishware.js"></script>
+<script defer src="js/cleaning.js"></script>
 <script defer src="js/bonus.js"></script>
 <script defer src="js/quiz.js"></script>
 <script defer src="js/directory.js"></script>
@@ -1818,6 +1830,51 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="modal-title" data-i18n="sch.pickTitle">Кому назначить смену?</div>
     <div style="font-size:12px;color:var(--gold-dark);margin-bottom:12px" id="pick-emp-subtitle">—</div>
     <div id="pick-emp-list"></div>
+  </div>
+</div>
+
+<!-- ГЕН-УБОРКА: кто участвует -->
+<div class="modal-overlay" id="modal-cleaning-start">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-cleaning-start')">✕</button>
+    <div class="modal-title" data-i18n="cln.startTitle">🧹 Запустить ген-уборку</div>
+    <div id="cleaning-start-body"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
+  </div>
+</div>
+
+<!-- ГЕН-УБОРКА: список работ филиала -->
+<div class="modal-overlay" id="modal-cleaning-tasks">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-cleaning-tasks')">✕</button>
+    <div class="modal-title" data-i18n="cln.tasksTitle">📋 Список работ</div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:10px" id="cleaning-tasks-filial">—</div>
+    <div id="cleaning-tasks-body"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
+  </div>
+</div>
+
+<!-- ГЕН-УБОРКА: кому передать пункт -->
+<div class="modal-overlay" id="modal-cleaning-assign">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-cleaning-assign')">✕</button>
+    <div class="modal-title" data-i18n="cln.assignTitle">👤 Кому поручить</div>
+    <div id="cleaning-assign-body"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
+  </div>
+</div>
+
+<!-- ГЕН-УБОРКА: фото к пункту -->
+<div class="modal-overlay" id="modal-cleaning-media">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-cleaning-media')">✕</button>
+    <div class="modal-title" data-i18n="cln.mediaTitle">📷 Фото к работе</div>
+    <input type="file" id="cleaning-media-file" accept="image/*" multiple style="display:none" onchange="previewCleaningMedia(this)">
+    <input type="file" id="cleaning-media-camera" accept="image/*" capture="environment" style="display:none" onchange="previewCleaningMedia(this)">
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary" style="flex:1" onclick="document.getElementById('cleaning-media-file').click()" data-i18n="cl.fromGallery">🖼 Из галереи</button>
+      <button class="btn btn-secondary" style="flex:1" onclick="document.getElementById('cleaning-media-camera').click()" data-i18n="cl.fromCamera">📷 Снять</button>
+    </div>
+    <div class="upload-preview" id="cleaning-media-preview"></div>
+    <div class="uploading-bar" id="cleaning-media-bar" data-i18n="common.uploadingFile">⏳ Загружаю файл...</div>
+    <button class="btn btn-primary" style="margin-top:14px" onclick="uploadCleaningMedia()" data-i18n="cl.attachBtn">Прикрепить</button>
   </div>
 </div>
 

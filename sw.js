@@ -20,7 +20,7 @@
 // Отсюда правило: поменял любой файл оболочки — подними CACHE_VERSION.
 // За этим следит CI (scripts/check-sw-version.mjs), забыть не даст.
 
-const CACHE_VERSION = 'slon-shell-v94';
+const CACHE_VERSION = 'slon-shell-v95';
 
 const SHELL_FILES = [
   '/',
@@ -46,6 +46,7 @@ const SHELL_FILES = [
   '/js/kb.js',
   '/js/supply.js',
   '/js/dishware.js',
+  '/js/cleaning.js',
   '/js/bonus.js',
   '/js/quiz.js',
   '/js/directory.js',

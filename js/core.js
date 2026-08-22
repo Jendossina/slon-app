@@ -945,6 +945,7 @@ function openMoreMenu() {
       {id:'stoplist', label:'🚦 '+t('more.stoplist'), show:true},
       {id:'supply', label:'🧴 '+t('more.supply'), show:true},
       {id:'dishware', label:'🍽️ '+t('more.dishware'), show:true},
+      {id:'cleaning', label:'🧹 '+t('more.cleaning'), show:true},
       {id:'calendar', label:'📅 '+t('more.calendar'), show:true},
     ]},
     { title:t('more.group.team'), items:[
@@ -999,6 +1000,7 @@ function showScreen(name, btn) {
   if(name==='knowledge') loadKnowledgeBase();
   if(name==='supply') loadSupply();
   if(name==='dishware') loadDishware();
+  if(name==='cleaning') loadCleaning();
   if(name==='stoplist') loadStopList();
   if(name==='bonus') loadBonus();
   if(name==='directory') loadDirectory();

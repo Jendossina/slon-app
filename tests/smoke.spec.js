@@ -1697,3 +1697,75 @@ test('заявка на замену собирается и уходит цел
   expect(posted[1].partner_date, 'у подмены второго дня быть не должно').toBeFalsy();
 });
 
+
+// Ген-уборка: работы раздаются по цехам, а группировка на экране показывает
+// каждому его кусок. Нераспределённые пункты («некому») должны быть сверху —
+// это то, что требует решения менеджера, а не просто ещё одна строка.
+test('ген-уборка: свои работы сверху, «некому» первым, чужие только для чтения', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.renderCleaningActive === 'function');
+
+  const r = await page.evaluate(() => {
+    currentUser = { id: '00000000-0000-0000-0000-000000000001', email: 'x@slon.uz' };
+    currentProfile = { role: 'employee', name: 'Бармен', employee_id: 5 };
+    currentEmployee = { id: 5, role: 'Бармен', department: 'Бармены' };
+    currentFilial = 'chekhov';
+    cleaningRow = { id: 1, started_by_name: 'Менеджер' };
+    cleaningItems = [
+      { id: 1, task_text: 'Вытяжка на кухне', employee_id: null, employee_name: null, done: false, media: [] },
+      { id: 2, task_text: 'Барная стойка', employee_id: 5, employee_name: 'Бармен', done: true, done_by_name: 'Бармен', media: [] },
+      { id: 3, task_text: 'Шейкеры', employee_id: 5, employee_name: 'Бармен', done: false, media: [] },
+      { id: 4, task_text: 'Плинтусы в зале', employee_id: 9, employee_name: 'Официант', done: false, media: [] },
+    ];
+    renderCleaningActive();
+    const html = document.getElementById('cleaning-content').innerHTML;
+    const order = Array.from(document.querySelectorAll('#cleaning-content .section-label')).map(x => x.textContent.trim());
+    // строка чужого пункта не должна быть кликабельной для рядового сотрудника
+    const rows = Array.from(document.querySelectorAll('#cleaning-content .task-row'));
+    const foreign = rows.find(x => x.textContent.includes('Плинтусы'));
+    const mineRow = rows.find(x => x.textContent.includes('Шейкеры'));
+    return {
+      order,
+      html,
+      foreignClickable: !!foreign?.getAttribute('onclick'),
+      mineClickable: !!mineRow?.getAttribute('onclick'),
+    };
+  });
+
+  expect(r.order[0], '«некому» — первым, это требует решения').toContain('екому');
+  expect(r.order[1], 'следом свои работы').toContain('Мои работы');
+  expect(r.html, 'прогресс посчитан: одна из четырёх').toContain('25%');
+  expect(r.mineClickable, 'свой пункт отмечается').toBe(true);
+  expect(r.foreignClickable, 'чужой пункт рядовому не отметить').toBe(false);
+});
+
+// День уборки свой у каждого филиала: Чехов — суббота, Истикбол — воскресенье.
+// Кнопку показываем всегда (уборку могут перенести), но в свой день подсвечиваем.
+test('ген-уборка знает свой день у каждого филиала', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.cleaningIsTodayDay === 'function');
+
+  const r = await page.evaluate(() => {
+    const real = window.businessToday;
+    const check = (dateStr, filial) => {
+      window.businessToday = () => dateStr;
+      currentFilial = filial;
+      const res = cleaningIsTodayDay();
+      window.businessToday = real;
+      return res;
+    };
+    return {
+      chekhovSat: check('2026-08-22', 'chekhov'),   // суббота
+      chekhovSun: check('2026-08-23', 'chekhov'),
+      istikbolSun: check('2026-08-23', 'istikbol'), // воскресенье
+      istikbolSat: check('2026-08-22', 'istikbol'),
+    };
+  });
+
+  expect(r.chekhovSat, 'Чехов убирается в субботу').toBe(true);
+  expect(r.chekhovSun, 'но не в воскресенье').toBe(false);
+  expect(r.istikbolSun, 'Истикбол — в воскресенье').toBe(true);
+  expect(r.istikbolSat, 'но не в субботу').toBe(false);
+});
