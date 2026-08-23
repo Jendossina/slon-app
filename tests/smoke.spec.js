@@ -1946,3 +1946,85 @@ test('видео прихода не дублируется и не теряет
   const left = await page.evaluate(() => localStorage.getItem('slon_pending_checkin_video'));
   expect(left, 'больше досылать нечего').toBeNull();
 });
+
+
+// Ведомость за месяц не видела правок руками: премии выдавали через дневную
+// ведомость, а в расчёт месяца они не попадали вовсе — 180 000 сум за август
+// прошли мимо. Правка теперь бывает и со знаком минус (вычет).
+test('месячная ведомость считает правки руками, включая вычет', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/employees_view**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify([
+      { id: 5, name: 'Бармен', role: 'Бармен', department: 'Бармены', salary: 100000, filials: ['chekhov'] },
+      { id: 6, name: 'Второй бармен', role: 'Бармен', department: 'Бармены', salary: 0, filials: ['chekhov'] },
+    ]),
+  }));
+  await page.route('**/rest/v1/attendance**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify([{ employee_id: 5, date: '2026-08-03', check_in_time: '11:30', penalty: 0 }]),
+  }));
+  await page.route('**/rest/v1/schedules**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify([
+      { employee_id: 5, date: '2026-08-03', shift_start: '11:30', is_day_off: false },
+      { employee_id: 6, date: '2026-08-03', shift_start: '15:00', is_day_off: false },
+    ]),
+  }));
+  await page.route('**/rest/v1/premiums**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify([
+      { id: 1, employee_id: 5, amount: 70000, note: 'помог на кухне', date: '2026-08-05', created_by_name: 'Менеджер' },
+      { id: 2, employee_id: 5, amount: -20000, note: 'бой посуды', date: '2026-08-06', created_by_name: 'Менеджер' },
+    ]),
+  }));
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.openPayroll === 'function');
+
+  const html = await page.evaluate(async () => {
+    currentUser = { id: 'u1' };
+    currentProfile = { role: 'admin', name: 'Управляющий' };
+    currentFilial = 'chekhov';
+    await openPayroll();
+    // innerHTML \u043E\u0442\u0434\u0430\u0451\u0442 \u043D\u0435\u0440\u0430\u0437\u0440\u044B\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u0431\u0435\u043B \u0441\u0443\u0449\u043D\u043E\u0441\u0442\u044C\u044E &nbsp; \u2014 \u0441\u0440\u0430\u0432\u043D\u0438\u0432\u0430\u0435\u043C \u043F\u043E \u043E\u0431\u044B\u0447\u043D\u044B\u043C
+    return document.getElementById('payroll-body').innerHTML.replace(/&nbsp;|\u00A0/g, ' ');
+  });
+
+  // одна смена по 100 000 + 70 000 − 20 000 = 150 000
+  expect(html, 'правки вошли в итог').toContain('150 000');
+  expect(html, 'доплата видна со знаком плюс').toContain('+70 000');
+  expect(html, 'вычет виден со знаком минус').toContain('−20 000');
+  expect(html, 'видно, за что').toContain('бой посуды');
+});
+
+// Ноль — опечатка, а минус — законный вычет. Раньше отсекалось всё, что <= 0.
+test('правка зарплаты принимает минус, но не ноль', async ({ page }) => {
+  const posted = [];
+  await page.route('**/rest/v1/**', (route) => {
+    if (route.request().method() === 'POST' && route.request().url().includes('premiums')) {
+      posted.push(route.request().postDataJSON());
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.savePremium === 'function');
+
+  const toasts = await page.evaluate(async () => {
+    currentUser = { id: 'u1' };
+    currentProfile = { role: 'manager', name: 'Менеджер' };
+    currentFilial = 'chekhov';
+    const said = [];
+    window.showToast = (m) => said.push(m);
+    openAddPremium(5, 'Бармен', 'month');
+    document.getElementById('premium-amount').value = '0';
+    await savePremium();
+    document.getElementById('premium-amount').value = '-25000';
+    await savePremium();
+    return said;
+  });
+
+  expect(posted.length, 'ноль не сохраняем, минус — сохраняем').toBe(1);
+  expect(posted[0].amount, 'вычет ушёл со знаком минус').toBe(-25000);
+  expect(toasts.some((m) => /минус/i.test(m)), 'на ноль объяснили, чего ждём').toBe(true);
+});

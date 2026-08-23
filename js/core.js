@@ -595,6 +595,12 @@ function getInitials(n) { if(!n) return '?'; return n.split(' ').map(w=>w[0]).jo
 // Имя из ФИО (сотрудников заводят как "Фамилия Имя Отчество") — берём второе слово; если слово одно, его же
 function firstName(full) { const p = String(full||'').trim().split(/\s+/); return p.length>=2 ? p[1] : (p[0]||''); }
 function formatNum(n) { return Number(n).toLocaleString('ru-RU'); }
+// Сумма со знаком: доплата и вычет должны различаться с одного взгляда,
+// поэтому минус ставим явно, а не полагаемся на цвет.
+function signedNum(n) {
+  const v = Number(n) || 0;
+  return (v < 0 ? '−' : '+') + formatNum(Math.abs(v));
+}
 
 // Единый формат даты: "2026-01-15" → "15 янв". Пустое/битое — как есть.
 function fmtDateShort(d, opts) {

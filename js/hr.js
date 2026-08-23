@@ -75,10 +75,14 @@ async function openPayroll() {
     document.getElementById('payroll-title').textContent = t('hr.monthLedgerTitle',{month:fmtLocale(now, {month:'long',year:'numeric'}),f:getFilialName(currentFilial)});
 
     // Сотрудники этого филиала + график за месяц (для точного расчёта по каждой смене)
-    const [{ data: allEmps }, { data: att }, { data: sched }] = await Promise.all([
+    const [{ data: allEmps }, { data: att }, { data: sched }, { data: prems }] = await Promise.all([
       sb.from('employees_view').select('*').order('name'),
       sb.from('attendance').select('employee_id,date,check_in_time,penalty').eq('filial', currentFilial).gte('date', firstStr).lte('date', lastStr),
       sb.from('schedules').select('employee_id,date,shift_start,is_day_off').eq('filial', currentFilial).gte('date', firstStr).lte('date', lastStr),
+      // Правки руками (доплаты и вычеты). Их выдавали и раньше, но месячная
+      // ведомость их не запрашивала вовсе: выданные деньги в расчёт месяца не
+      // попадали, и итог не сходился с дневными ведомостями.
+      sb.from('premiums').select('id,employee_id,amount,note,date,created_by_name').eq('filial', currentFilial).gte('date', firstStr).lte('date', lastStr).order('date'),
     ]);
     const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial))
                               .filter(e => payrollDeptFilter(e.department));
@@ -102,6 +106,10 @@ async function openPayroll() {
       if(empDept[s.employee_id]==='Бармены') bartendersByDate[s.date] = (bartendersByDate[s.date]||0)+1;
     });
 
+    // Правки руками по сотруднику за месяц
+    const adjByEmp = {};
+    (prems||[]).forEach(p => { (adjByEmp[p.employee_id] = adjByEmp[p.employee_id] || []).push(p); });
+
     // Проценты официантов за месяц (неделя относится к месяцу своего понедельника)
     const bonusByEmp = typeof loadWaiterBonusForMonth === 'function'
       ? await loadWaiterBonusForMonth(firstStr, lastStr) : {};
@@ -117,22 +125,28 @@ async function openPayroll() {
         earned += computeShiftPay(e.role, salary, shiftStart, isAlone).amount;
       });
       const bonus = bonusByEmp[e.id] || { amount:0, weeks:0 };
-      const total = earned - w.penalty + bonus.amount;
+      const adj = adjByEmp[e.id] || [];
+      const adjSum = adj.reduce((sum,p)=>sum + (Number(p.amount)||0), 0);
+      const total = earned - w.penalty + bonus.amount + adjSum;
       grandTotal += total;
-      return { name:e.name, rate:salary, shifts:w.dates.length, earned, penalty:w.penalty, bonus, total };
-    }).filter(r=>r.shifts>0 || r.rate>0);
+      return { id:e.id, name:e.name, rate:salary, shifts:w.dates.length, earned, penalty:w.penalty, bonus, adj, adjSum, total };
+    }).filter(r=>r.shifts>0 || r.rate>0 || r.adj.length>0);
 
     if(rows.length===0) { body.innerHTML = `<div class="empty"><div class="empty-text">${t('hr.noMonthData')}</div></div>`; return; }
 
     body.innerHTML = `
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${t('hr.monthLedgerHint',{f:getFilialName(currentFilial)})}</div>
       ${rows.map(r=>`
-        <div class="list-item">
-          <div class="item-info">
+        <div class="list-item" style="flex-wrap:wrap;align-items:flex-start">
+          <div class="item-info" style="flex:1 1 100%">
             <div class="item-name">${escapeHtml(r.name)}</div>
-            <div class="item-sub">${t('hr.shiftsRate',{n:r.shifts,r:formatNum(r.rate),e:formatNum(r.earned)})}${r.penalty>0?` · <span style="color:#A13C3C">${t('hr.penalty',{p:formatNum(r.penalty)})}</span>`:''}${r.bonus.amount>0?` · <span style="color:#3B6D11">${t('hr.waiterPercent',{a:formatNum(r.bonus.amount),w:r.bonus.weeks})}</span>`:''}</div>
+            <div class="item-sub">${t('hr.shiftsRate',{n:r.shifts,r:formatNum(r.rate),e:formatNum(r.earned)})}${r.penalty>0?` · <span style="color:#A13C3C">${t('hr.penalty',{p:formatNum(r.penalty)})}</span>`:''}${r.bonus.amount>0?` · <span style="color:#3B6D11">${t('hr.waiterPercent',{a:formatNum(r.bonus.amount),w:r.bonus.weeks})}</span>`:''}${r.adjSum?` · <span style="color:${r.adjSum>0?'#3B6D11':'#A13C3C'}">${t('hr.adjustSum',{s:signedNum(r.adjSum)})}</span>`:''}</div>
+            ${r.adj.map(p=>`<div class="item-sub" style="color:var(--text-muted)">${signedNum(p.amount)} — ${escapeHtml(p.note||t('hr.premiumFallback'))} · ${escapeHtml(p.created_by_name||'')}${canEditData()?` <span onclick="deletePremium(${p.id},'month')" style="color:#A32D2D;cursor:pointer;font-weight:700">✕</span>`:''}</div>`).join('')}
           </div>
-          <div style="font-weight:700;color:var(--text-primary);white-space:nowrap">${formatNum(r.total)}</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:8px;width:100%;justify-content:space-between">
+            ${canEditData()?`<button onclick="openAddPremium(${r.id},'${escJsAttr(r.name)}','month')" style="background:#EAF3DE;color:#3B6D11;border:none;border-radius:8px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer">${t('hr.adjustBtn')}</button>`:'<span></span>'}
+            <div style="font-weight:700;color:var(--text-primary);white-space:nowrap">${formatNum(r.total)}</div>
+          </div>
         </div>`).join('')}
       <div class="list-item" style="border-top:2px solid var(--border);margin-top:6px">
         <div class="item-info"><div class="item-name">${t('hr.totalFund')}</div></div>
@@ -196,11 +210,11 @@ async function openDailyPayroll() {
         <div class="item-info" style="flex:1 1 100%">
           <div class="item-name">${escapeHtml(s.employee_name||emp?.name||'—')}</div>
           <div class="item-sub">🕐 ${s.shift_start||''}–${s.shift_end||''} · ${status}</div>
-          <div class="item-sub">${tr('hr.rate',{r:formatNum(rate)})}${pay.note?` <span style="color:var(--gold-dark)">· ${pay.note}</span>`:''}${penalty>0?` · <span style="color:#A13C3C">${tr('hr.penalty',{p:formatNum(penalty)})}</span>`:''}${premSum>0?` · <span style="color:#3B6D11">${tr('hr.premiumPlus',{s:formatNum(premSum)})}</span>`:''}</div>
-          ${prems.map(p=>`<div class="item-sub" style="color:var(--text-muted)">+${formatNum(p.amount)} — ${escapeHtml(p.note||tr('hr.premiumFallback'))} · ${escapeHtml(p.created_by_name||'')}${canGive?` <span onclick="deletePremium(${p.id})" style="color:#A32D2D;cursor:pointer;font-weight:700">✕</span>`:''}</div>`).join('')}
+          <div class="item-sub">${tr('hr.rate',{r:formatNum(rate)})}${pay.note?` <span style="color:var(--gold-dark)">· ${pay.note}</span>`:''}${penalty>0?` · <span style="color:#A13C3C">${tr('hr.penalty',{p:formatNum(penalty)})}</span>`:''}${premSum?` · <span style="color:${premSum>0?'#3B6D11':'#A13C3C'}">${tr('hr.adjustSum',{s:signedNum(premSum)})}</span>`:''}</div>
+          ${prems.map(p=>`<div class="item-sub" style="color:var(--text-muted)">${signedNum(p.amount)} — ${escapeHtml(p.note||tr('hr.premiumFallback'))} · ${escapeHtml(p.created_by_name||'')}${canGive?` <span onclick="deletePremium(${p.id},'day')" style="color:#A32D2D;cursor:pointer;font-weight:700">✕</span>`:''}</div>`).join('')}
         </div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:8px;width:100%;justify-content:space-between">
-          ${canGive?`<button onclick="openAddPremium(${s.employee_id},'${escJsAttr(s.employee_name||emp?.name||'')}')" style="background:#EAF3DE;color:#3B6D11;border:none;border-radius:8px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer">${tr('hr.addPremiumBtn')}</button>`:'<span></span>'}
+          ${canGive?`<button onclick="openAddPremium(${s.employee_id},'${escJsAttr(s.employee_name||emp?.name||'')}','day')" style="background:#EAF3DE;color:#3B6D11;border:none;border-radius:8px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer">${tr('hr.adjustBtn')}</button>`:'<span></span>'}
           <div style="font-weight:700;color:var(--text-primary);white-space:nowrap">${tr('hr.toPay',{t:formatNum(total)})}</div>
         </div>
       </div>`;
@@ -213,10 +227,13 @@ async function openDailyPayroll() {
   } catch(e) { body.innerHTML = `<div class="empty"><div class="empty-text">${tr('common.error')+e.message}</div></div>`; }
 }
 
-let premiumForEmp = null, premiumForName = '';
-function openAddPremium(empId, empName) {
+// Правка зарплаты руками: доплата (плюсом) или вычет (минусом). Хранится в той
+// же таблице premiums — это одна и та же сущность «рука руководства в расчёте»,
+// а разводить её на две значило бы считать деньги в двух местах.
+let premiumForEmp = null, premiumForName = '', premiumReturnTo = 'day';
+function openAddPremium(empId, empName, from) {
   if(!canEditData()) return showToast(t('hr.premiumOnlyMgr'));
-  premiumForEmp = empId; premiumForName = empName;
+  premiumForEmp = empId; premiumForName = empName; premiumReturnTo = from || 'day';
   document.getElementById('premium-emp-name').textContent = empName;
   document.getElementById('premium-amount').value = '';
   document.getElementById('premium-note').value = '';
@@ -225,7 +242,8 @@ function openAddPremium(empId, empName) {
 async function savePremium() {
   if(!canEditData()) return showToast(t('hr.unavailable'));
   const amount = parseFloat(document.getElementById('premium-amount').value);
-  if(isNaN(amount) || amount<=0) return showToast(t('hr.enterPremium'));
+  // Ноль — не правка, а опечатка. Минус разрешён: им оформляют вычет.
+  if(isNaN(amount) || amount === 0) return showToast(t('hr.enterAdjust'));
   const note = document.getElementById('premium-note').value.trim();
   try {
     const { error } = await sb.from('premiums').insert({
@@ -235,17 +253,17 @@ async function savePremium() {
     });
     if(error) return showToast(t('common.error')+error.message);
     closeModal('modal-add-premium');
-    showToast(t('hr.premiumAdded'));
-    openDailyPayroll();
+    showToast(t('hr.adjustAdded'));
+    if(premiumReturnTo === 'month') openPayroll(); else openDailyPayroll();
   } catch(e){ showToast(t('common.error')+e.message); }
 }
-async function deletePremium(id) {
+async function deletePremium(id, from) {
   if(!canEditData()) return;
-  if(!await confirmDialog(t('hr.removePremium'))) return;
+  if(!await confirmDialog(t('hr.removeAdjust'))) return;
   try {
     const { error } = await sb.from('premiums').delete().eq('id', id);
     if(error) return showToast(t('common.error')+error.message);
-    openDailyPayroll();
+    if(from === 'month') openPayroll(); else openDailyPayroll();
   } catch(e){ showToast(t('common.error')+e.message); }
 }
 

@@ -1300,11 +1300,13 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <div class="modal-overlay" id="modal-add-premium">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-add-premium')">✕</button>
-    <div class="modal-title" data-i18n="hr.premiumTitle">➕ Премия</div>
+    <div class="modal-title" data-i18n="hr.premiumTitle">± Правка зарплаты</div>
     <div style="font-size:13px;color:var(--gold-dark);margin-bottom:12px" id="premium-emp-name">—</div>
-    <div class="form-group"><label class="form-label" for="premium-amount" data-i18n="hr.premiumSum">Сумма премии (сум)</label><input class="form-input" id="premium-amount" type="number" inputmode="numeric" placeholder="50000"></div>
+    <!-- inputmode не задаём: у "numeric" на телефоне нет минуса, а им как раз
+         и оформляют вычет. Обычная клавиатура числового поля его даёт. -->
+    <div class="form-group"><label class="form-label" for="premium-amount" data-i18n="hr.premiumSum">Сумма (сум). Минус — вычет</label><input class="form-input" id="premium-amount" type="number" step="any" placeholder="50000 или -50000"></div>
     <div class="form-group"><label class="form-label" for="premium-note" data-i18n="hr.premiumFor">За что (необязательно)</label><input class="form-input" id="premium-note" placeholder="Например: помог на кухне" data-i18n-ph="hr.premiumForPh"></div>
-    <button class="btn btn-primary" onclick="savePremium()" data-i18n="hr.addPremiumSubmit">Добавить премию</button>
+    <button class="btn btn-primary" onclick="savePremium()" data-i18n="hr.addPremiumSubmit">Внести правку</button>
   </div>
 </div>
 
