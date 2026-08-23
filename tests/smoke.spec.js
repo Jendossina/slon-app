@@ -1850,3 +1850,34 @@ test('привязка Telegram открывает бота с разовым к
 
   expect(href, 'ссылка ведёт в нашего бота').toBe('https://t.me/SlonShishaBot?start=a1b2c3d4e5');
 });
+
+// Руководители цехов (шеф бармен, шеф кальянной станции) смен не работают, но
+// цех у них заполнен — он даёт права старшего и уведомления по своим людям.
+// Из-за этого они каждую неделю всплывали пустыми строками в сетке графика.
+// Признак in_schedule разводит два смысла: «чьи люди» и «выходит в смены».
+test('в графике только те, кто работает по сменам', async ({ page }) => {
+  const asked = [];
+  await page.route('**/rest/v1/**', (route) => {
+    const u = route.request().url();
+    if (u.includes('employees')) asked.push(u);
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.loadScheduleGrid === 'function');
+
+  await page.evaluate(async () => {
+    currentUser = { id: 'u1' };
+    currentProfile = { role: 'admin', name: 'Управляющий' };
+    currentFilial = 'chekhov';
+    currentDept = 'Бармены';
+    scheduleWeekStart = new Date('2026-08-24T00:00:00');
+    invalidateScheduleEmps();
+    await loadScheduleGrid();
+    await openWeekFillPicker();
+    await pickEmployeeForSchedule();
+  });
+
+  expect(asked.length, 'за списком сотрудников ходили').toBeGreaterThan(0);
+  const unfiltered = asked.filter((u) => !u.includes('in_schedule'));
+  expect(unfiltered, 'каждый запрос списка отсекает тех, кто вне смен').toEqual([]);
+});

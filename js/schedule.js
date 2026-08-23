@@ -189,7 +189,11 @@ async function loadScheduleGrid() {
     const [empsR, schedR] = await Promise.all([
       cachedEmps
         ? Promise.resolve({ data: cachedEmps })
-        : sb.from('employees_view').select('id,name,filials').eq('department', dept).order('name'),
+        // in_schedule: руководители цехов (шеф бармен, шеф кальянной станции)
+        // смен не работают, но цех у них заполнен — он даёт права старшего и
+        // уведомления. Без этого условия они каждую неделю висели в сетке
+        // пустыми строками.
+        : sb.from('employees_view').select('id,name,filials,in_schedule').eq('department', dept).eq('in_schedule', true).order('name'),
       sb.from('schedules').select('*').eq('filial', currentFilial).gte('date', dateStrs[0]).lte('date', dateStrs[6]),
     ]);
     if(!cachedEmps && empsR.data) scheduleEmpCache[dept] = empsR.data;
@@ -341,7 +345,7 @@ async function loadScheduleEmployees() {
 }
 
 async function pickEmployeeForSchedule() {
-  const { data: allEmps } = await sb.from('employees').select('id,name,filials,status').eq('department', currentDept).order('name');
+  const { data: allEmps } = await sb.from('employees').select('id,name,filials,status').eq('department', currentDept).eq('in_schedule', true).order('name');
   const emps = (allEmps||[]).filter(e => (e.status!=='Уволен') && (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
   if(!emps || emps.length===0) return showToast(t('sch.noEmpInDept',{f:getFilialName(currentFilial)}));
 
@@ -362,7 +366,7 @@ function choosePickedEmployee(id, name) {
 // WEEK FILL
 let weekFillDates = [];
 async function openWeekFillPicker() {
-  const { data: allEmps } = await sb.from('employees').select('id,name,filials').eq('department', currentDept).order('name');
+  const { data: allEmps } = await sb.from('employees').select('id,name,filials').eq('department', currentDept).eq('in_schedule', true).order('name');
   const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
   if(!emps || emps.length===0) return showToast(t('sch.noEmpInDept',{f:getFilialName(currentFilial)}));
   const sel = document.getElementById('week-employee');

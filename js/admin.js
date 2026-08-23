@@ -143,6 +143,8 @@ async function openEditEmployee(id) {
   for(let o of roleEl.options) if(o.value===emp.role) { o.selected=true; break; }
   const deptEl = document.getElementById('edit-emp-department');
   for(let o of deptEl.options) if(o.value===(emp.department||'')) { o.selected=true; break; }
+  const inSchedEl = document.getElementById('edit-emp-in-schedule');
+  if(inSchedEl) inSchedEl.checked = emp.in_schedule !== false;
   const statusEl = document.getElementById('edit-emp-status');
   for(let o of statusEl.options) if(o.value===(emp.status||'Активен')) { o.selected=true; break; }
   const sysRoleEl = document.getElementById('edit-emp-system-role');
@@ -202,6 +204,7 @@ async function saveEmployee() {
   const phone = document.getElementById('edit-emp-phone').value;
   const salary = document.getElementById('edit-emp-salary').value;
   const status = document.getElementById('edit-emp-status').value;
+  const inSchedule = document.getElementById('edit-emp-in-schedule')?.checked !== false;
   const sysRole = document.getElementById('edit-emp-system-role').value;
   const empFilials = Array.from(document.querySelectorAll('.edit-emp-filial-checkbox:checked')).map(c=>c.value);
   // Ни одного филиала — это не «оба», а недосмотр: человек без филиала нигде не
@@ -214,7 +217,9 @@ async function saveEmployee() {
   const isSelf = lead && String(currentProfile?.employee_id || '') === String(id);
   try {
     const fields = { name, phone, status, filials: empFilials };
-    if(!lead) Object.assign(fields, { role, department, salary: salary || null });
+    // in_schedule идёт вместе с отделом: это одна и та же настройка «где человек
+    // в графике», и менять её вправе то же руководство
+    if(!lead) Object.assign(fields, { role, department, salary: salary || null, in_schedule: inSchedule });
     else if(!isSelf) Object.assign(fields, { role, salary: salary || null });
     await sb.from('employees').update(fields).eq('id',id);
     if(!lead) await sb.from('profiles').update({role:sysRole,name}).eq('employee_id',id);
