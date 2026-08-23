@@ -7,6 +7,7 @@ async function loadHome() {
   document.getElementById('home-welcome-text').textContent = t('home.welcome', {name});
   const roleLabels = { admin: t('role.admin'), manager: t('role.manager'), employee: t('role.employee'), boss: t('role.boss') };
   document.getElementById('home-role-text').textContent = roleLabels[role] || '';
+  if(typeof flushPendingCheckinVideo === 'function') flushPendingCheckinVideo();
   loadHomeAnnouncements();
   if(typeof renderInstallCard === 'function') renderInstallCard();
   if(typeof renderStopListCard === 'function') renderStopListCard();
@@ -163,9 +164,15 @@ function renderShiftAndAttendance(myShift, record) {
       // Видео могло не долететь (камера не открылась, связь оборвалась,
       // приложение выгрузили) — приход при этом засчитан, и человек досылает
       // видео одной кнопкой, хоть через час.
-      const needVideo = !record.checkin_video ? `
+      // Пока идёт сама отметка, карточка уже нарисована, а видео ещё только
+      // снимается — и человек видел красное «видео не отправлено» с кнопкой
+      // «дослать». Многие жали её и снимались второй раз: в хранилище копились
+      // дубли, которые база к отметке уже не пускает (видео можно только
+      // дослать, перезаписать нельзя). Пока съёмка идёт — спокойный статус.
+      const needVideo = record.checkin_video ? '' : checkinVideoPending ? `
+        <div style="font-size:12px;opacity:0.8;margin-top:8px;line-height:1.4">${t('att.videoInProgress')}</div>` : `
         <button onclick="startResendVideo(${record.id})" style="width:100%;margin-top:10px;background:rgba(255,255,255,0.14);color:#fff;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:600;cursor:pointer">${t('att.resendVideoBtn')}</button>
-        <div style="font-size:12px;color:#ff9b9b;margin-top:6px;line-height:1.4">${t('att.noVideoYet')}</div>` : '';
+        <div style="font-size:12px;color:#ff9b9b;margin-top:6px;line-height:1.4">${t('att.noVideoYet')}</div>`;
       body = `<div style="font-size:14px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.12)">✅ ${t('att.arrivedAt')} <b>${record.check_in_time}</b>${lateBadge}</div>
         ${needVideo}`;
     }
@@ -295,6 +302,11 @@ function pickRecorderMime() {
 // onReady(file) — куда девать снятый ролик: к какой записи о приходе его дописать
 let checkinOnReady = null;
 let checkinBusy = false;          // защита от второго нажатия, пока идёт отметка
+// Идёт съёмка или отправка видео. Живёт дольше checkinBusy: тот снимается,
+// как только запись пошла, а видео в этот момент ещё пишется и грузится.
+// Пока флаг поднят, карточка не пугает красным «видео не отправлено» —
+// именно оно заставляло людей сниматься второй раз.
+let checkinVideoPending = false;
 
 // ПОРЯДОК: сначала приход в базу, потом камера. Раньше было наоборот, и на
 // телефонах, где WebView снимать не даёт (сборки APK до 07.08.2026 — в манифесте
@@ -311,11 +323,18 @@ async function startCheckIn() {
     if(!ctx) return;
     const { rec, myShift } = ctx;
     checkinOnReady = file => sendResendVideo(rec.id, file);
+    checkinVideoPending = true;
     const how = await recordCheckinVideo();
     // Камеру внутри приложения открыть не дали — сняться человек, может, ещё и
     // успеет системной, но управляющему это знать нужно сразу: такой телефон
     // теряет видео и ему нужна свежая сборка приложения.
-    if(how !== 'recording') notifyCheckinNoVideo(rec, myShift);
+    if(how !== 'recording') {
+      // Внутри приложения не пишем — дальше всё в руках человека, и кнопка
+      // «дослать видео» обязана быть на виду.
+      checkinVideoPending = false;
+      await loadHome();
+      notifyCheckinNoVideo(rec, myShift);
+    }
   } finally { checkinBusy = false; }
 }
 
@@ -443,8 +462,37 @@ function setCheckInStatus(text, kind) {
 // Догружаем видео к уже записанной отметке. Возвращает true, если долетело.
 // Триггер в базе разрешает дописать checkin_video, только пока он пустой
 // (миграция 2026-08-06_attach_checkin_video.sql).
+// Недосланное видео: файл в хранилище уже есть, а привязать к отметке не вышло
+// (связь оборвалась ровно между загрузкой и записью). Раньше такое видео
+// пропадало навсегда — 21.08 так потерялась отметка Соснина: файл на месте,
+// в отметке пусто. Запоминаем и дописываем при следующем открытии приложения.
+const PENDING_VIDEO_KEY = 'slon_pending_checkin_video';
+
+function rememberPendingVideo(recordId, url) {
+  try { localStorage.setItem(PENDING_VIDEO_KEY, JSON.stringify({ recordId, url, at: Date.now() })); } catch(e) {}
+}
+
+async function flushPendingCheckinVideo() {
+  let p;
+  try { p = JSON.parse(localStorage.getItem(PENDING_VIDEO_KEY) || 'null'); } catch(e) { return; }
+  if(!p?.recordId || !p?.url) return;
+  // Через трое суток дописывать уже некуда: смена давно закрыта.
+  if(Date.now() - (p.at || 0) > 3 * 86400000) { try { localStorage.removeItem(PENDING_VIDEO_KEY); } catch(e) {} return; }
+  try {
+    const { data: cur } = await sb.from('attendance').select('checkin_video').eq('id', p.recordId).single();
+    if(cur?.checkin_video) { localStorage.removeItem(PENDING_VIDEO_KEY); return; }
+    await sb.from('attendance').update({ checkin_video: p.url }).eq('id', p.recordId);
+    const { data: after } = await sb.from('attendance').select('checkin_video').eq('id', p.recordId).single();
+    if(after?.checkin_video) localStorage.removeItem(PENDING_VIDEO_KEY);
+  } catch(e) { /* нет связи — попробуем в следующий раз */ }
+}
+
 async function attachCheckinVideo(recordId, videoFile) {
   try {
+    // Видео у отметки уже есть — второй файл база всё равно не примет, а в
+    // хранилище он ляжет мусором. Так и копились дубли по одному на смену.
+    const { data: cur } = await sb.from('attendance').select('checkin_video').eq('id', recordId).single();
+    if(cur?.checkin_video) { setCheckInStatus(''); return true; }
     setCheckInStatus(t('att.uploadingVideo'));
     const ext = (f => { const p=(f.name||'').split('.'); return p.length>1?p.pop():'mp4'; })(videoFile);
     const path = `checkin-${currentProfile.employee_id}-${Date.now()}.${ext}`;
@@ -460,8 +508,16 @@ async function attachCheckinVideo(recordId, videoFile) {
       return false;
     }
     const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
-    const { error } = await sb.from('attendance').update({ checkin_video: urlData.publicUrl }).eq('id', recordId);
-    if(error) { setCheckInStatus(t('att.videoLater'), 'bad'); return false; }
+    const url = urlData.publicUrl;
+    const { error } = await sb.from('attendance').update({ checkin_video: url }).eq('id', recordId);
+    // Проверяем чтением: update без ошибки ещё не значит, что строка изменилась —
+    // так и вышло, что файл лежал в хранилище, а в отметке было пусто.
+    const { data: after } = await sb.from('attendance').select('checkin_video').eq('id', recordId).single();
+    if(error || !after?.checkin_video) {
+      rememberPendingVideo(recordId, url);
+      setCheckInStatus(t('att.videoLater'), 'bad');
+      return false;
+    }
     setCheckInStatus('');
     return true;
   } catch(e) {
@@ -471,8 +527,11 @@ async function attachCheckinVideo(recordId, videoFile) {
 }
 
 async function sendResendVideo(recordId, file) {
-  const ok = await attachCheckinVideo(recordId, file);
-  if(ok) { showToast(t('att.videoAttached')); }
+  checkinVideoPending = true;
+  try {
+    const ok = await attachCheckinVideo(recordId, file);
+    if(ok) { showToast(t('att.videoAttached')); }
+  } finally { checkinVideoPending = false; }
   loadHome();   // и когда долетело, и когда нет: карточка покажет, что вышло
 }
 

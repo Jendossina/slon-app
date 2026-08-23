@@ -1881,3 +1881,68 @@ test('в графике только те, кто работает по смен
   const unfiltered = asked.filter((u) => !u.includes('in_schedule'));
   expect(unfiltered, 'каждый запрос списка отсекает тех, кто вне смен').toEqual([]);
 });
+
+// Видео прихода. Копились две беды сразу: карточка сразу после отметки писала
+// красным «видео не отправлено» (съёмка в этот момент только начиналась), люди
+// жали «дослать» и снимались второй раз — второй файл база уже не принимает, и
+// он оставался в хранилище мусором. А если запись в отметку не проходила, файл
+// пропадал совсем: 21.08 так потерялось видео Соснина.
+test('видео прихода не дублируется и не теряется', async ({ page }) => {
+  let video = null;            // что сейчас в отметке
+  let acceptUpdate = false;    // проходит ли запись
+  const uploads = [];
+
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/attendance**', (route) => {
+    const m = route.request().method();
+    if (m === 'PATCH') {
+      const body = route.request().postDataJSON();
+      if (acceptUpdate) video = body.checkin_video;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 1, checkin_video: video }) });
+  });
+  await page.route('**/storage/v1/object/**', (route) => {
+    uploads.push(route.request().url());
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{"Key":"ok"}' });
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.attachCheckinVideo === 'function');
+
+  const mkFile = () => page.evaluate(() => {
+    const c = document.createElement('canvas');
+    c.width = 32; c.height = 32;
+    return new Promise((r) => c.toBlob((b) => { window.__f = new File([b], 'v.mp4', { type: 'video/mp4' }); r(true); }, 'image/jpeg'));
+  });
+
+  await page.evaluate(() => {
+    currentUser = { id: 'u1' };
+    currentProfile = { role: 'employee', name: 'Бармен', employee_id: 5 };
+    localStorage.removeItem('slon_pending_checkin_video');
+  });
+  await mkFile();
+
+  // 1. Видео уже приложено — второй файл в хранилище не летит
+  await page.evaluate(() => { window.__v = 'https://x/старое.mp4'; });
+  video = 'https://x/старое.mp4';
+  const already = await page.evaluate(() => attachCheckinVideo(1, window.__f));
+  expect(already, 'считаем, что видео на месте').toBe(true);
+  expect(uploads, 'повторно ничего не заливаем').toEqual([]);
+
+  // 2. Видео нет, а запись не проходит — файл запоминаем, чтобы не потерять
+  video = null;
+  acceptUpdate = false;
+  const failed = await page.evaluate(() => attachCheckinVideo(1, window.__f));
+  expect(failed, 'честно говорим, что не долетело').toBe(false);
+  expect(uploads.length, 'файл при этом залит').toBe(1);
+  const pending = await page.evaluate(() => localStorage.getItem('slon_pending_checkin_video'));
+  expect(pending, 'недосланное запомнили').toBeTruthy();
+
+  // 3. Связь вернулась — дописываем при следующем открытии приложения
+  acceptUpdate = true;
+  await page.evaluate(() => flushPendingCheckinVideo());
+  expect(video, 'видео дописалось к отметке').toContain('checkin-5-');
+  const left = await page.evaluate(() => localStorage.getItem('slon_pending_checkin_video'));
+  expect(left, 'больше досылать нечего').toBeNull();
+});
