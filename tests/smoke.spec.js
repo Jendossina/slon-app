@@ -1769,3 +1769,71 @@ test('ген-уборка знает свой день у каждого фил�
   expect(r.istikbolSun, 'Истикбол — в воскресенье').toBe(true);
   expect(r.istikbolSat, 'но не в субботу').toBe(false);
 });
+
+// Уведомления обязаны знать про филиал. Менеджер Истикбола неделю не получал
+// ничего о своём филиале: рассылка выбирала только роль admin и не спрашивала,
+// где событие произошло. Теперь получателей отдаёт база, а клиент передаёт ей
+// филиал события — проверяем, что передаёт именно текущий и что настройки
+// получателя по-прежнему уважаются.
+test('уведомления уходят руководству того филиала, где событие', async ({ page }) => {
+  let rpcBody = null;
+  const chats = [];
+
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/rpc/notify_chiefs', (route) => {
+    rpcBody = route.request().postDataJSON();
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        { user_id: 'u-manager', telegram_id: '111', notify_prefs: null },
+        { user_id: 'u-muted', telegram_id: '222', notify_prefs: { late: false } },
+        { user_id: 'u-self', telegram_id: '333', notify_prefs: null },
+      ]),
+    });
+  });
+  await page.route('**/functions/v1/send-telegram', (route) => {
+    chats.push(route.request().postDataJSON().chat_id);
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.notifyAdminsAll === 'function');
+
+  await page.evaluate(async () => {
+    currentUser = { id: 'u-self' };
+    currentProfile = { role: 'employee', name: 'Официант', employee_id: 7 };
+    currentFilial = 'istikbol';
+    await notifyAdminsAll('опоздание', 'late');
+  });
+
+  expect(rpcBody?.p_filial, 'филиал события ушёл в базу').toBe('istikbol');
+  expect(chats, 'менеджер филиала получил').toContain('111');
+  expect(chats, 'выключивший этот тип — нет').not.toContain('222');
+  expect(chats, 'сам себе не шлём').not.toContain('333');
+});
+
+// Привязка Telegram: код разовый, ссылка ведёт в нашего бота и несёт код с собой.
+// Раньше человек переписывал числовой ID из чужого бота руками — половина
+// смены Истикбола до этого шага так и не дошла.
+test('привязка Telegram открывает бота с разовым кодом', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/rpc/tg_link_code_new', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '"a1b2c3d4e5"' }));
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.linkTelegram === 'function');
+
+  const href = await page.evaluate(async () => {
+    currentUser = { id: 'u1' };
+    currentProfile = { role: 'employee', name: 'Новичок', employee_id: 7 };
+    const box = document.createElement('div');
+    box.id = 'tg-link-body';
+    document.body.appendChild(box);
+    window.open = () => null; // всплывающее окно в тесте не нужно
+    await linkTelegram();
+    return box.querySelector('a')?.getAttribute('href');
+  });
+
+  expect(href, 'ссылка ведёт в нашего бота').toBe('https://t.me/SlonShishaBot?start=a1b2c3d4e5');
+});

@@ -76,22 +76,21 @@ async function loadHome() {
     const tgCard = document.getElementById('telegram-link-card');
     if(tgCard) {
       if(!currentProfile?.telegram_id) {
-        // Инструкция из четырёх шагов свёрнута: она нужна один раз в жизни, а
-        // места на главной занимала больше, чем отметка прихода. Развернётся по
-        // нажатию — заголовок остаётся на виду, чтобы про уведомления не забыли.
+        // Привязка в одно нажатие. Прежняя инструкция из четырёх шагов (чужой
+        // @userinfobot, переписать числовой ID руками) не работала: на Истикболе
+        // шесть человек из смены так её и не прошли, и бот для них молчал.
+        // Теперь кнопка сама открывает бота с разовым кодом.
+        // Ручной ввод ID оставлен свёрнутым — на случай, если ссылка не откроется.
         tgCard.innerHTML = `<div class="card" style="background:#E8F4FD;border:1px solid #b3d9f2;margin-bottom:12px">
-          <div onclick="toggleTelegramCard()" style="display:flex;align-items:center;gap:8px;cursor:pointer">
-            <div style="font-size:13px;font-weight:600;color:#1A6FA8">${t('home.tg.title')}</div>
-            <span style="margin-left:auto;font-size:12px;color:#1A6FA8;white-space:nowrap">${t('home.tg.connect')} ›</span>
+          <div style="font-size:13px;font-weight:600;color:#1A6FA8">${t('home.tg.title')}</div>
+          <div style="font-size:12px;color:#666;margin:6px 0 10px">${t('home.tg.desc')}</div>
+          <div id="tg-link-body">
+            <button onclick="linkTelegram()" style="width:100%;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer">${t('home.tg.connect')}</button>
+          </div>
+          <div style="text-align:center;margin-top:8px">
+            <span onclick="toggleTelegramCard()" style="font-size:11px;color:#1A6FA8;cursor:pointer;text-decoration:underline">${t('home.tg.manual')}</span>
           </div>
           <div id="tg-card-body" style="display:none;margin-top:10px">
-            <div style="font-size:12px;color:#666;margin-bottom:10px">${t('home.tg.desc')}</div>
-            <ol style="font-size:12px;color:#666;margin:0 0 10px 16px;padding:0;line-height:1.6">
-              <li>Открой бота <b>@SlonShishaBot</b> в Telegram</li>
-              <li>Напиши ему <b>/start</b></li>
-              <li>Найди бота <b>@userinfobot</b>, напиши <b>/start</b> — он покажет твой ID</li>
-              <li>Введи этот ID ниже</li>
-            </ol>
             <div style="display:flex;gap:8px">
               <input class="form-input" id="tg-id-input" placeholder="Например: 123456789" style="flex:1;padding:10px">
               <button onclick="saveTelegramId()" style="background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:600;cursor:pointer">${t('home.tg.save')}</button>

@@ -123,9 +123,11 @@ async function loadProfile2() {
     // Переключатель языка приложения (RU / UZ) — доступен всем
     const langBlock = `<div class="section-label">🌐 ${t('profile.language')}</div><div class="card">${langSwitcherHTML()}</div>`;
 
-    // Настройки уведомлений — только управляющему и владельцу (остальным по умолчанию всё включено)
+    // Настройки уведомлений — руководству (остальным по умолчанию всё включено).
+    // Менеджер здесь появился вместе с рассылкой по филиалам: раз ему теперь
+    // приходят события его филиала, он должен уметь их и приглушить.
     let notifBlock = '';
-    if(isAdmin() || isBoss()) {
+    if(isAdmin() || isBoss() || isManager()) {
       const prefs = currentProfile?.notify_prefs || {};
       notifBlock = `<div class="section-label">${t('pf.notifTitle')}</div>
         <div class="card">

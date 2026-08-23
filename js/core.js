@@ -247,12 +247,17 @@ function _wantsNotif(prefs, type) {
   return !prefs || prefs[type] !== false;
 }
 
-// Уведомить всех управляющих (роль admin) + владельца — верх иерархии. Учитывает их настройки.
-async function notifyAdminsAll(text, type) {
+// Уведомить руководство ФИЛИАЛА, где произошло событие: владельца, управляющих и
+// менеджеров этого филиала. Раньше выбирались только профили с ролью admin, и
+// менеджеры филиалов не получали ничего о своих людях.
+// Кого считать руководством филиала, решает база (notify_chiefs) — это правило,
+// а не оформление. Филиал по умолчанию текущий: событие всегда происходит там,
+// где сейчас находится отправитель.
+async function notifyAdminsAll(text, type, filial) {
   const sent = new Set();
   let ownerCovered = false;
   try {
-    const { data } = await sb.from('profiles').select('user_id,telegram_id,notify_prefs').eq('role','admin');
+    const { data } = await sb.rpc('notify_chiefs', { p_filial: filial === undefined ? currentFilial : filial });
     for(const p of (data||[])) {
       if(!p.telegram_id || sent.has(String(p.telegram_id)) || p.user_id === currentUser?.id) continue;
       if(String(p.telegram_id) === String(TG_ADMIN_ID)) ownerCovered = true;
@@ -277,22 +282,62 @@ async function notifyEmployee(userId, text, type) {
   if(data?.telegram_id && _wantsNotif(data.notify_prefs, type)) await sendTelegram(data.telegram_id, text);
 }
 
-// Уведомить старших по цеху — всех, кто выше по должности в том же отделе (вверх по иерархии).
+// Уведомить старших по цеху — всех, кто выше по должности в том же отделе (вверх по
+// иерархии) И работает в филиале события. Без фильтра по филиалу чеховские старшие
+// получали отметки Истикбола вперемешку со своими, а на самом филиале получателя не было.
 // aboveLevel — порог уровня должности; уведомляем тех, у кого уровень строго выше.
-async function notifyDeptSeniors(department, aboveLevel, text, type) {
+async function notifyDeptSeniors(department, aboveLevel, text, type, filial) {
   try {
     if(!department) return;
-    const levels = (typeof JOB_TITLE_LEVEL !== 'undefined') ? JOB_TITLE_LEVEL : {};
-    const { data: emps } = await sb.from('employees').select('id,role').eq('department', department).neq('status','Уволен');
-    const seniorIds = (emps||[]).filter(e => (levels[e.role]||0) > (aboveLevel||0)).map(e=>e.id);
-    if(seniorIds.length === 0) return;
-    const { data: profs } = await sb.from('profiles').select('user_id,telegram_id,notify_prefs').in('employee_id', seniorIds);
+    const { data: profs } = await sb.rpc('notify_dept_seniors', {
+      p_dept: department,
+      p_above: aboveLevel || 0,
+      p_filial: filial === undefined ? currentFilial : filial,
+    });
     for(const p of (profs||[])) {
       if(p.user_id && p.user_id !== currentUser?.id && p.telegram_id && _wantsNotif(p.notify_prefs, type)) {
         await sendTelegram(p.telegram_id, text);
       }
     }
   } catch(e) { console.error('notifyDeptSeniors', e); }
+}
+
+// Имя бота нужно клиенту, чтобы собрать ссылку-приглашение t.me/<бот>?start=<код>.
+const TG_BOT = 'SlonShishaBot';
+
+// Привязка Telegram в одно нажатие: берём разовый код и открываем им бота.
+// Telegram передаёт код боту как «/start <код>», вебхук находит по нему аккаунт
+// и записывает chat_id. Переписывать числовой ID руками больше не нужно.
+async function linkTelegram() {
+  const box = document.getElementById('tg-link-body');
+  try {
+    const { data: code, error } = await sb.rpc('tg_link_code_new');
+    if(error) throw error;
+    const url = `https://t.me/${TG_BOT}?start=${code}`;
+    // Ссылку И открываем сами, И показываем кнопкой: открытие из асинхронного
+    // кода может заблокировать браузер, а по кнопке человек нажмёт сам.
+    if(box) {
+      box.innerHTML = `<a href="${url}" target="_blank" rel="noopener" style="display:block;text-align:center;background:#229ED9;color:#fff;border-radius:10px;padding:12px;font-size:14px;font-weight:600;text-decoration:none">${t('home.tg.open')}</a>
+        <div style="font-size:12px;color:#666;margin:8px 0">${t('home.tg.wait')}</div>
+        <button onclick="checkTelegramLink()" style="width:100%;background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:13px;cursor:pointer">${t('home.tg.check')}</button>`;
+    }
+    window.open(url, '_blank');
+  } catch(e) { showToast('Ошибка: ' + e.message); }
+}
+
+// Проверить, привязался ли чат. Перечитываем профиль: запись делает бот на
+// сервере, и в открытой вкладке об этом никто не знает.
+async function checkTelegramLink() {
+  try {
+    const { data } = await sb.from('profiles').select('telegram_id').eq('user_id', currentUser.id).single();
+    if(data?.telegram_id) {
+      if(currentProfile) currentProfile.telegram_id = data.telegram_id;
+      showToast('✅ Telegram подключен!');
+      loadHome();
+    } else {
+      showToast(t('home.tg.notYet'));
+    }
+  } catch(e) { showToast('Ошибка: ' + e.message); }
 }
 
 async function saveTelegramId() {
