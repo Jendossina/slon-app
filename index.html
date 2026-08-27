@@ -1345,7 +1345,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-checklist-deadlines')">✕</button>
     <div class="modal-title" data-i18n="cld.title">⏰ Сроки сдачи чек-листов</div>
-    <div style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:12px" data-i18n="cld.hint">Если чек-лист не сдан через час после срока — придёт уведомление смене и руководству, а невыполнение попадёт в журнал. Официантам дополнительно ставится штрафной балл в блок «Дисциплина». Пустой срок = чек-лист не проверяется.</div>
+    <div style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:12px" data-i18n="cld.hint">Если чек-лист ОТКРЫТИЯ не сдан через час после срока — придёт уведомление смене и руководству, невыполнение попадёт в журнал, а официантам дополнительно ставится штрафной балл в блок «Дисциплина». За чек-листы ЗАКРЫТИЯ не наказываем: по ним приходит только напоминание за час до конца смены, контроль на менеджерах. Пустой срок = чек-лист не проверяется.</div>
     <div id="cld-list"><div class="loading" data-i18n="common.loading">Загрузка...</div></div>
     <button class="btn btn-primary" onclick="saveChecklistDeadlines()" data-i18n="cld.save">Сохранить сроки</button>
     <div class="section-label" style="margin-top:18px" data-i18n="cld.missesLabel">ПОСЛЕДНИЕ НЕВЫПОЛНЕНИЯ</div>
