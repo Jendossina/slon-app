@@ -2028,3 +2028,46 @@ test('правка зарплаты принимает минус, но не н�
   expect(posted[0].amount, 'вычет ушёл со знаком минус').toBe(-25000);
   expect(toasts.some((m) => /минус/i.test(m)), 'на ноль объяснили, чего ждём').toBe(true);
 });
+
+// Установка на iPhone. Кнопкой её не сделать — у Safari нет такого API, — поэтому
+// вся ценность в подсказке: она должна показать нарисованную панель Safari со
+// стрелкой к «Поделиться», а не список текстом. Проверяем и Chrome на iOS: там
+// кнопка спрятана в меню, и человека надо честно увести в Safari.
+const IPHONE_SAFARI = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+
+async function openInstallHelpAs(page, ua) {
+  await page.addInitScript((agent) => {
+    Object.defineProperty(navigator, 'userAgent', { get: () => agent });
+    // userAgentData есть только в Chromium, а Chromium на iOS не существует —
+    // без этого проверка isIOSDevice() сразу отсекает «айфон»
+    delete Object.getPrototypeOf(navigator).userAgentData;
+    Object.defineProperty(navigator, 'userAgentData', { get: () => undefined });
+    Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5 });
+  }, ua);
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.installApp === 'function');
+  await page.evaluate(() => installApp());
+  return page.locator('#install-help-steps');
+}
+
+test('на айфоне подсказка рисует панель Safari со стрелкой к «Поделиться»', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+
+  const steps = await openInstallHelpAs(page, IPHONE_SAFARI);
+  await expect(page.locator('#modal-install-help')).toBeVisible();
+  await expect(steps).toContainText('Поделиться');
+  await expect(steps).toContainText('На экран «Домой»');
+  // Значок «Поделиться» нарисован, а не описан словами
+  expect(await steps.locator('svg').count(), 'иконка «Поделиться» на панели').toBeGreaterThan(0);
+  expect(await steps.locator('[style*="install-point"]').count(), 'стрелка к кнопке').toBe(1);
+  // Инструкции для Android тут быть не должно
+  await expect(steps).not.toContainText('три точки');
+  expect(errors).toEqual([]);
+});
+
+test('в Chrome на айфоне подсказка уводит в Safari', async ({ page }) => {
+  const steps = await openInstallHelpAs(page, IPHONE_SAFARI.replace('Version/17.5 Mobile', 'CriOS/126.0 Mobile'));
+  await expect(steps).toContainText('Chrome');
+  await expect(steps).toContainText('Safari');
+});

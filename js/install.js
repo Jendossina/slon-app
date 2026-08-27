@@ -152,6 +152,87 @@ function renderInstallCard() {
   </div>`;
 }
 
+// ===== Инструкция для iPhone: картинкой, а не списком =====
+// Установить приложение на iOS кнопкой нельзя вообще: Safari не даёт вебу
+// никакого API (beforeinstallprompt есть только в Chromium, а на iOS все
+// браузеры работают на WebKit). Единственный путь — «Поделиться» → «На экран
+// "Домой"», и весь вопрос в том, найдёт ли человек эту кнопку. Текстом
+// «нажми Поделиться» её ищут глазами по всему экрану, поэтому рисуем панель
+// Safari со стрелкой ровно в то место, куда жать.
+
+// Значок «Поделиться» из iOS — квадрат со стрелкой вверх. Рисуем сами:
+// картинку в приложение не тащим, иконка должна попадать в цвет темы.
+const IOS_SHARE_GLYPH = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15.5V3.5"/><path d="M8.5 7 12 3.5 15.5 7"/><path d="M7.5 11H6a2 2 0 0 0-2 2v6.5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V13a2 2 0 0 0-2-2h-1.5"/></svg>`;
+
+// Соседи «Поделиться» по панели — закладки и вкладки. Их тоже рисуем линиями, а
+// не эмодзи: эмодзи на части устройств выпадает пустым квадратом, и нарисованная
+// панель сразу перестаёт быть похожей на настоящую.
+const IOS_BOOKS_GLYPH = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H5.5A1.5 1.5 0 0 1 4 15.5z"/><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h4.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg>`;
+const IOS_TABS_GLYPH  = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="12" height="12" rx="2"/><path d="M8 4.5h11A1.5 1.5 0 0 1 20.5 6v11"/></svg>`;
+
+// На iPad панель Safari сверху, а не снизу — стрелка вниз там врала бы.
+function isIPadDevice() {
+  const ua = navigator.userAgent || '';
+  return /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+}
+
+// Chrome, Яндекс и прочие на iOS — это тот же WebKit в другой обёртке. Добавить
+// иконку из них можно (iOS 16.4+), но «Поделиться» лежит не на виду, а в меню,
+// поэтому проще увести человека в Safari.
+function iosBrowserName() {
+  const ua = navigator.userAgent || '';
+  if(/CriOS/.test(ua))     return 'Chrome';
+  if(/YaBrowser|YaApp/.test(ua)) return 'Яндекс';
+  if(/FxiOS/.test(ua))     return 'Firefox';
+  if(/EdgiOS/.test(ua))    return 'Edge';
+  if(/OPT\//.test(ua))     return 'Opera';
+  return null;                                   // Safari
+}
+
+function iosInstallStepsHTML() {
+  const ipad  = isIPadDevice();
+  const other = iosBrowserName();
+
+  const step = (n, text, extra = '') => `
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="flex:0 0 22px;height:22px;border-radius:50%;background:var(--gold);color:#1a1a1a;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">${n}</div>
+      <div style="flex:1;min-width:0;font-size:13px;line-height:1.6;color:var(--text-secondary)">${text}${extra}</div>
+    </div>`;
+
+  // Панель Safari: пять кнопок, «Поделиться» — средняя. Подсвечиваем её и
+  // ставим над ней стрелку, а саму панель прижимаем к низу блока, чтобы она
+  // читалась как нижний край экрана.
+  const bar = `
+    <div style="margin-top:10px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface-2)">
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);justify-items:center;font-size:15px;color:var(--text-muted);padding:6px 0 0">
+        <span></span><span></span>
+        <span style="color:var(--gold);animation:install-point 1.2s ease-in-out infinite">▼</span>
+        <span></span><span></span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);justify-items:center;align-items:center;padding:8px 0 10px;color:var(--text-muted);font-size:15px">
+        <span>‹</span>
+        <span>›</span>
+        <span style="color:var(--gold);background:rgba(201,164,104,0.16);border:1px solid var(--gold);border-radius:9px;padding:5px 12px;display:flex;align-items:center">${IOS_SHARE_GLYPH}</span>
+        <span style="display:flex">${IOS_BOOKS_GLYPH}</span>
+        <span style="display:flex">${IOS_TABS_GLYPH}</span>
+      </div>
+    </div>`;
+
+  // Строка из меню «Поделиться» — та самая, которую надо найти, пролистав вниз
+  const row = `
+    <div style="margin-top:10px;border:1px solid var(--gold);background:rgba(201,164,104,0.12);border-radius:12px;padding:11px 12px;display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text-primary)">
+      <span style="flex:1;min-width:0">${t('install.ios.addRow')}</span>
+      <span style="color:var(--gold);font-size:18px;line-height:1">⊞</span>
+    </div>`;
+
+  const notice = (text) => `<div style="background:rgba(212,175,55,0.12);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;line-height:1.6;color:var(--gold-light)">${text}</div>`;
+
+  return (other ? notice(t('install.ios.otherBrowser', { browser: other })) : '')
+    + step(1, ipad ? t('install.ios.step1ipad') : t('install.ios.step1'), ipad ? '' : bar)
+    + step(2, t('install.ios.step2'), row)
+    + step(3, t('install.ios.step3'));
+}
+
 async function installApp() {
   if(_installPrompt) {
     _installPrompt.prompt();
@@ -163,9 +244,7 @@ async function installApp() {
   }
   // Своего диалога нет (iOS вообще без такого API, часть Android-браузеров тоже
   // не даёт prompt) — показываем, куда нажимать руками.
-  const steps = isIOSDevice()
-    ? [t('install.help.ios1'), t('install.help.ios2'), t('install.help.ios3')]
-    : [t('install.help.android1'), t('install.help.android2'), t('install.help.android3')];
+  const ios = isIOSDevice();
 
   const notice = (text) => `<div style="background:rgba(212,175,55,0.12);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px;line-height:1.6;color:var(--gold-light)">${text}</div>`;
 
@@ -178,15 +257,19 @@ async function installApp() {
   if(_alreadyInstalled) head += notice(t('install.help.installed'));
   // На первом заходе service worker ещё не управляет страницей, и до перезагрузки
   // браузер не считает сайт приложением — отсюда «установку не предлагает».
-  else if(!_installPrompt && navigator.serviceWorker && !navigator.serviceWorker.controller) {
+  // К iOS это не относится: там иконка добавляется и без service worker.
+  else if(!ios && !_installPrompt && navigator.serviceWorker && !navigator.serviceWorker.controller) {
     head += notice(t('install.help.reload'));
   }
 
-  document.getElementById('install-help-steps').innerHTML = head
-    + `<ol style="margin:0 0 0 18px;padding:0;line-height:1.8;font-size:13px;color:var(--text-secondary)">`
-    + steps.map((s) => `<li>${s}</li>`).join('')
-    + `</ol>`
-    + installDiagnosticsHTML();
+  const body = ios
+    ? iosInstallStepsHTML()
+    : `<ol style="margin:0 0 0 18px;padding:0;line-height:1.8;font-size:13px;color:var(--text-secondary)">`
+      + [t('install.help.android1'), t('install.help.android2'), t('install.help.android3')]
+          .map((s) => `<li>${s}</li>`).join('')
+      + `</ol>`;
+
+  document.getElementById('install-help-steps').innerHTML = head + body + installDiagnosticsHTML();
   openModal('modal-install-help');
 }
 

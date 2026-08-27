@@ -265,6 +265,8 @@ body.boss-readonly [data-edit-only] { display: none !important; }
    Никаких бесконечных (infinite) анимаций здесь больше нет — они грузят
    процессор постоянно, даже когда с экраном никто не взаимодействует. */
 @keyframes rippleAnim { to { transform: scale(2.6); opacity: 0; } }
+/* Стрелка в инструкции для iPhone: тычет в кнопку «Поделиться» на нарисованной панели Safari */
+@keyframes install-point { 0%, 100% { transform: translateY(0); opacity: 0.55; } 50% { transform: translateY(4px); opacity: 1; } }
 
 /* Экран входа: два статичных тёплых пятна на фоне (без анимации) */
 .login-screen { position: relative; overflow: hidden; }
