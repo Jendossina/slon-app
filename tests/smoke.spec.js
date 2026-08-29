@@ -2083,8 +2083,13 @@ function reqRow(id, status, date, decidedAt, name) {
 }
 
 async function openInboxWith(page, rows) {
-  await page.route('**/rest/v1/shift_requests*', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) }));
+  // Отказы приложение просит отдельным запросом (status=eq.rejected): они не
+  // удаляются из базы, и в фильтре показывается вся история, а не неделя.
+  await page.route('**/rest/v1/shift_requests*', (route) => {
+    const onlyRejected = route.request().url().includes('status=eq.rejected');
+    const body = onlyRejected ? rows.filter((r) => r.status === 'rejected') : rows;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
   await page.goto('/');
   await page.waitForFunction(() => typeof window.openRequestsInbox === 'function');
   await page.evaluate(() => { currentProfile = { role: 'boss', employee_id: null }; });
@@ -2128,4 +2133,27 @@ test('форма опоздания не открывается, если зая
   const body = page.locator('#late-form-body');
   await expect(body).toContainText('уже была');
   await expect(body).not.toContainText('На сколько опоздаю');
+});
+
+// Отказы из базы не удаляются (shift_requests_cleanup их пропускает), поэтому
+// фильтр «Отклонённые» показывает историю целиком, а не недельное окно списка.
+test('фильтр отклонённых показывает историю глубже недели', async ({ page }) => {
+  const week = [reqRow(1, 'approved', '2026-08-28', '2026-08-28T10:00:00Z', 'Свежий одобренный')];
+  const history = [reqRow(2, 'rejected', '2026-06-01', '2026-06-01T10:00:00Z', 'Старый отказ')];
+  await page.route('**/rest/v1/shift_requests*', (route) => {
+    const rejected = route.request().url().includes('status=eq.rejected');
+    return route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify(rejected ? history : week) });
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.openRequestsInbox === 'function');
+  await page.evaluate(() => { currentProfile = { role: 'boss', employee_id: null }; });
+  await page.evaluate(() => openRequestsInbox());
+  await page.waitForSelector('#requests-inbox-body .badge');
+
+  const body = page.locator('#requests-inbox-body');
+  await expect(body).not.toContainText('Старый отказ');      // в недельном окне его нет
+  await page.evaluate(() => setDecidedFilter('rejected'));
+  await expect(body).toContainText('Старый отказ');           // а в истории — есть
+  await expect(body).toContainText('июня');                   // и дата читается целиком
 });

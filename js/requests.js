@@ -15,6 +15,9 @@ let reqMyShifts = [];          // мои ближайшие смены
 let reqPartnerShifts = [];     // смены выбранного напарника
 let reqInboxRows = [];
 let reqDecidedFilter = 'all';  // 'all' | 'rejected' — что показываем в блоке решённых
+let reqRejectedRows = null;    // история отказов целиком, грузится по требованию
+
+const REQ_REJECTED_LIMIT = 100;   // сколько отказов показываем в истории
 
 // Может ли текущий пользователь решить по этой заявке. Владелец только смотрит,
 // свою заявку старший цеха не утверждает — она уходит наверх.
@@ -24,7 +27,14 @@ function canDecideRequest(r) {
   return canLeadDept(r.department);
 }
 
-function reqDayLabel(ds) { return fmtLocale(new Date(ds), { weekday:'short', day:'numeric', month:'long' }); }
+// Отказы теперь хранятся без срока, и в их истории попадаются прошлые годы —
+// у таких дат показываем год, иначе «чт, 27 августа» ни о чём не говорит.
+function reqDayLabel(ds) {
+  const d = new Date(ds);
+  const opts = { weekday:'short', day:'numeric', month:'long' };
+  if(d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+  return fmtLocale(d, opts);
+}
 
 // Смены человека на ближайшие две недели. Выходные отбрасываем здесь, а не в
 // запросе: is_day_off бывает null, и фильтр по равенству их бы потерял.
@@ -286,13 +296,29 @@ async function notifyApprovers(msg) {
 
 async function openRequestsInbox() {
   openModal('modal-requests');
+  reqDecidedFilter = 'all';        // открываем всегда на неделе, а не на прошлом фильтре
   await renderRequestsInbox();
 }
 
-// Фильтр решённых заявок. Данные уже загружены — перерисовываем из памяти,
-// чтобы переключение не ходило в сеть.
-function setDecidedFilter(key) {
+// Фильтр решённых заявок. «Все» рисуем из памяти — строки недели уже загружены.
+// «Отклонённые» — это история: отказы, в отличие от остальных заявок, из базы не
+// удаляются, поэтому за ними идём отдельным запросом без недельного окна.
+async function setDecidedFilter(key) {
   reqDecidedFilter = key;
+  if(key === 'rejected' && reqRejectedRows === null) {
+    const body = document.getElementById('requests-inbox-body');
+    if(body) body.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
+    try {
+      const { data, error } = await sb.from('shift_requests').select('*')
+        .eq('status', 'rejected').order('decided_at', { ascending: false }).limit(REQ_REJECTED_LIMIT);
+      if(error) throw error;
+      reqRejectedRows = data || [];
+    } catch(e) {
+      reqRejectedRows = null;                 // не запомнили — попробуем ещё раз при следующем нажатии
+      showToast(t('common.error') + (e?.message || e));
+      reqDecidedFilter = 'all';
+    }
+  }
   paintRequestsInbox();
 }
 
@@ -307,6 +333,10 @@ async function renderRequestsInbox() {
       .gte('date', weekAgo).order('status').order('date');
     if(error) throw error;
     reqInboxRows = data || [];
+    // История отказов могла устареть, пока список был открыт: перечитываем её
+    // вместе со всем остальным, а не показываем вчерашнюю из памяти.
+    reqRejectedRows = null;
+    if(reqDecidedFilter === 'rejected') return setDecidedFilter('rejected');
     paintRequestsInbox();
   } catch(e) {
     body.innerHTML = `<div class="empty"><div class="empty-text">${t('common.error')}${escapeHtml(e?.message||String(e))}</div></div>`;
@@ -331,10 +361,13 @@ function paintRequestsInbox() {
   // отдельно — за ними чаще всего и открывают этот список.
   const decidedAll = reqInboxRows.filter(r => r.status !== 'pending')
     .sort((a, b) => (b.decided_at || b.created_at || '').localeCompare(a.decided_at || a.created_at || ''));
-  const rejectedCount = decidedAll.filter(r => r.status === 'rejected').length;
-  const decided = (reqDecidedFilter === 'rejected'
-    ? decidedAll.filter(r => r.status === 'rejected')
-    : decidedAll).slice(0, 20);
+  // В «Отклонённых» показываем всю историю (она не удаляется), в «Всех» —
+  // неделю, как и раньше: свежие решения, а не архив.
+  const weekRejected = decidedAll.filter(r => r.status === 'rejected');
+  const rejectedCount = (reqRejectedRows || weekRejected).length;
+  const decided = reqDecidedFilter === 'rejected'
+    ? (reqRejectedRows || weekRejected)
+    : decidedAll.slice(0, 20);
 
   const chip = (key, label, n) => {
     const on = reqDecidedFilter === key;
