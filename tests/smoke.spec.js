@@ -2071,3 +2071,61 @@ test('в Chrome на айфоне подсказка уводит в Safari', as
   await expect(steps).toContainText('Chrome');
   await expect(steps).toContainText('Safari');
 });
+
+// Заявки: отклонённые должны быть видны. Раньше список решённых сортировался по
+// статусу (approved < cancelled < rejected) и резался на двадцатой карточке —
+// за неделю накапливалось два десятка одобренных, и отказы не показывались
+// вообще, хотя в базе лежали.
+function reqRow(id, status, date, decidedAt, name) {
+  return { id, kind: 'late', status, date, decided_at: decidedAt, created_at: decidedAt,
+           employee_id: 900 + id, employee_name: name, department: 'Официанты',
+           filial: 'chekhov', late_minutes: 15, reason: null, decided_by_name: 'Руководитель' };
+}
+
+async function openInboxWith(page, rows) {
+  await page.route('**/rest/v1/shift_requests*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.openRequestsInbox === 'function');
+  await page.evaluate(() => { currentProfile = { role: 'boss', employee_id: null }; });
+  await page.evaluate(() => openRequestsInbox());
+  await page.waitForSelector('#requests-inbox-body .badge');
+}
+
+test('отклонённые заявки видны, даже когда одобренных больше двадцати', async ({ page }) => {
+  const rows = [];
+  for (let i = 1; i <= 22; i++) rows.push(reqRow(i, 'approved', '2026-08-2' + (i % 9), `2026-08-2${i % 9}T10:00:00Z`, 'Одобренный ' + i));
+  rows.push(reqRow(50, 'rejected', '2026-08-29', '2026-08-29T13:27:00Z', 'Иксанов Александр'));
+
+  await openInboxWith(page, rows);
+  const body = page.locator('#requests-inbox-body');
+  await expect(body).toContainText('Иксанов Александр');
+  // и фильтр оставляет только отказы
+  await page.evaluate(() => setDecidedFilter('rejected'));
+  await expect(body).toContainText('Иксанов Александр');
+  await expect(body).not.toContainText('Одобренный 1');
+});
+
+// Лимит: одна заявка об опоздании в неделю. Базовое правило живёт в триггере,
+// здесь проверяем, что форма не предлагает подать вторую.
+test('форма опоздания не открывается, если заявка на этой неделе уже была', async ({ page }) => {
+  await page.route('**/rest/v1/schedules*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify([{ id: 1, date: '2026-08-28', shift_start: '11:00', shift_end: '23:00', filial: 'chekhov' }]) }));
+  await page.route('**/rest/v1/shift_requests*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify([{ date: '2026-08-26', status: 'rejected' }]) }));
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.openLateRequest === 'function');
+  await page.evaluate(() => {
+    currentProfile = { role: 'employee', employee_id: 7 };
+    currentEmployee = { name: 'Тест', department: 'Официанты' };
+    // «сегодня» внутри той же недели, что и смена
+    businessToday = () => '2026-08-27';
+  });
+  await page.evaluate(() => openLateRequest());
+  const body = page.locator('#late-form-body');
+  await expect(body).toContainText('уже была');
+  await expect(body).not.toContainText('На сколько опоздаю');
+});

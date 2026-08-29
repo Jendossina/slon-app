@@ -14,6 +14,7 @@ const REQ_HORIZON_DAYS = 14;   // насколько вперёд предлаг
 let reqMyShifts = [];          // мои ближайшие смены
 let reqPartnerShifts = [];     // смены выбранного напарника
 let reqInboxRows = [];
+let reqDecidedFilter = 'all';  // 'all' | 'rejected' — что показываем в блоке решённых
 
 // Может ли текущий пользователь решить по этой заявке. Владелец только смотрит,
 // свою заявку старший цеха не утверждает — она уходит наверх.
@@ -164,6 +165,32 @@ async function submitSwapRequest() {
 
 // ===== ЗАЯВКА ОБ ОПОЗДАНИИ =====
 
+// Одна заявка на неделю (пн–вс, как у премии). Считаем по дню смены и не берём
+// отозванные — ровно то же правило, что в базе у триггера
+// shift_requests_late_weekly_limit. Возвращаем понедельник → первая заявка
+// этой недели, чтобы форма могла и спрятать занятые недели, и объяснить, почему.
+async function loadUsedLateWeeks(empId) {
+  const used = new Map();
+  if(!empId) return used;
+  const from = weekStartOf();                                             // понедельник текущей недели
+  const to = ymdLocal(new Date(Date.now() + REQ_HORIZON_DAYS * 864e5));   // докуда вообще предлагаем смены
+  const { data } = await sb.from('shift_requests').select('date,status')
+    .eq('employee_id', empId).eq('kind', 'late').neq('status', 'cancelled')
+    .gte('date', from).lte('date', to).order('created_at');
+  (data || []).forEach(r => {
+    const w = weekStartOf(r.date);
+    if(!used.has(w)) used.set(w, r);
+  });
+  return used;
+}
+
+// Понедельник следующей недели — с него у человека снова появится попытка
+function nextWeekStart(dateStr) {
+  const d = new Date(weekStartOf(dateStr));
+  d.setDate(d.getDate() + 7);
+  return ymdLocal(d);
+}
+
 async function openLateRequest() {
   const empId = currentProfile?.employee_id;
   if(!empId) return showToast(t('req.noEmployee'));
@@ -171,15 +198,35 @@ async function openLateRequest() {
   const body = document.getElementById('late-form-body');
   body.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
 
-  reqMyShifts = await loadUpcomingShifts(empId);
+  const [shifts, usedWeeks] = await Promise.all([
+    loadUpcomingShifts(empId),
+    loadUsedLateWeeks(empId),
+  ]);
+  reqMyShifts = shifts;
   if(reqMyShifts.length === 0) {
     body.innerHTML = `<div class="empty"><div class="empty-text">${t('req.noShifts')}</div></div>`;
     return;
   }
+
+  // Смены недель, где заявка уже была, не предлагаем: правило всё равно
+  // проверит база, но узнать об этом после заполнения формы — обидно.
+  const free = reqMyShifts.filter(s => !usedWeeks.has(weekStartOf(s.date)));
+  if(free.length === 0) {
+    const prev = usedWeeks.get(weekStartOf(reqMyShifts[0].date)) || [...usedWeeks.values()][0];
+    body.innerHTML = `<div class="empty">
+      <div class="empty-icon">⏰</div>
+      <div class="empty-text">${t('req.lateWeekUsed', {
+        date: reqDayLabel(prev.date),
+        status: t('req.' + prev.status).toLowerCase(),
+        next: reqDayLabel(nextWeekStart(prev.date)),
+      })}</div></div>`;
+    return;
+  }
+
   // Предупреждают почти всегда о ближайшей смене, поэтому она и выбрана
   body.innerHTML = `
     <div class="form-group"><label class="form-label" for="late-date">${t('req.myShift')}</label>
-      <select class="form-select" id="late-date">${reqShiftOptions(reqMyShifts, reqMyShifts[0].date)}</select>
+      <select class="form-select" id="late-date">${reqShiftOptions(free, free[0].date)}</select>
     </div>
     <div class="form-group"><label class="form-label" for="late-minutes">${t('req.lateHowLong')}</label>
       <select class="form-select" id="late-minutes">
@@ -189,7 +236,7 @@ async function openLateRequest() {
     <div class="form-group"><label class="form-label" for="late-reason">${t('req.reason')}</label>
       <input class="form-input" id="late-reason" placeholder="${t('req.lateReasonPh')}">
     </div>
-    <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;line-height:1.5">${t('req.lateHint')}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;line-height:1.5">${t('req.lateHint')}<br>${t('req.lateWeekHint')}</div>
     <button class="btn btn-primary" style="width:100%" onclick="submitLateRequest()">${t('req.send')}</button>`;
 }
 
@@ -216,7 +263,11 @@ async function submitLateRequest() {
     notifyApprovers(`⏰ <b>Предупреждение об опоздании</b>\n\n👤 ${tgEscape(currentEmployee?.name||'')}\n📅 ${reqDayLabel(date)} · смена ${tgEscape(shift?.shift_start||'')}\n🕐 Опоздает на ${minutes} мин${reason?`\n📝 ${tgEscape(reason)}`:''}\n\nОткрой приложение: https://slon-app.vercel.app`);
     loadRequestsCard();
   } catch(e) {
-    showToast(e?.code === '23505' ? t('req.dupe') : t('common.error') + (e?.message || e));
+    // 23505 — уникальный индекс на одну необработанную заявку в день.
+    // P0001 — наш собственный запрет из триггера (лимит недели): текст там уже
+    // человеческий, «Ошибка:» перед ним только пугает.
+    if(e?.code === 'P0001') showToast('⏰ ' + (e.message || ''));
+    else showToast(e?.code === '23505' ? t('req.dupe') : t('common.error') + (e?.message || e));
   }
 }
 
@@ -238,6 +289,13 @@ async function openRequestsInbox() {
   await renderRequestsInbox();
 }
 
+// Фильтр решённых заявок. Данные уже загружены — перерисовываем из памяти,
+// чтобы переключение не ходило в сеть.
+function setDecidedFilter(key) {
+  reqDecidedFilter = key;
+  paintRequestsInbox();
+}
+
 async function renderRequestsInbox() {
   const body = document.getElementById('requests-inbox-body');
   body.innerHTML = `<div class="loading">${t('common.loading')}</div>`;
@@ -249,19 +307,49 @@ async function renderRequestsInbox() {
       .gte('date', weekAgo).order('status').order('date');
     if(error) throw error;
     reqInboxRows = data || [];
-
-    const pending = reqInboxRows.filter(r => r.status === 'pending');
-    const decided = reqInboxRows.filter(r => r.status !== 'pending').slice(0, 20);
-    if(reqInboxRows.length === 0) {
-      body.innerHTML = `<div class="empty"><div class="empty-icon">📥</div><div class="empty-text">${t('req.empty')}</div></div>`;
-      return;
-    }
-    body.innerHTML =
-      (pending.length ? `<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin:4px 0 8px">${t('req.pendingTitle')}</div>` + pending.map(requestCard).join('') : '') +
-      (decided.length ? `<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin:16px 0 8px">${t('req.decidedTitle')}</div>` + decided.map(requestCard).join('') : '');
+    paintRequestsInbox();
   } catch(e) {
     body.innerHTML = `<div class="empty"><div class="empty-text">${t('common.error')}${escapeHtml(e?.message||String(e))}</div></div>`;
   }
+}
+
+// Рисование отделено от загрузки: переключение фильтра решённых работает по уже
+// полученным строкам и не ходит в сеть.
+function paintRequestsInbox() {
+  const body = document.getElementById('requests-inbox-body');
+  if(!body) return;
+  const pending = reqInboxRows.filter(r => r.status === 'pending');
+  if(reqInboxRows.length === 0) {
+    body.innerHTML = `<div class="empty"><div class="empty-icon">📥</div><div class="empty-text">${t('req.empty')}</div></div>`;
+    return;
+  }
+
+  // Решённые — свежие сверху. Раньше сортировка шла по статусу (approved <
+  // cancelled < rejected) и список резался на двадцатой карточке: за неделю
+  // накапливалось два десятка одобренных, и ни одного отказа не было видно
+  // вообще. Теперь порядок по времени решения, а отказы можно выделить
+  // отдельно — за ними чаще всего и открывают этот список.
+  const decidedAll = reqInboxRows.filter(r => r.status !== 'pending')
+    .sort((a, b) => (b.decided_at || b.created_at || '').localeCompare(a.decided_at || a.created_at || ''));
+  const rejectedCount = decidedAll.filter(r => r.status === 'rejected').length;
+  const decided = (reqDecidedFilter === 'rejected'
+    ? decidedAll.filter(r => r.status === 'rejected')
+    : decidedAll).slice(0, 20);
+
+  const chip = (key, label, n) => {
+    const on = reqDecidedFilter === key;
+    return `<button onclick="setDecidedFilter('${key}')" style="border:1px solid ${on?'var(--gold)':'var(--border)'};background:${on?'var(--gold)':'var(--surface-2)'};color:${on?'#1a1611':'var(--text-primary)'};border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">${label}${n!=null?` · ${n}`:''}</button>`;
+  };
+
+  body.innerHTML =
+    (pending.length ? `<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin:4px 0 8px">${t('req.pendingTitle')}</div>` + pending.map(requestCard).join('') : '') +
+    (decidedAll.length ? `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:16px 0 8px">
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;flex:1;min-width:120px">${t('req.decidedTitle')}</div>
+        ${chip('all', t('req.filterAll'))}
+        ${chip('rejected', t('req.filterRejected'), rejectedCount)}
+      </div>` + (decided.length
+          ? decided.map(requestCard).join('')
+          : `<div class="empty"><div class="empty-text">${t('req.noRejected')}</div></div>`) : '');
 }
 
 function requestCard(r) {
