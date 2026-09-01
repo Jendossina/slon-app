@@ -1899,6 +1899,47 @@ test('тяжёлое видео прихода пережимается на т�
   expect(r.outMB, `${r.inMB.toFixed(2)} МБ → ${r.outMB.toFixed(2)} МБ`).toBeLessThan(r.inMB / 2);
 });
 
+// Старший цеха ведёт график своего цеха и карточки своих людей, а поставить им
+// задачу не мог — кнопки «+» у него просто не было, шёл просить менеджера.
+// Проверяем, что право появилось ровно у старших и ровно на свой цех: то же
+// правило стоит в базе (can_assign_task_to), и списки обязаны совпадать.
+test('старший цеха ставит задачи своим, линейный сотрудник — никому', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.canCreateTasks === 'function');
+
+  const r = await page.evaluate(() => {
+    const as = (sysRole, dept, jobRole) => {
+      currentProfile = { role: sysRole, employee_id: 1, name: 'Тест' };
+      currentEmployee = { department: dept, role: jobRole };
+      applyRolePermissions();
+      return {
+        can: canCreateTasks(),
+        lead: myLeadDept(),
+        fab: document.getElementById('fab-tasks').style.display,
+      };
+    };
+    return {
+      seniorBarman: as('employee', 'Бармены', 'Старший бармен'),
+      sousChef:     as('employee', 'Повара', 'Су-шеф'),
+      barman:       as('employee', 'Бармены', 'Бармен'),
+      waiter:       as('employee', 'Официанты', 'Официант'),
+      manager:      as('manager', 'Менеджеры', 'Менеджер'),
+      boss:         as('boss', '', 'BOSS'),
+    };
+  });
+
+  expect(r.seniorBarman.can, 'старший бармен ставит задачи').toBe(true);
+  expect(r.seniorBarman.lead).toBe('Бармены');
+  expect(r.seniorBarman.fab, 'и видит кнопку «+»').toBe('flex');
+  expect(r.sousChef.can, 'су-шеф тоже').toBe(true);
+  expect(r.barman.can, 'рядовой бармен — нет').toBe(false);
+  expect(r.barman.fab).toBe('none');
+  expect(r.waiter.can, 'официант — нет: официантами занимается руководство').toBe(false);
+  expect(r.manager.can, 'менеджер — как раньше').toBe(true);
+  expect(r.boss.can, 'BOSS только смотрит').toBe(false);
+});
+
 // Уведомления обязаны знать про филиал. Менеджер Истикбола неделю не получал
 // ничего о своём филиале: рассылка выбирала только роль admin и не спрашивала,
 // где событие произошло. Теперь получателей отдаёт база, а клиент передаёт ей

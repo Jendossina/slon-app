@@ -137,6 +137,11 @@ function canLeadDept(dept) {
 // Видит ли зарплату конкретного человека: руководство — всех, старший — своих.
 // Ставка сотрудника цеха — часть управления цехом, чужие цеха по-прежнему закрыты.
 function canSeeSalaryOf(dept) { return canSeeSalaryRole() || canLeadDept(dept); }
+// Ставит задачи: руководство — кому угодно, старший цеха — своим. Раньше кнопка
+// была только у admin/manager, и старший бармен не мог поручить работу своей же
+// смене — приходилось просить менеджера. График и карточки людей он ведёт давно,
+// задачи выпадали из этого набора без причины.
+function canCreateTasks() { return canEditData() || isDeptLead(); }
 
 // Карточка сотрудника текущего пользователя (должность и цех) — нужна для прав
 // по должности. Заполняется при входе, чтобы не ходить в базу на каждый клик.
@@ -965,10 +970,12 @@ function applyRolePermissions() {
       ['fab-hr','fab-tasks','fab-crm','fab-finance'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
     }
   }
-  // Старший цеха заводит людей в свой отдел: кнопка «+» в разделе «Люди»
+  // Старший цеха заводит людей в свой отдел и ставит им задачи: обе кнопки «+»
   if(isDeptLead()) {
-    const fab = document.getElementById('fab-hr');
-    if(fab) fab.style.display = 'flex';
+    ['fab-hr','fab-tasks'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.style.display = 'flex';
+    });
   }
   // Менеджер и старший цеха заводят только рядовых сотрудников — оставляем
   // в форме добавления лишь роль «Сотрудник»

@@ -26,7 +26,13 @@ async function getVisibleAssigneeIds() {
     const myLevel = JOB_TITLE_LEVEL[me?.role] || 0;
     if(myLevel <= 1 || !me?.department) return myIds; // линейный персонал — только свои
     const { data: deptEmps } = await sb.from('employees').select('id,role').eq('department', me.department);
-    const visibleEmpIds = (deptEmps||[]).filter(e => (JOB_TITLE_LEVEL[e.role]||0) <= myLevel && e.id !== currentProfile.employee_id).map(e=>e.id);
+    // Старший цеха отвечает за цех целиком, поэтому видит его весь. Иначе
+    // задача, поставленная своему же шефу, пропадала бы у него из списка:
+    // ставить он её может, а видеть — нет.
+    const lead = typeof myLeadDept === 'function' && myLeadDept() === me.department;
+    const visibleEmpIds = (deptEmps||[])
+      .filter(e => (lead || (JOB_TITLE_LEVEL[e.role]||0) <= myLevel) && e.id !== currentProfile.employee_id)
+      .map(e=>e.id);
     if(visibleEmpIds.length===0) return myIds;
     const { data: subProfiles } = await sb.from('profiles').select('user_id').in('employee_id', visibleEmpIds);
     return [...myIds, ...(subProfiles||[]).map(p=>p.user_id).filter(Boolean)];
@@ -240,8 +246,15 @@ async function loadTaskEmployees() {
   const el = document.getElementById('task-filial-display');
   if(el) el.textContent = t('tasks.forFilial') + getFilialName(currentFilial);
   clearTaskPhoto(); // модалка открывается заново — снимок от прошлой задачи не тянем
-  const { data: allEmps } = await sb.from('employees').select('id,name,department,filials').order('name');
-  const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
+  const { data: allEmps } = await sb.from('employees').select('id,name,department,filials,status').order('name');
+  // Старший цеха ставит задачи только своим — то же правило проверяет база
+  // (can_assign_task_to), так что показывать чужие отделы нельзя: выбрал бы,
+  // а вставка молча не прошла.
+  const myDept = (typeof myLeadDept === 'function' && !canEditData()) ? myLeadDept() : null;
+  const emps = (allEmps||[])
+    .filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial))
+    .filter(e => e.status !== 'Уволен')
+    .filter(e => !myDept || e.department === myDept);
   const list = document.getElementById('task-assigned-list');
   if(!emps || emps.length===0) { list.innerHTML=`<div style="padding:10px;color:var(--text-muted);font-size:13px">${t('tasks.noEmpFilial',{f:getFilialName(currentFilial)})}</div>`; return; }
 
@@ -262,7 +275,7 @@ async function loadTaskEmployees() {
 }
 
 async function addTask() {
-  if(!canEditData()) return showToast(t('common.observerMode'));
+  if(!canCreateTasks()) return showToast(t('common.observerMode'));
   const title = document.getElementById('task-title').value.trim();
   const description = document.getElementById('task-description').value.trim();
   if(!title) return showToast(t('tasks.enterTask'));
@@ -301,7 +314,9 @@ async function addTask() {
       await logActivity('add_task', title + ' → ' + empName);
 
       if(profile?.user_id) {
-        await notifyEmployee(profile.user_id, `🐘 <b>Новая задача от управляющего</b>\n\n📋 ${title}${description?'\n📝 '+description:''}${photoUrl?'\n📷 К задаче приложено фото':''}\n📅 Срок: ${dueDate}\n\nОткрой приложение: https://slon-app.vercel.app`, 'task_new');
+        // Кто поставил — теперь задачи ставит не только управляющий, и «от
+        // управляющего» в подписи от старшего цеха просто врало бы
+        await notifyEmployee(profile.user_id, `🐘 <b>Новая задача</b>\n\n👤 От: ${tgEscape(currentProfile?.name || '')}\n📋 ${title}${description?'\n📝 '+description:''}${photoUrl?'\n📷 К задаче приложено фото':''}\n📅 Срок: ${dueDate}\n\nОткрой приложение: https://slon-app.vercel.app`, 'task_new');
       }
       successCount++;
     }
