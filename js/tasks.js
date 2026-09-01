@@ -183,7 +183,13 @@ async function loadTasks() {
     const role = currentProfile?.role;
     await renderTasksEmpFilter(role);
     let query = sb.from('tasks').select('*').order('due_date');
-    if(role==='employee') query = query.in('assigned_to_id', await getVisibleAssigneeIds());
+    if(role==='employee') {
+      // Свои задачи и задачи подчинённых — плюс всё, что поставил сам. Без
+      // последнего задача менеджеру исчезала бы сразу после постановки: ставить
+      // старший цеха её вправе, а отдел «Менеджеры» ему не виден.
+      const ids = (await getVisibleAssigneeIds()).map(id => `"${id}"`).join(',');
+      query = query.or(`assigned_to_id.in.(${ids}),created_by.eq.${currentUser.id}`);
+    }
     else query = query.eq('filial', currentFilial);
     if(tasksSelectedDay) query = query.eq('due_date', tasksSelectedDay);
     if(tasksSelectedEmp) query = query.eq('assigned_to_name', tasksSelectedEmp);
@@ -247,14 +253,15 @@ async function loadTaskEmployees() {
   if(el) el.textContent = t('tasks.forFilial') + getFilialName(currentFilial);
   clearTaskPhoto(); // модалка открывается заново — снимок от прошлой задачи не тянем
   const { data: allEmps } = await sb.from('employees').select('id,name,department,filials,status').order('name');
-  // Старший цеха ставит задачи только своим — то же правило проверяет база
-  // (can_assign_task_to), так что показывать чужие отделы нельзя: выбрал бы,
-  // а вставка молча не прошла.
+  // Старший цеха ставит задачи своим и менеджерам — то же правило проверяет
+  // база (can_assign_task_to), так что показывать остальные отделы нельзя:
+  // выбрал бы, а вставка молча не прошла.
   const myDept = (typeof myLeadDept === 'function' && !canEditData()) ? myLeadDept() : null;
+  const canPick = e => !myDept || e.department === myDept || e.department === 'Менеджеры';
   const emps = (allEmps||[])
     .filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial))
     .filter(e => e.status !== 'Уволен')
-    .filter(e => !myDept || e.department === myDept);
+    .filter(canPick);
   const list = document.getElementById('task-assigned-list');
   if(!emps || emps.length===0) { list.innerHTML=`<div style="padding:10px;color:var(--text-muted);font-size:13px">${t('tasks.noEmpFilial',{f:getFilialName(currentFilial)})}</div>`; return; }
 

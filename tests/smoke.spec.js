@@ -1940,6 +1940,46 @@ test('старший цеха ставит задачи своим, линейн
   expect(r.boss.can, 'BOSS только смотрит').toBe(false);
 });
 
+// Кому именно старший цеха может поставить задачу: своим и менеджерам. Задача
+// снизу вверх — обычное дело (кончился сироп, сломалась мойка), поэтому отдел
+// «Менеджеры» открыт всем старшим. То же правило стоит в базе
+// (can_assign_task_to), и список в форме обязан ему соответствовать: покажем
+// лишнего — человек выберет, а вставка молча не пройдёт.
+test('в форме задачи старший цеха видит свой цех и менеджеров, но не чужие', async ({ page }) => {
+  const people = [
+    { id: 1, name: 'Бармен Свой',   department: 'Бармены',           filials: ['chekhov'], status: 'Активен' },
+    { id: 2, name: 'Шеф Бармен',    department: 'Бармены',           filials: ['chekhov'], status: 'Активен' },
+    { id: 3, name: 'Менеджер',      department: 'Менеджеры',         filials: ['chekhov'], status: 'Активен' },
+    { id: 4, name: 'Официант',      department: 'Официанты',         filials: ['chekhov'], status: 'Активен' },
+    { id: 5, name: 'Повар',         department: 'Повара',            filials: ['chekhov'], status: 'Активен' },
+    { id: 6, name: 'Кальянщик',     department: 'Кальянные мастера', filials: ['chekhov'], status: 'Активен' },
+    { id: 7, name: 'Уволенный',     department: 'Бармены',           filials: ['chekhov'], status: 'Уволен' },
+  ];
+  // Playwright примеряет маршруты с последнего — общий вешаем первым
+  await page.route('**/rest/v1/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/employees*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(people) }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.loadTaskEmployees === 'function');
+
+  const names = await page.evaluate(async () => {
+    currentFilial = 'chekhov';
+    currentProfile = { role: 'employee', employee_id: 99, name: 'Лион' };
+    currentEmployee = { department: 'Бармены', role: 'Старший бармен' };
+    await loadTaskEmployees();
+    return Array.from(document.querySelectorAll('.task-emp-checkbox')).map((c) => c.dataset.name);
+  });
+
+  expect(names, 'свой цех').toContain('Бармен Свой');
+  expect(names, 'и свой шеф — он тоже в цехе').toContain('Шеф Бармен');
+  expect(names, 'менеджеру задачу поставить можно').toContain('Менеджер');
+  expect(names, 'чужие цеха закрыты').not.toContain('Официант');
+  expect(names).not.toContain('Повар');
+  expect(names).not.toContain('Кальянщик');
+  expect(names, 'уволенных не предлагаем').not.toContain('Уволенный');
+});
+
 // Уведомления обязаны знать про филиал. Менеджер Истикбола неделю не получал
 // ничего о своём филиале: рассылка выбирала только роль admin и не спрашивала,
 // где событие произошло. Теперь получателей отдаёт база, а клиент передаёт ей
