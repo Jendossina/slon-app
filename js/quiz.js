@@ -1,10 +1,11 @@
 // ============ АТТЕСТАЦИЯ ПО МЕНЮ (QUIZ) ============
-// 10 случайных вопросов, 8 правильных (80%) = сдал. Проходится по субботам.
+// 10 случайных вопросов, 8 правильных (80%) = сдал. Проходится раз в неделю,
+// в день филиала: Чехов — суббота, Истикбол — воскресенье (QUIZ_WEEKDAY в core.js).
 // Вопросы и проверку ответов выдаёт сервер (функции quiz_start/quiz_submit),
 // поэтому правильные ответы физически не попадают в телефон до конца теста.
 //
 // Руководство может назначить тест с другим числом вопросов и пометкой
-// «тренировочная» — такая попытка не идёт в проценты и не расходует субботнюю.
+// «тренировочная» — такая попытка не идёт в проценты и не расходует недельную.
 // Поэтому число вопросов и порог сдачи берём из ответа сервера, а константы
 // ниже — только значения по умолчанию для текстов.
 
@@ -47,7 +48,9 @@ async function openQuiz() {
 }
 
 function quizErrorText(d) {
-  if(d.error === 'not_saturday')          return t('quiz.errNotSaturday');
+  // day приходит из quiz_start: называем день того филиала, где человек работает
+  if(d.error === 'not_quiz_day')          return t('quiz.errNotQuizDay',
+                                            {days: quizDayWord('every', d.day), day: quizDayWord('when', d.day)});
   if(d.error === 'already_done')          return t('quiz.errAlreadyDone');
   if(d.error === 'no_employee')           return t('quiz.errNoEmployee');
   if(d.error === 'not_enough_questions')  return t('quiz.errNoQuestions', {have: d.have || 0, need: d.need || QUIZ_TOTAL});
@@ -135,7 +138,7 @@ function closeQuizAndRefresh() {
   if(typeof bonusData !== 'undefined' && document.getElementById('screen-bonus')?.classList.contains('active')) { bonusData = null; switchBonusTab(bonusTab); }
 }
 
-// Карточка на Главной: официанту напоминаем про аттестацию по субботам
+// Карточка на Главной: официанту напоминаем про аттестацию в день его филиала
 // (и в любой день, если администратор открыл пересдачу).
 async function loadQuizCard() {
   const el = document.getElementById('home-quiz-card');
@@ -160,14 +163,14 @@ async function loadQuizCard() {
     const active  = all.find(a => !a.superseded && !a.practice && qn(a));
     const started = all.find(a => !a.finished_at && qn(a) && (!a.practice || a.date === today));
     const donePractice = all.find(a => a.practice && a.finished_at && a.date === today);
-    const isSaturday = new Date(today).getDay() === 6;
+    const quizDay = isQuizDay(today);
 
-    // Итог показываем в день сдачи: зачётный — в субботу, тренировочный — в свой день.
-    // Но в субботу тренировка не должна закрывать собой зачётную аттестацию:
+    // Итог показываем в день сдачи: зачётный — в день аттестации, тренировочный — в свой.
+    // Но в день аттестации тренировка не должна закрывать собой зачётную:
     // пока она не сдана, карточка с итогом тренировки уступает ей место.
-    const saturdayPending = isSaturday && !(active && active.finished_at);
-    const done = (active && active.finished_at && isSaturday) ? active
-               : (!assign && !started && !saturdayPending ? donePractice : null);
+    const quizDayPending = quizDay && !(active && active.finished_at);
+    const done = (active && active.finished_at && quizDay) ? active
+               : (!assign && !started && !quizDayPending ? donePractice : null);
     if(done) {
       const total = done.q_total || QUIZ_TOTAL;
       el.innerHTML = `<div class="card" style="margin-bottom:12px;background:${done.passed?'linear-gradient(135deg,#EAF3DE,#d4edda)':'linear-gradient(135deg,#F6E7E7,#f5d9d9)'};border:none">
@@ -179,17 +182,18 @@ async function loadQuizCard() {
       return;
     }
     if(active && active.finished_at && !assign && !started) return; // сдал раньше — не мозолим глаза
-    if(!isSaturday && !assign && !started) return;
+    if(!quizDay && !assign && !started) return;
 
     const run = started || assign || null;
     const practice = !!(run && run.practice);
     const total = (run && run.q_total) || QUIZ_TOTAL;
-    const label = practice ? t('quiz.cardPractice') : (assign||started ? t('quiz.cardRetake') : t('quiz.cardSaturday'));
+    const label = practice ? t('quiz.cardPractice') : (assign||started ? t('quiz.cardRetake')
+                                                    : t('quiz.cardToday', {day: quizDayWord('name')}));
     const scope = quizScopeText(run && run.areas);
     el.innerHTML = `<div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#2d2416,#4a3a1f);border:none;color:#f0e9db">
       <div style="font-size:11px;opacity:0.75;margin-bottom:4px">${label}</div>
       <div style="font-size:17px;font-weight:700;margin-bottom:10px">${practice?'🏋️':'🎓'} ${practice?t('quiz.practiceTitle'):t('quiz.cardTitle')}</div>
-      <div style="font-size:12px;opacity:0.8;margin-bottom:12px">${practice?t('quiz.practiceCardHint',{total,pass:quizPassFor(total)}):t('quiz.cardHint',{total,pass:quizPassFor(total)})}${scope?` ${scope}`:''}</div>
+      <div style="font-size:12px;opacity:0.8;margin-bottom:12px">${practice?t('quiz.practiceCardHint',{total,pass:quizPassFor(total),day:quizDayWord('before')}):t('quiz.cardHint',{total,pass:quizPassFor(total)})}${scope?` ${scope}`:''}</div>
       <button onclick="openQuiz()" style="width:100%;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">${t('quiz.cardBtn')}</button>
     </div>`;
   } catch(e) { /* таблиц ещё нет — карточку просто не показываем */ }

@@ -366,6 +366,18 @@ let currentFilial = localStorage.getItem('slon-filial') || FILIALS[0].id;
 
 function getFilialName(id) { return FILIALS.find(f=>f.id===id)?.name || id; }
 
+// День еженедельной аттестации — у каждого филиала свой (ISO: 1 = пн … 7 = вс).
+// Чехов проходит тест в субботу, Истикбол — в воскресенье. ЭТО единственное
+// место на клиенте, где меняется день; в базе тот же список — quiz_weekday().
+const QUIZ_WEEKDAY = { chekhov: 6, istikbol: 7 };
+function quizWeekdayOf(filial) { return QUIZ_WEEKDAY[filial || currentFilial] || 6; }
+// Официант привязан к своему филиалу карточкой — база берёт filials[1], берём тот же
+function myQuizWeekday() { return quizWeekdayOf(currentEmployee?.filials?.[0] || currentFilial); }
+// Сегодня день аттестации филиала? ISO-номер дня: у Date вс = 0, у нас 7.
+function isQuizDay(ymd, weekday) {
+  return (new Date(ymd).getDay() || 7) === (weekday || myQuizWeekday());
+}
+
 // Филиалы, доступные текущему пользователю.
 //
 // До 16.08.2026 весь состав, кроме управляющих, был приколочен к пилотному

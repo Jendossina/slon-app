@@ -60,13 +60,15 @@ function switchBonusTab(tab) {
   else renderQuizBank();
 }
 
-// Суббота этой недели уже прошла? До неё аттестацию не спрашиваем, после — не сдал = 0.
-function weekSaturdayPassed(weekStart) {
-  const sat = new Date(weekStart); sat.setDate(sat.getDate() + 5); // пн + 5 = сб
-  return businessToday() > ymdLocal(sat);
+// День аттестации этой недели уже прошёл? До него аттестацию не спрашиваем,
+// после — не сдал = 0. День свой у каждого филиала (QUIZ_WEEKDAY в core.js),
+// а экран процентов всегда показывает один филиал — currentFilial.
+function weekQuizDayPassed(weekStart) {
+  const d = new Date(weekStart); d.setDate(d.getDate() + quizWeekdayOf(currentFilial) - 1); // пн = 1
+  return businessToday() > ymdLocal(d);
 }
 // Балл аттестации за неделю: сначала пройденный в приложении тест, потом ручной ввод,
-// потом — «не сдавал»: 0, если суббота прошла, и null, если ещё нет.
+// потом — «не сдавал»: 0, если день аттестации прошёл, и null, если ещё нет.
 // Балл из 100: вопросов в тесте может быть не десять (руководство назначает число),
 // поэтому считаем долю правильных, а не score × 10.
 function attestationForWeek(attempt, weekStart, manualScore) {
@@ -75,7 +77,7 @@ function attestationForWeek(attempt, weekStart, manualScore) {
     return Math.round((Number(attempt.score) || 0) / total * 100);
   }
   if(manualScore != null) return manualScore;
-  return weekSaturdayPassed(weekStart) ? 0 : null;
+  return weekQuizDayPassed(weekStart) ? 0 : null;
 }
 
 // Все данные недели одним заходом; кэшируем до смены недели/правки
@@ -199,7 +201,7 @@ async function renderBonusResults() {
   }
 }
 
-// Строка про аттестацию: результат теста, «не сдавал» или «будет в субботу» + пересдача
+// Строка про аттестацию: результат теста, «не сдавал» или «будет в свой день» + пересдача
 function bonusAttestationLine(emp, row, manage) {
   const q = row.quiz;
   let text, color = 'var(--text-muted)';
@@ -208,25 +210,26 @@ function bonusAttestationLine(emp, row, manage) {
     color = q.passed ? '#3B6D11' : '#A13C3C';
   } else if(row.st.attestation_score != null) {
     text = t('bonus.attManual', {n: row.st.attestation_score});
-  } else if(weekSaturdayPassed(bonusWeek)) {
+  } else if(weekQuizDayPassed(bonusWeek)) {
     text = t('bonus.attMissed');
     color = '#A13C3C';
   } else {
-    text = t('bonus.attSaturday');
+    text = t('bonus.attDay', {day: quizDayWord('when', quizWeekdayOf(currentFilial))});
   }
   // Кнопка есть ВСЕГДА, пока управляющий смотрит: назначить тест можно и тому,
   // кто на этой неделе ещё не начинал — раньше в этом случае она не показывалась,
-  // и открыть аттестацию вне субботы было нельзя.
+  // и открыть аттестацию вне дня аттестации было нельзя.
   const label = q ? t('bonus.attRetake') : t('bonus.attAssign');
   const retake = manage ? ` <span onclick="reopenQuiz(${emp.id},'${escJsAttr(emp.name)}')" style="color:var(--gold-dark);cursor:pointer;font-weight:600">${label}</span>` : '';
   return `<div style="font-size:11px;margin-top:8px;color:${color}">🎓 ${text}${retake}</div>`;
 }
 
-// Открыть официанту пересдачу: старая попытка гасится, новая доступна сразу (не только в субботу)
+// Открыть официанту пересдачу: старая попытка гасится, новая доступна сразу (в любой день)
 async function reopenQuiz(empId, empName) {
   if(!canEditData()) return showToast(t('bonus.onlyMgr'));
   const had = !!((bonusData?.quiz || {})[empId]);
-  const ask = had ? t('bonus.attRetakeConfirm', {name: empName}) : t('bonus.attAssignConfirm', {name: empName});
+  const ask = had ? t('bonus.attRetakeConfirm', {name: empName})
+                  : t('bonus.attAssignConfirm', {name: empName, day: quizDayWord('until', quizWeekdayOf(currentFilial))});
   if(!await confirmDialog(ask)) return;
   try {
     const { data, error } = await sb.rpc('quiz_reopen', { p_employee_id: empId, p_week_start: bonusWeek });
