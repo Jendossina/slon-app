@@ -1833,6 +1833,72 @@ test('аттестация знает свой день у каждого фил
   r.phrases.forEach((p) => expect(p, p).not.toContain('{'));
 });
 
+// Видео прихода из системной камеры весит 4-8 МБ против 0,45 МБ у съёмки
+// внутри приложения — три таких телефона за месяц выбрали всё бесплатное
+// хранилище. Проверяем, что маленькое видео пережимать не пытаемся (иначе
+// тратим секунды на каждой отметке), а причина отказа камеры превращается
+// в понятную человеку подсказку, а не в общее «камера не открылась».
+test('видео прихода: мелкое не пережимаем, причину отказа камеры называем', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.shrinkCheckinVideo === 'function');
+
+  const r = await page.evaluate(async () => {
+    const small = new File([new Uint8Array(200 * 1024)], 'checkin.mp4', { type: 'video/mp4' });
+    const same = (await shrinkCheckinVideo(small)) === small;
+    const hint = (err) => { checkinCameraError = err; return checkinCameraHint(); };
+    return {
+      same,
+      denied: hint('NotAllowedError'),
+      old: hint('unsupported'),
+      other: hint('NotFoundError'),
+      limit: CHECKIN_MAX_MB,
+    };
+  });
+
+  expect(r.same, 'файл меньше порога уходит как есть, без перекодирования').toBe(true);
+  expect(r.limit).toBe(1.5);
+  expect(r.denied).toContain('Разрешения');
+  expect(r.old).toContain('старая версия');
+  expect(r.other).not.toBe(r.denied);
+});
+
+// А тяжёлое — пережимаем по-настоящему. Снимаем шум на 8 Мбит/с, чтобы получить
+// файл крупнее порога, и смотрим, что на выходе он стал заметно легче.
+test('тяжёлое видео прихода пережимается на телефоне', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.shrinkCheckinVideo === 'function');
+
+  const r = await page.evaluate(async () => {
+    const c = document.createElement('canvas'); c.width = 640; c.height = 480;
+    const ctx = c.getContext('2d');
+    const img = ctx.createImageData(640, 480);
+    const paint = () => {
+      for (let i = 0; i < img.data.length; i += 4) {
+        img.data[i] = Math.random()*255; img.data[i+1] = Math.random()*255;
+        img.data[i+2] = Math.random()*255; img.data[i+3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    };
+    const rec = new MediaRecorder(c.captureStream(30), { videoBitsPerSecond: 8000000 });
+    const chunks = []; rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    const done = new Promise((ok) => { rec.onstop = ok; });
+    rec.start();
+    const t0 = Date.now();
+    await new Promise((ok) => { const l = () => { paint(); Date.now()-t0 > 3000 ? ok() : requestAnimationFrame(l); }; l(); });
+    rec.stop(); await done;
+    const big = new File([new Blob(chunks, { type: chunks[0].type })], 'checkin.mp4', { type: chunks[0].type });
+    const out = await shrinkCheckinVideo(big);
+    return { inMB: big.size/1048576, outMB: out.size/1048576, changed: out !== big };
+  });
+
+  test.skip(r.inMB <= 1.5, 'браузер не дал файл крупнее порога — пережимать нечего');
+  expect(r.changed, 'файл больше порога должен пережиматься').toBe(true);
+  expect(r.outMB, `${r.inMB.toFixed(2)} МБ → ${r.outMB.toFixed(2)} МБ`).toBeLessThan(r.inMB / 2);
+});
+
 // Уведомления обязаны знать про филиал. Менеджер Истикбола неделю не получал
 // ничего о своём филиале: рассылка выбирала только роль admin и не спрашивала,
 // где событие произошло. Теперь получателей отдаёт база, а клиент передаёт ей

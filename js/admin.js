@@ -16,50 +16,68 @@ function switchAdminTab(tab, btn) {
     const cc = document.getElementById('cleanup-card'); if(cc) cc.style.display = isAdmin() ? 'block' : 'none'; }
 }
 
-// Статистика хранилища: сколько файлов лежит в бакете
+// Срок хранения медиа. Тот же в edge-функции cleanup-media (RETENTION_DAYS) и
+// в media_expired() в базе — здесь только для подписей.
+const MEDIA_RETENTION_DAYS = 14;
+const STORAGE_LIMIT_MB = 1024;    // бесплатный тариф Supabase
+
+// Все файлы бакета. list() отдаёт максимум тысячу за раз и молча обрезает
+// хвост: из-за этого счётчик показывал часть хранилища, а очистка не видела
+// остальное. Идём страницами, пока страница приходит полной.
+async function listAllMedia() {
+  const all = [];
+  for(let offset = 0; offset < 20000; offset += 1000) {
+    const { data, error } = await sb.storage.from('task-reports')
+      .list('', { limit: 1000, offset, sortBy: { column: 'name', order: 'asc' } });
+    if(error) throw error;
+    const page = (data||[]).filter(f => f.name && f.name !== '.emptyFolderPlaceholder');
+    all.push(...page);
+    if((data||[]).length < 1000) break;
+  }
+  return all;
+}
+
+// Статистика хранилища: сколько файлов и СКОЛЬКО МЕГАБАЙТ. Раньше здесь было
+// только число файлов — из-за этого никто не видел, как бакет подходит к
+// потолку тарифа, пока до него не осталось меньше двух суток.
 async function loadStorageStats() {
   const el = document.getElementById('storage-stats');
   if(!el) return;
   el.textContent = t('adm.calculating');
   try {
-    const { data: files, error } = await sb.storage.from('task-reports').list('', { limit: 10000 });
-    if(error) { el.textContent = t('adm.storageErr'); return; }
-    const count = (files||[]).filter(f=>f.name && f.name!=='.emptyFolderPlaceholder').length;
-    el.innerHTML = t('adm.storageCount',{n:count});
+    const files = await listAllMedia();
+    const mb = files.reduce((s,f) => s + (Number(f.metadata?.size) || 0), 0) / 1048576;
+    const pct = Math.round(mb / STORAGE_LIMIT_MB * 100);
+    const color = pct >= 80 ? '#A13C3C' : pct >= 60 ? '#8a6a2f' : 'var(--text-primary)';
+    el.innerHTML = `<span style="color:${color}">${t('adm.storageUsed',
+      { n: files.length, mb: Math.round(mb), limit: STORAGE_LIMIT_MB, pct })}</span>`;
   } catch(e) { el.textContent = t('adm.storageReadErr'); }
 }
 
-// Очистка медиа старше N дней: удаляет файлы из хранилища и ссылки из записей
-async function cleanupMedia(days) {
+// Ручная уборка. Раньше удаление шло прямо отсюда — и не работало: на
+// storage.objects не было политики DELETE, хранилище молча отклоняло запрос, а
+// клиент считал успехом любой ответ без ошибки и рапортовал «удалено N файлов».
+// За месяц так «удалилось» ноль файлов, и бакет дорос до потолка тарифа.
+//
+// Теперь и кнопка, и ночной pg_cron дёргают одну и ту же edge-функцию: правило
+// хранения записано в одном месте, а не в двух расходящихся.
+async function cleanupMedia() {
   if(!canEditData()) return showToast(t('adm.cleanupUnavailable'));
-  if(!await confirmDialog(t('adm.cleanupConfirm',{days}))) return;
+  if(!await confirmDialog(t('adm.cleanupConfirm', { days: MEDIA_RETENTION_DAYS }))) return;
   showToast(t('adm.cleaning'));
   try {
-    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
-    const { data: files, error } = await sb.storage.from('task-reports').list('', { limit: 10000 });
-    if(error) { showToast(t('adm.storageAccessErr')); return; }
-    const toDelete = (files||[]).filter(f=>{
-      if(!f.name || f.name==='.emptyFolderPlaceholder') return false;
-      const created = f.created_at ? new Date(f.created_at) : null;
-      return created && created < cutoff;
-    }).map(f=>f.name);
-
-    if(toDelete.length===0) { showToast(t('adm.noOldFiles',{days})); return; }
-
-    // Удаляем пачками по 100
-    let deleted = 0;
-    for(let i=0;i<toDelete.length;i+=100) {
-      const batch = toDelete.slice(i, i+100);
-      const { error: delErr } = await sb.storage.from('task-reports').remove(batch);
-      if(!delErr) deleted += batch.length;
-    }
-    await logActivity('cleanup_media', `Удалено ${deleted} файлов старше ${days} дней`);
-    showToast(t('adm.filesDeleted',{n:deleted}));
+    const res = await fetch(SUPABASE_URL + '/functions/v1/cleanup-media', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
+    });
+    const out = await res.json();
+    if(!res.ok || out.error) return showToast(t('adm.storageAccessErr'));
+    if(!out.deleted) return showToast(t('adm.noOldFiles', { days: MEDIA_RETENTION_DAYS }));
+    await logActivity('cleanup_media', `Удалено ${out.deleted} файлов (${out.mb} МБ) старше ${MEDIA_RETENTION_DAYS} дней`);
+    showToast(t('adm.filesDeleted', { n: out.deleted, mb: out.mb }));
     loadStorageStats();
   } catch(e) { showToast(t('common.error')+e.message); }
 }
-
-
 
 function viewChecklistMedia(itemsMedia, items) {
   const content = document.getElementById('view-report-content');

@@ -283,14 +283,30 @@ function loadSalaryCard(record) {
 // живёт только в памяти страницы, в галерею не попадает, приложение не
 // сворачивается, а размер файла мы задаём сами — секунды вместо минут загрузки.
 const CHECKIN_SECONDS = 5;       // столько пишем: этого хватает подтвердить, что человек на месте
+// Выше этого ролик пережимаем. Съёмка внутри приложения даёт ~0,45 МБ, так что
+// порог задевает только видео из системной камеры.
+const CHECKIN_MAX_MB = 1.5;
 let checkinStream = null;
 let checkinRecorder = null;
 let checkinTimer = null;
+// Почему не удалось снять внутри приложения: 'NotAllowedError' — человек (или
+// Android) запретил камеру, 'unsupported' — старая сборка APK без разрешения
+// CAMERA в манифесте (такие собирались до 07.08.2026). Нужно, чтобы сказать
+// человеку и старшим не «что-то пошло не так», а что именно чинить: три
+// телефона снимали системной камерой неделями, и никто не знал причины.
+let checkinCameraError = null;
 
 // Умеет ли телефон снимать внутри страницы. Старый Android-webview в APK до
 // пересборки — не умеет, для него остаётся системная камера.
 function canRecordInApp() {
   return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+}
+
+// Человеку — что делать прямо сейчас, а не «камера не открылась»
+function checkinCameraHint() {
+  if(checkinCameraError === 'NotAllowedError') return t('att.camDenied');
+  if(checkinCameraError === 'unsupported')     return t('att.camOld');
+  return t('att.cameraBlocked');
 }
 
 function pickRecorderMime() {
@@ -341,7 +357,8 @@ async function startCheckIn() {
 // Возвращает 'recording' — снимаем внутри приложения; 'fallback' — открыли
 // системную камеру; 'none' — не вышло ни так, ни так.
 async function recordCheckinVideo() {
-  if(!canRecordInApp()) return startCheckInFallback();
+  checkinCameraError = null;
+  if(!canRecordInApp()) { checkinCameraError = 'unsupported'; return startCheckInFallback(); }
   try {
     setCheckInStatus(t('att.cameraStarting'));
     // Фронтальная камера, небольшое разрешение: качество «видно, что это ты и
@@ -352,6 +369,7 @@ async function recordCheckinVideo() {
     });
   } catch(e) {
     console.error('getUserMedia failed', e);
+    checkinCameraError = e?.name || 'unknown';
     setCheckInStatus('');
     return startCheckInFallback();   // не дали доступ или камеры нет — как раньше
   }
@@ -435,6 +453,67 @@ function startCheckInFallback() {
   return 'fallback';
 }
 
+// Системная камера отдаёт полноразмерное видео телефона: 4-8 МБ против 0,45 МБ
+// у съёмки внутри приложения. Три таких телефона за десять дней принесли
+// столько же мегабайт, сколько все остальные вместе, и месяца хватило, чтобы
+// упереться в потолок бесплатного хранилища. Пережимаем прямо на телефоне:
+// кадр 480 px, те же 5 секунд, 500 кбит/с — узнать человека этого хватает.
+//
+// Не вышло (нет MediaRecorder, видео не проигрывается, кодек не поддержан) —
+// отправляем оригинал: большой ролик лучше, чем никакого.
+async function shrinkCheckinVideo(file) {
+  if((file.size || 0) <= CHECKIN_MAX_MB * 1048576) return file;
+  if(!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) return file;
+  const url = URL.createObjectURL(file);
+  const video = document.createElement('video');
+  try {
+    setCheckInStatus(t('att.shrinking'));
+    video.src = url; video.muted = true; video.playsInline = true;
+    await new Promise((ok, fail) => {
+      video.onloadedmetadata = ok;
+      video.onerror = () => fail(new Error('metadata'));
+      setTimeout(() => fail(new Error('timeout')), 10000);
+    });
+    const w = video.videoWidth || 480, h = video.videoHeight || 360;
+    const scale = Math.min(1, 480 / Math.max(w, h));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(2, Math.round(w * scale));
+    canvas.height = Math.max(2, Math.round(h * scale));
+    const ctx = canvas.getContext('2d');
+    const mime = pickRecorderMime();
+    const rec = new MediaRecorder(canvas.captureStream(15),
+      mime ? { mimeType: mime, videoBitsPerSecond: 500000 } : undefined);
+    const chunks = [];
+    rec.ondataavailable = ev => { if(ev.data && ev.data.size) chunks.push(ev.data); };
+    const stopped = new Promise(ok => { rec.onstop = ok; });
+    rec.start();
+    await video.play().catch(()=>{});
+    const until = Date.now() + CHECKIN_SECONDS * 1000;
+    await new Promise(ok => {
+      const draw = () => {
+        try { ctx.drawImage(video, 0, 0, canvas.width, canvas.height); } catch(e) {}
+        if(Date.now() >= until || video.ended) return ok();
+        requestAnimationFrame(draw);
+      };
+      draw();
+    });
+    rec.stop();
+    await stopped;
+    const type = (chunks[0] && chunks[0].type) || mime || 'video/webm';
+    const blob = new Blob(chunks, { type });
+    if(!blob.size || blob.size >= file.size) return file;
+    const name = 'checkin.' + (type.includes('mp4') ? 'mp4' : 'webm');
+    try { return new File([blob], name, { type }); }
+    catch(e) { blob.name = name; return blob; }
+  } catch(e) {
+    console.error('shrink failed', e);
+    return file;
+  } finally {
+    try { video.pause(); } catch(e) {}
+    URL.revokeObjectURL(url);
+  }
+}
+
 // Ролик из системной камеры. Приход уже записан — ролик просто дописывается к
 // нему, тем же путём, что и кнопка «Дослать видео».
 async function onCheckInVideo(input) {
@@ -443,7 +522,7 @@ async function onCheckInVideo(input) {
   if(!file.type || !file.type.startsWith('video')) { showToast(t('att.needVideo')); return; }
   const done = checkinOnReady;
   checkinOnReady = null;
-  if(done) await done(file);
+  if(done) await done(await shrinkCheckinVideo(file));
 }
 
 // Постоянная строка состояния под кнопкой отметки. Всплывающая подсказка живёт
@@ -607,10 +686,16 @@ async function checkinWho() {
 // что у него телефон со старой сборкой, которая видео теряет.
 async function notifyCheckinNoVideo(rec, myShift) {
   try {
-    setCheckInStatus(t('att.cameraBlocked'), 'bad');
+    setCheckInStatus(checkinCameraHint(), 'bad');
     const me = await checkinWho();
     const myLevel = (typeof JOB_TITLE_LEVEL !== 'undefined' ? (JOB_TITLE_LEVEL[me?.role]||0) : 0);
-    const msg = `⚠️ <b>Отметка без видео</b>\n\n👤 ${tgEscape(me?.name||currentProfile?.name||'')} · ${tgEscape(me?.role||'')}\n🕐 Пришёл в ${rec?.check_in_time||''}\n📍 ${getFilialName(myShift?.filial||currentFilial)}\n\nКамера в приложении не открылась — видео к отметке не приложено. Проверьте, что на телефоне свежая версия приложения.`;
+    // Что именно чинить на телефоне — иначе сообщение читают и ничего не делают
+    const why = checkinCameraError === 'NotAllowedError'
+      ? 'Камере запрещён доступ. Настройки телефона → Приложения → Slon → Разрешения → Камера.'
+      : checkinCameraError === 'unsupported'
+      ? 'На телефоне старая сборка приложения — она снимать внутри не умеет. Нужно переустановить APK.'
+      : 'Камера в приложении не открылась.';
+    const msg = `⚠️ <b>Отметка без видео</b>\n\n👤 ${tgEscape(me?.name||currentProfile?.name||'')} · ${tgEscape(me?.role||'')}\n🕐 Пришёл в ${rec?.check_in_time||''}\n📍 ${getFilialName(myShift?.filial||currentFilial)}\n\n${tgEscape(why)}`;
     if(me?.department) await notifyDeptSeniors(me.department, myLevel, msg, 'checkin');
     await notifyAdminsAll(msg, 'checkin');
   } catch(e) { console.error('notify no video', e); }

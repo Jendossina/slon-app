@@ -658,15 +658,12 @@ body.boss-readonly [data-edit-only] { display: none !important; }
         <div class="section-label" data-i18n="adm.storageLabel">ФОТО И ВИДЕО</div>
         <div class="card">
           <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px" data-i18n-html="adm.storageText">
-            Фото и видео (отчёты по задачам, чек-листам, фото в чат) занимают место в облаке. Бесплатный план — 1 ГБ.<br>
-            Фото автоматически сжимаются при загрузке. Старые медиа можно чистить — данные (кто, когда, что) при этом остаются, удаляются только сами картинки.
+            Фото и видео (отчёты по задачам, чек-листам, видео прихода) занимают место в облаке. Бесплатный план — 1 ГБ.<br>
+            Фото сжимаются при загрузке, а всё старше двух недель удаляется автоматически. Данные (кто, когда, что) остаются — удаляются только сами картинки и ролики.
           </div>
           <div id="storage-stats" style="font-size:14px;color:var(--text-primary);margin-bottom:14px"></div>
-          <div style="display:flex;flex-direction:column;gap:8px">
-            <button onclick="cleanupMedia(90)" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="adm.cleanup90">🧹 Удалить медиа старше 90 дней</button>
-            <button onclick="cleanupMedia(30)" style="background:#f5e0c8;color:#8a5a2f;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="adm.cleanup30">🧹 Удалить медиа старше 30 дней</button>
-          </div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:10px" data-i18n="adm.storageHint">Точный объём хранилища смотрите в Supabase → Settings → Usage. Здесь — количество файлов.</div>
+          <button onclick="cleanupMedia()" style="width:100%;background:#f0e6d2;color:#8a6a2f;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="adm.cleanupNow">🧹 Убрать старое сейчас</button>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:10px" data-i18n="adm.storageHint">Медиа старше двух недель удаляются само́й системой каждую ночь. Кнопка — если нужно освободить место прямо сейчас.</div>
         </div>
       </div>
     </div>
