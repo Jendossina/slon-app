@@ -550,19 +550,40 @@ const PENDING_VIDEO_KEY = 'slon_pending_checkin_video';
 function rememberPendingVideo(recordId, url) {
   try { localStorage.setItem(PENDING_VIDEO_KEY, JSON.stringify({ recordId, url, at: Date.now() })); } catch(e) {}
 }
+function forgetPendingVideo() {
+  try { localStorage.removeItem(PENDING_VIDEO_KEY); } catch(e) {}
+}
+
+// Долетел ли файл до хранилища. Бакет публичный, так что дешевле всего
+// спросить его самого. Три ответа, а не два: «нет связи» — это не «файла нет»,
+// иначе на слабой сети мы бы забывали ролик, который на самом деле лежит.
+async function checkinVideoUploaded(url) {
+  try {
+    const r = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+    if(r.ok) return 'yes';
+    if(r.status === 404) return 'no';
+    return 'unknown';
+  } catch(e) { return 'unknown'; }
+}
 
 async function flushPendingCheckinVideo() {
   let p;
   try { p = JSON.parse(localStorage.getItem(PENDING_VIDEO_KEY) || 'null'); } catch(e) { return; }
   if(!p?.recordId || !p?.url) return;
   // Через трое суток дописывать уже некуда: смена давно закрыта.
-  if(Date.now() - (p.at || 0) > 3 * 86400000) { try { localStorage.removeItem(PENDING_VIDEO_KEY); } catch(e) {} return; }
+  if(Date.now() - (p.at || 0) > 3 * 86400000) { forgetPendingVideo(); return; }
   try {
     const { data: cur } = await sb.from('attendance').select('checkin_video').eq('id', p.recordId).single();
-    if(cur?.checkin_video) { localStorage.removeItem(PENDING_VIDEO_KEY); return; }
+    if(cur?.checkin_video) { forgetPendingVideo(); return; }
+    // Отметку мы теперь запоминаем ДО отправки, поэтому файла может и не быть:
+    // приложение выгрузили посреди загрузки. Привязывать такую ссылку нельзя —
+    // в отметке появится видео, которое не открывается.
+    const state = await checkinVideoUploaded(p.url);
+    if(state === 'no') { forgetPendingVideo(); return; }
+    if(state === 'unknown') return;              // нет связи — вернёмся позже
     await sb.from('attendance').update({ checkin_video: p.url }).eq('id', p.recordId);
     const { data: after } = await sb.from('attendance').select('checkin_video').eq('id', p.recordId).single();
-    if(after?.checkin_video) localStorage.removeItem(PENDING_VIDEO_KEY);
+    if(after?.checkin_video) forgetPendingVideo();
   } catch(e) { /* нет связи — попробуем в следующий раз */ }
 }
 
@@ -575,6 +596,14 @@ async function attachCheckinVideo(recordId, videoFile) {
     setCheckInStatus(t('att.uploadingVideo'));
     const ext = (f => { const p=(f.name||'').split('.'); return p.length>1?p.pop():'mp4'; })(videoFile);
     const path = `checkin-${currentProfile.employee_id}-${Date.now()}.${ext}`;
+    const url = sb.storage.from('task-reports').getPublicUrl(path).data.publicUrl;
+    // Запоминаем ДО отправки. Самый обидный случай — не обрыв, а выгрузка
+    // приложения ровно между «файл долетел» и «ссылка записана»: файл в
+    // хранилище есть, в отметке пусто, и вспомнить его было нечем — так 31.08
+    // потерялось видео Ибрагимова. Адрес известен заранее, поэтому кладём его
+    // в память сразу, а при следующем запуске приложение проверит, долетел ли
+    // файл, и допишет ссылку.
+    rememberPendingVideo(recordId, url);
     // Загрузка на слабой связи тянется минутами, а может и молча оборваться:
     // ждём не дольше трёх минут и в любом случае говорим, чем кончилось.
     const upRes = await Promise.race([
@@ -582,21 +611,23 @@ async function attachCheckinVideo(recordId, videoFile) {
       new Promise(r => setTimeout(() => r({ timedOut: true }), 180000)),
     ]);
     if(upRes.timedOut || upRes.error) {
+      // Память НЕ чистим: «не дождались за три минуты» — это не «файл не
+      // дошёл». На слабой связи он вполне мог долететь. Кто прав, выяснит
+      // проверка при следующем запуске, а не догадка здесь.
       setCheckInStatus(t('att.videoLater'), 'bad');
       showToast(t('att.videoLater'));
       return false;
     }
-    const { data: urlData } = sb.storage.from('task-reports').getPublicUrl(path);
-    const url = urlData.publicUrl;
     const { error } = await sb.from('attendance').update({ checkin_video: url }).eq('id', recordId);
     // Проверяем чтением: update без ошибки ещё не значит, что строка изменилась —
     // так и вышло, что файл лежал в хранилище, а в отметке было пусто.
     const { data: after } = await sb.from('attendance').select('checkin_video').eq('id', recordId).single();
     if(error || !after?.checkin_video) {
-      rememberPendingVideo(recordId, url);
+      // Ссылка уже в памяти — допишем при следующем запуске
       setCheckInStatus(t('att.videoLater'), 'bad');
       return false;
     }
+    forgetPendingVideo();
     setCheckInStatus('');
     return true;
   } catch(e) {

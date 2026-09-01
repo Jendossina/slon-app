@@ -2025,6 +2025,56 @@ test('удалённое по сроку хранения медиа не пок
   expect(r.localUntouched, 'иконку приложения перехватчик не трогает').toBe(true);
 });
 
+// Самый обидный способ потерять видео прихода — не обрыв связи, а выгрузка
+// приложения ровно между «файл долетел» и «ссылка записана»: файл в хранилище
+// лежит, в отметке пусто, и вспомнить его нечем. Так 31.08 потерялось видео.
+// Теперь адрес кладётся в память ДО отправки, а при следующем запуске
+// приложение решает по факту: файл на месте — дописываем, нет — забываем,
+// связи нет — ждём. Проверяем все три исхода.
+test('видео, загруженное но не привязанное, дописывается при следующем запуске', async ({ page }) => {
+  const URL_ = 'https://omeomdkurvtvirhfkffu.supabase.co/storage/v1/object/public/task-reports/checkin-7-1.mp4';
+
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.flushPendingCheckinVideo === 'function');
+
+  const run = async (headStatus) => {
+    const patched = [];
+    let gets = 0;
+    await page.unrouteAll();
+    await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+    await page.route('**/rest/v1/attendance*', (route) => {
+      const m = route.request().method();
+      if (m === 'PATCH') { patched.push(route.request().postData()); return route.fulfill({ status: 204, body: '' }); }
+      gets += 1;
+      // до записи ссылки в отметке пусто, после — она там есть
+      const body = gets === 1 ? '{"checkin_video":null}' : JSON.stringify({ checkin_video: URL_ });
+      return route.fulfill({ status: 200, contentType: 'application/json', body });
+    });
+    await page.route('**/storage/v1/object/**', (route) =>
+      headStatus === 0 ? route.abort('failed') : route.fulfill({ status: headStatus, body: '' }));
+
+    const left = await page.evaluate(async ([url]) => {
+      localStorage.setItem('slon_pending_checkin_video', JSON.stringify({ recordId: 7, url, at: Date.now() }));
+      await flushPendingCheckinVideo();
+      return localStorage.getItem('slon_pending_checkin_video');
+    }, [URL_]);
+    return { patched: patched.length, remembered: !!left };
+  };
+
+  const ok = await run(200);
+  expect(ok.patched, 'файл на месте — ссылку дописали').toBe(1);
+  expect(ok.remembered, 'и из памяти убрали').toBe(false);
+
+  const missing = await run(404);
+  expect(missing.patched, 'файла нет — привязывать нечего, битой ссылки не будет').toBe(0);
+  expect(missing.remembered, 'и помнить больше нечего').toBe(false);
+
+  const offline = await run(0);
+  expect(offline.patched, 'связи нет — ничего не пишем').toBe(0);
+  expect(offline.remembered, 'но и не забываем: вернёмся при следующем запуске').toBe(true);
+});
+
 // Уведомления обязаны знать про филиал. Менеджер Истикбола неделю не получал
 // ничего о своём филиале: рассылка выбирала только роль admin и не спрашивала,
 // где событие произошло. Теперь получателей отдаёт база, а клиент передаёт ей
