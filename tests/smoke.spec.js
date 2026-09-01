@@ -1783,6 +1783,56 @@ test('ген-уборка знает свой день у каждого фил�
   expect(r.istikbolSat, 'но не в субботу').toBe(false);
 });
 
+// День аттестации у филиалов тоже разный, и это стоило Истикболу целой недели:
+// день был зашит субботой для всех, поэтому в их воскресенье тест не открывался,
+// а карточка на Главной не появлялась. Проверяем и день, и момент, с которого
+// непройденная аттестация превращается в ноль в процентах.
+test('аттестация знает свой день у каждого филиала', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.isQuizDay === 'function');
+
+  const r = await page.evaluate(() => {
+    const real = window.businessToday;
+    const missedOn = (dateStr, filial) => {
+      window.businessToday = () => dateStr;
+      currentFilial = filial;
+      const res = attestationForWeek(null, '2026-08-24', null);
+      window.businessToday = real;
+      return res;
+    };
+    return {
+      map: { chekhov: quizWeekdayOf('chekhov'), istikbol: quizWeekdayOf('istikbol'), unknown: quizWeekdayOf('xxx') },
+      chekhovSat:  isQuizDay('2026-08-29', quizWeekdayOf('chekhov')),   // суббота
+      chekhovSun:  isQuizDay('2026-08-30', quizWeekdayOf('chekhov')),
+      istikbolSun: isQuizDay('2026-08-30', quizWeekdayOf('istikbol')),  // воскресенье
+      istikbolSat: isQuizDay('2026-08-29', quizWeekdayOf('istikbol')),
+      // в воскресенье суббота Чехова уже позади, а день Истикбола только идёт
+      chekhovMissed:  missedOn('2026-08-30', 'chekhov'),
+      istikbolMissed: missedOn('2026-08-30', 'istikbol'),
+      istikbolAfter:  missedOn('2026-08-31', 'istikbol'),
+      // день филиала подставляется в тексты во всех формах, ничего не остаётся {в скобках}
+      phrases: [
+        t('quiz.cardToday', { day: quizDayWord('name', 7) }),
+        t('quiz.errNotQuizDay', { days: quizDayWord('every', 7), day: quizDayWord('when', 7) }),
+        t('bonus.attDay', { day: quizDayWord('when', 7) }),
+        t('bonus.attAssignConfirm', { name: 'Х', day: quizDayWord('until', 7) }),
+        t('quiz.practiceCardHint', { total: 10, pass: 8, day: quizDayWord('before', 7) }),
+      ],
+    };
+  });
+
+  expect(r.map, 'неизвестный филиал — по-старому, суббота').toEqual({ chekhov: 6, istikbol: 7, unknown: 6 });
+  expect(r.chekhovSat, 'Чехов сдаёт в субботу').toBe(true);
+  expect(r.chekhovSun, 'но не в воскресенье').toBe(false);
+  expect(r.istikbolSun, 'Истикбол — в воскресенье').toBe(true);
+  expect(r.istikbolSat, 'но не в субботу').toBe(false);
+  expect(r.chekhovMissed, 'у Чехова в воскресенье суббота уже прошла — ноль').toBe(0);
+  expect(r.istikbolMissed, 'у Истикбола воскресенье идёт — ещё не спрашиваем').toBe(null);
+  expect(r.istikbolAfter, 'в понедельник спрашиваем и с них').toBe(0);
+  r.phrases.forEach((p) => expect(p, p).not.toContain('{'));
+});
+
 // Уведомления обязаны знать про филиал. Менеджер Истикбола неделю не получал
 // ничего о своём филиале: рассылка выбирала только роль admin и не спрашивала,
 // где событие произошло. Теперь получателей отдаёт база, а клиент передаёт ей
