@@ -241,6 +241,7 @@ const I18N = {
     // Задачи
     'tasks.title': 'Задачи', 'tasks.viewReport': 'Смотреть отчёт', 'tasks.attachReport': 'Прикрепить отчёт', 'tasks.noPhotoReport': 'Без фотоотчёта',
     'tasks.due': 'до', 'tasks.mine': 'Моя', 'tasks.discuss': 'Обсудить',
+    'tasks.remove': 'Снять', 'tasks.removeConfirm': 'Снять задачу «{title}»?\n\nОна исчезнет и у того, кому поручена.', 'tasks.removed': '✅ Задача снята',
     'tasks.today': 'Сегодня', 'tasks.tomorrow': 'Завтра', 'tasks.yesterday': 'Вчера', 'tasks.all': 'Все', 'tasks.allDays': 'все дни',
     'tasks.count': '{label}: {done} из {total} выполнено', 'tasks.none': 'На этот день задач нет',
     'tasks.onlyOwn': 'Можно отмечать только свои задачи — это чужая задача видна для контроля',
@@ -862,6 +863,7 @@ const I18N = {
     // Задачи
     'tasks.title': 'Вазифалар', 'tasks.viewReport': 'Ҳисоботни кўриш', 'tasks.attachReport': 'Ҳисобот бириктириш', 'tasks.noPhotoReport': 'Фотоҳисоботсиз',
     'tasks.due': 'гача', 'tasks.mine': 'Меники', 'tasks.discuss': 'Муҳокама',
+    'tasks.remove': 'Олиб ташлаш', 'tasks.removeConfirm': '«{title}» вазифаси олиб ташлансинми?\n\nУ топширилган одамда ҳам йўқолади.', 'tasks.removed': '✅ Вазифа олиб ташланди',
     'tasks.today': 'Бугун', 'tasks.tomorrow': 'Эртага', 'tasks.yesterday': 'Кеча', 'tasks.all': 'Ҳаммаси', 'tasks.allDays': 'барча кунлар',
     'tasks.count': '{label}: {total} тадан {done} таси бажарилди', 'tasks.none': 'Бу кунга вазифа йўқ',
     'tasks.onlyOwn': 'Фақат ўз вазифаларингизни белгилаш мумкин — бу бошқа ходимнинг вазифаси, назорат учун кўрсатилган',

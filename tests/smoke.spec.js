@@ -2075,6 +2075,32 @@ test('видео, загруженное но не привязанное, до�
   expect(offline.remembered, 'но и не забываем: вернёмся при следующем запуске').toBe(true);
 });
 
+// Кнопка «Снять» появляется только на своих задачах. Удаление раньше жило в
+// админ-панели, куда старший цеха не заходит: поставил по ошибке — зови
+// менеджера. Чужие задачи он снимать не должен, иначе сотрёт поручение,
+// которое менеджер дал его же людям, — то же правило стоит в tasks_delete.
+test('снять можно только свою задачу', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.taskHTML === 'function');
+
+  const r = await page.evaluate(() => {
+    currentUser = { id: 'me-uuid' };
+    currentProfile = { role: 'employee', employee_id: 1, name: 'Лион' };
+    currentEmployee = { department: 'Бармены', role: 'Старший бармен' };
+    taskUnreadMap = {};
+    const row = (createdBy) => taskHTML({
+      id: 10, title: 'Протереть барную стойку', status: 'pending',
+      assigned_to_id: 'other-uuid', assigned_to_name: 'Бармен', created_by: createdBy,
+      due_date: '2026-09-02', filial: 'chekhov',
+    });
+    return { mine: row('me-uuid'), foreign: row('manager-uuid') };
+  });
+
+  expect(r.mine, 'свою — можно снять').toContain('deleteMyTask(10');
+  expect(r.foreign, 'чужую — нет').not.toContain('deleteMyTask');
+});
+
 // Уведомления обязаны знать про филиал. Менеджер Истикбола неделю не получал
 // ничего о своём филиале: рассылка выбирала только роль admin и не спрашивала,
 // где событие произошло. Теперь получателей отдаёт база, а клиент передаёт ей

@@ -74,7 +74,8 @@ function markTaskCommentsSeen(taskId, latestCreatedAt) {
 }
 
 function taskHTML(t) {
-  const isMyTask = t.assigned_to_id === currentUser?.id;
+  const isMyTask = t.assigned_to_id === currentUser?.id;   // мне поручена
+  const isMine   = t.created_by === currentUser?.id;       // я поставил
   const isDone = t.status === 'done';
 
   let reportSection = '';
@@ -100,6 +101,7 @@ function taskHTML(t) {
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
         ${reportSection}
         <button class="report-btn" onclick="event.stopPropagation();openTaskComments(${t.id},'${escJsAttr(t.title||'')}')">💬 ${tr('tasks.discuss')}<span id="taskunread-${t.id}" style="display:${taskUnreadMap[t.id]?'inline-block':'none'};width:8px;height:8px;border-radius:50%;background:#A32D2D;margin-left:5px;vertical-align:middle"></span></button>
+        ${isMine?`<button class="report-btn" onclick="event.stopPropagation();deleteMyTask(${t.id},'${escJsAttr(t.title||'')}')">🗑 ${tr('tasks.remove')}</button>`:''}
       </div>
     </div>
   </div>`;
@@ -336,6 +338,21 @@ async function addTask() {
     tasksSelectedDay = dueDate; // показать день, на который создали задачу
     loadTasks();
   } catch(e) { showToast(t('common.error')+e.message); }
+}
+
+// Снять свою задачу. Поставил по ошибке, передумал, человек уже сделал устно —
+// раньше ради этого звали менеджера: удаление жило в админ-панели, куда старший
+// цеха не заходит. Чужие задачи здесь не трогаем, это по-прежнему руководство:
+// то же правило стоит в политике tasks_delete.
+async function deleteMyTask(id, title) {
+  if(isBoss()) return showToast(t('common.observerMode'));
+  if(!await confirmDialog(t('tasks.removeConfirm', { title }),
+      { title: t('tasks.remove'), okText: t('common.delete') })) return;
+  const { error } = await sb.from('tasks').delete().eq('id', id);
+  if(error) return showToast(t('common.error') + error.message);
+  await logActivity('delete_task', title);
+  showToast(t('tasks.removed'));
+  loadTasks();
 }
 
 // REPORT
