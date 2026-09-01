@@ -697,6 +697,41 @@ function showToast(msg) {
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
+// ===== Медиа, которого больше нет =====
+// Фото и видео живут две недели: ночная уборка (edge-функция cleanup-media)
+// удаляет файлы, а ссылки на них в записях остаются — по ним видно, что отчёт
+// человек присылал. Значит, на любом экране может встретиться картинка, файла
+// под которой уже нет, и «сломанный лист» вместо неё читается как поломка
+// приложения.
+//
+// Ловим ошибку загрузки один раз на весь документ: событие error не всплывает,
+// зато перехватывается на стадии захвата. Это надёжнее, чем onerror в каждом
+// из трёх десятков мест, где рисуется медиа, — там его забудут поставить.
+function mediaGoneBox(el) {
+  const full = !!el.closest('#view-report-content');   // полноэкранный просмотр
+  const box = document.createElement('div');
+  box.className = 'media-gone';
+  box.title = t('media.expired');
+  box.textContent = full ? t('media.expired') : '🗄️';
+  box.style.cssText = 'display:flex;align-items:center;justify-content:center;text-align:center;'
+    + 'background:var(--surface-2);color:var(--text-muted);border-radius:10px;line-height:1.5;'
+    + (full ? 'font-size:13px;padding:24px 16px;' : 'font-size:22px;');
+  // Занимаем место исходной картинки, иначе вёрстка вокруг прыгает
+  ['width','height','maxWidth','maxHeight','aspectRatio','margin','objectFit'].forEach(k => {
+    if(el.style[k]) box.style[k] = el.style[k];
+  });
+  if(!full && !el.style.height) box.style.minHeight = '74px';
+  return box;
+}
+document.addEventListener('error', e => {
+  const el = e.target;
+  if(!el || (el.tagName !== 'IMG' && el.tagName !== 'VIDEO')) return;
+  // Только файлы из хранилища: иконки приложения и предпросмотр только что
+  // выбранного файла (blob:) к сроку хранения отношения не имеют
+  if(!String(el.src || '').includes('/storage/v1/object/')) return;
+  el.replaceWith(mediaGoneBox(el));
+}, true);
+
 // Красивое подтверждение вместо нативного confirm(). Возвращает Promise<boolean>.
 // opts: { title, okText, danger:false — некрасная (золотая) кнопка }
 let _confirmResolve = null;

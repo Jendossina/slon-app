@@ -411,24 +411,15 @@ async function notifyTaskDoneSeniors(text) {
   } catch(e) { console.error('notify task done', e); }
 }
 
-// Медиа старше двух недель удаляет ночная уборка (edge-функция cleanup-media),
-// а ссылка на него в записи остаётся — по ней видно, что человек отчёт присылал.
-// Поэтому битую картинку показывать нельзя: вместо неё говорим про срок хранения,
-// иначе выглядит как поломка приложения.
-function mediaGoneHTML() {
-  return `<div class="empty" style="padding:24px 0"><div class="empty-icon">🗄️</div>
-    <div class="empty-text">${t('media.expired')}</div></div>`;
-}
-function onMediaMissing(el) {
-  const box = el.closest('#view-report-content') || el.parentElement;
-  if(box) box.innerHTML = mediaGoneHTML();
-}
+// Про удалённое по сроку хранения медиа здесь ничего нет: подменой битой
+// картинки занимается один общий перехватчик в core.js — он накрывает и этот
+// просмотр, и все плитки на других экранах.
 function viewReport(url, type) {
   const content = document.getElementById('view-report-content');
   if(type==='video') {
-    content.innerHTML = `<video src="${url}" controls onerror="onMediaMissing(this)" style="width:100%;border-radius:12px"></video>`;
+    content.innerHTML = `<video src="${url}" controls style="width:100%;border-radius:12px"></video>`;
   } else {
-    content.innerHTML = `<img src="${url}" onerror="onMediaMissing(this)" style="width:100%;border-radius:12px">`;
+    content.innerHTML = `<img src="${url}" style="width:100%;border-radius:12px">`;
   }
   openModal('modal-view-report');
 }

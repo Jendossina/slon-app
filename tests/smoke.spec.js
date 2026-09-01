@@ -1887,14 +1887,19 @@ test('тяжёлое видео прихода пережимается на т�
     const done = new Promise((ok) => { rec.onstop = ok; });
     rec.start();
     const t0 = Date.now();
-    await new Promise((ok) => { const l = () => { paint(); Date.now()-t0 > 3000 ? ok() : requestAnimationFrame(l); }; l(); });
+    await new Promise((ok) => { const l = () => { paint(); Date.now()-t0 > 2000 ? ok() : requestAnimationFrame(l); }; l(); });
     rec.stop(); await done;
-    const big = new File([new Blob(chunks, { type: chunks[0].type })], 'checkin.mp4', { type: chunks[0].type });
+    // Сколько весит запись шума, зависит от загрузки машины, а порог должен
+    // быть перейдён наверняка — добиваем нулями до двух мегабайт. Хвост после
+    // видеопотока декодер игнорирует, ролик остаётся проигрываемым.
+    const body = new Blob(chunks, { type: chunks[0].type });
+    const pad = Math.max(0, 2 * 1048576 - body.size);
+    const big = new File([body, new Uint8Array(pad)], 'checkin.mp4', { type: chunks[0].type });
     const out = await shrinkCheckinVideo(big);
     return { inMB: big.size/1048576, outMB: out.size/1048576, changed: out !== big };
   });
 
-  test.skip(r.inMB <= 1.5, 'браузер не дал файл крупнее порога — пережимать нечего');
+  expect(r.inMB, 'исходник должен быть крупнее порога').toBeGreaterThan(1.5);
   expect(r.changed, 'файл больше порога должен пережиматься').toBe(true);
   expect(r.outMB, `${r.inMB.toFixed(2)} МБ → ${r.outMB.toFixed(2)} МБ`).toBeLessThan(r.inMB / 2);
 });
@@ -1978,6 +1983,46 @@ test('в форме задачи старший цеха видит свой ц�
   expect(names).not.toContain('Повар');
   expect(names).not.toContain('Кальянщик');
   expect(names, 'уволенных не предлагаем').not.toContain('Уволенный');
+});
+
+// Медиа живёт две недели, а ссылки на него в записях остаются: по ним видно,
+// что отчёт человек присылал. Значит, битые картинки будут встречаться всегда,
+// и показывать вместо них «сломанный лист» нельзя — читается как поломка.
+// Перехватчик один на весь документ, поэтому проверяем и плитку, и полный
+// просмотр, и что чужие картинки (иконка приложения) он не трогает.
+test('удалённое по сроку хранения медиа не показывается сломанным', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/storage/v1/object/**', (route) => route.fulfill({ status: 404, body: 'not found' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.mediaGoneBox === 'function');
+
+  const r = await page.evaluate(async () => {
+    const gone = 'https://omeomdkurvtvirhfkffu.supabase.co/storage/v1/object/public/task-reports/checkin-1-1.mp4';
+    const host = document.createElement('div');
+    host.id = 'probe';
+    host.innerHTML = `<img id="tile" src="${gone}" style="width:74px;height:74px">`
+                   + `<img id="local" src="/icon-192.png" style="width:40px">`;
+    document.body.appendChild(host);
+    viewReport(gone, 'video');
+    await new Promise((ok) => setTimeout(ok, 700));
+    const tile = document.querySelector('#probe .media-gone');
+    const full = document.querySelector('#view-report-content .media-gone');
+    return {
+      tileReplaced: !!tile,
+      tileText: tile ? tile.textContent : null,
+      tileWidth: tile ? tile.style.width : null,
+      fullReplaced: !!full,
+      fullText: full ? full.textContent : null,
+      localUntouched: !!document.getElementById('local'),
+    };
+  });
+
+  expect(r.tileReplaced, 'плитка заменена заглушкой').toBe(true);
+  expect(r.tileText, 'на плитке — только значок, текст в подсказке').toBe('🗄️');
+  expect(r.tileWidth, 'размер исходной картинки сохранён, вёрстка не прыгает').toBe('74px');
+  expect(r.fullReplaced, 'в полном просмотре тоже').toBe(true);
+  expect(r.fullText, 'и там объяснение словами').toContain('срок хранения');
+  expect(r.localUntouched, 'иконку приложения перехватчик не трогает').toBe(true);
 });
 
 // Уведомления обязаны знать про филиал. Менеджер Истикбола неделю не получал
