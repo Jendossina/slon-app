@@ -1,25 +1,21 @@
--- Подтверждение присутствия менеджером смены.
+-- Откат подтверждения присутствия.
 --
--- Видео показывает, где человек был в момент отметки. Подтверждение отвечает на
--- другой вопрос: был ли он на месте всю смену. Отметиться можно откуда угодно,
--- а вот пройти мимо менеджера — нет.
+-- Сделали и в тот же день убрали по решению владельца: подтверждение смены
+-- менеджером выстроило вторую вертикаль над сотрудником — опоздание ему прощает
+-- старший цеха, а присутствие отмечает менеджер. Двух начальников над одной
+-- сменой быть не должно, и вместо согласования двух карт правильнее убрать
+-- лишнюю функцию.
 --
--- Ставится в дневной ведомости («Люди» → день): менеджер и так разбирает там,
--- кто во сколько пришёл, и видео смотрит там же. Отдельного экрана не заводим.
---
--- Кто подтвердил и когда — проставляет триггер по auth.uid(), а не клиент:
--- подпись под чужим именем не должна зависеть от честности телефона.
--- Сотруднику своё присутствие не подтвердить: политика пускает его в свою
--- строку (он дописывает видео), поэтому новые поля откатывает attendance_guard.
+-- Данных в колонках нет: их заполняли только проверки, и те убрали за собой.
+-- Дайджест видео остаётся — он и был главным ответом на «отметились не на месте».
 
 alter table public.attendance
-  add column if not exists present_confirmed boolean,
-  add column if not exists confirmed_by uuid,
-  add column if not exists confirmed_at timestamptz;
+  drop column if exists present_confirmed,
+  drop column if exists confirmed_by,
+  drop column if exists confirmed_at;
 
-comment on column public.attendance.present_confirmed is
-  'true — менеджер подтвердил присутствие, false — отметил, что человека не было, null — не смотрели';
-
+-- Триггер возвращаем к состоянию до подтверждений: строк про новые поля в нём
+-- быть не должно, иначе он упадёт при первой же отметке.
 create or replace function public.attendance_guard()
 returns trigger
 language plpgsql
@@ -72,10 +68,6 @@ begin
     NEW.penalty      := v_pen;
     NEW.is_late      := v_late > 5;
     NEW.late_excused := v_excused;
-    -- присутствие подтверждает человек, а не вставка
-    NEW.present_confirmed := null;
-    NEW.confirmed_by := null;
-    NEW.confirmed_at := null;
     return NEW;
   end if;
 
@@ -87,16 +79,7 @@ begin
   select exists (select 1 from profiles p
                   where p.user_id = auth.uid() and p.role = any(array['admin','manager']))
     into v_privileged;
-
   if v_privileged then
-    -- Подпись ставим сами: кто и когда подтвердил, клиент прислать не может
-    if NEW.present_confirmed is distinct from OLD.present_confirmed then
-      NEW.confirmed_by := auth.uid();
-      NEW.confirmed_at := now();
-    else
-      NEW.confirmed_by := OLD.confirmed_by;
-      NEW.confirmed_at := OLD.confirmed_at;
-    end if;
     return NEW;                          -- руководство правит запись как раньше
   end if;
 
@@ -107,10 +90,6 @@ begin
   NEW.late_minutes  := OLD.late_minutes;
   NEW.penalty       := OLD.penalty;
   NEW.late_excused  := OLD.late_excused;
-  -- своё присутствие сотрудник себе не подтверждает
-  NEW.present_confirmed := OLD.present_confirmed;
-  NEW.confirmed_by      := OLD.confirmed_by;
-  NEW.confirmed_at      := OLD.confirmed_at;
 
   -- Видео можно только ДОСЛАТЬ: пока его нет — принимаем, дальше не трогаем.
   if OLD.checkin_video is not null then

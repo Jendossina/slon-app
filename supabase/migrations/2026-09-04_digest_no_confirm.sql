@@ -1,8 +1,6 @@
--- Дайджест заодно считает неподтверждённые отметки.
---
--- Подтверждение присутствия и дайджест — про одно и то же: кто реально был на
--- смене. Отдельное напоминание «подтвердите смену» плодило бы ещё одну рассылку,
--- поэтому строчка живёт в том же сообщении, которое старший и так открывает.
+-- Дайджест без строки про подтверждение присутствия.
+-- Само подтверждение убрано (2026-09-04_drop_attendance_confirm), а функция
+-- дайджеста ещё считала неподтверждённых — упала бы на несуществующей колонке.
 
 create or replace function public.checkin_digest(p_part text)
 returns integer
@@ -33,12 +31,6 @@ begin
                          where a2.date = v_day and a2.filial = f
                            and a2.check_in_time >= v_from and a2.check_in_time < v_to
                            and a2.checkin_video is null), '')
-           || coalesce((select chr(10) || '❓ Присутствие не подтверждено: ' || count(*)
-                          from attendance a3
-                         where a3.date = v_day and a3.filial = f
-                           and a3.check_in_time >= v_from and a3.check_in_time < v_to
-                           and a3.present_confirmed is null
-                        having count(*) > 0), '')
       into v_head;
 
     for r in select * from public.notify_chiefs(f)

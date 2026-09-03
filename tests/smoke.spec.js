@@ -2162,6 +2162,50 @@ test('метка приоритета в строке задачи', async ({ pa
   expect(r.urgent).toContain('Срочная');
 });
 
+// Решать по заявкам (опоздание, замена) может не всякий старший цеха: только
+// шеф цеха по своим, менеджер по официантам, кальянщиков — исключительно
+// управляющий. Лестница отличается от права на график намеренно, и списки в
+// интерфейсе обязаны совпадать с базой (can_decide_request_of) — иначе кнопка
+// есть, а решение не проходит.
+test('заявки решает шеф цеха, а не любой старший', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.canApproveDept === 'function');
+
+  const r = await page.evaluate(() => {
+    const depts = ['Бармены', 'Повара', 'Официанты', 'Кальянные мастера'];
+    const as = (sysRole, dept, jobRole) => {
+      currentProfile = { role: sysRole, employee_id: 1 };
+      currentEmployee = { department: dept, role: jobRole };
+      const out = {};
+      depts.forEach((d) => { out[d] = canApproveDept(d); });
+      out.any = canApproveAny();
+      return out;
+    };
+    return {
+      chefBar:  as('employee', 'Бармены', 'Шеф бармен'),
+      seniorBar:as('employee', 'Бармены', 'Старший бармен'),
+      chefCook: as('employee', 'Повара', 'Шеф повар'),
+      sousChef: as('employee', 'Повара', 'Су-шеф'),
+      hookah:   as('employee', 'Кальянные мастера', 'Старший кальянный мастер'),
+      manager:  as('manager', 'Менеджеры', 'Менеджер'),
+      admin:    as('admin', '', 'Управляющий'),
+    };
+  });
+
+  expect(r.chefBar['Бармены'], 'шеф бармен — свой цех').toBe(true);
+  expect(r.chefBar['Повара'], 'но не чужой').toBe(false);
+  expect(r.seniorBar['Бармены'], 'старший бармен больше не решает').toBe(false);
+  expect(r.seniorBar.any, 'и раздела заявок у него нет').toBe(false);
+  expect(r.chefCook['Повара']).toBe(true);
+  expect(r.sousChef['Повара'], 'су-шеф больше не решает').toBe(false);
+  expect(r.hookah['Кальянные мастера'], 'старший кальянщик — нет').toBe(false);
+  expect(r.manager['Официанты'], 'менеджер — только зал').toBe(true);
+  expect(r.manager['Кальянные мастера'], 'кальянщиков менеджер не решает').toBe(false);
+  expect(r.manager['Бармены']).toBe(false);
+  expect(Object.values(r.admin).every(Boolean), 'управляющий — все').toBe(true);
+});
+
 // Уведомления обязаны знать про филиал. Менеджер Истикбола неделю не получал
 // ничего о своём филиале: рассылка выбирала только роль admin и не спрашивала,
 // где событие произошло. Теперь получателей отдаёт база, а клиент передаёт ей

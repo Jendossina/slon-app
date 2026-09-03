@@ -1,9 +1,10 @@
 // ЗАЯВКИ СОТРУДНИКОВ: замена смены и предупреждение об опоздании.
 //
 // Обе заявки устроены одинаково: сотрудник подаёт — ответственный решает.
-// Ответственный тот же, что правит график: старший цеха по своему цеху,
-// управляющий и менеджер по любому (canLeadDept, та же лестница продублирована
-// в базе как can_edit_schedule_of).
+// Ответственный — НЕ тот же, кто правит график: график своих людей ведут все
+// старшие цеха, а решать по заявкам может только шеф цеха. Официантов решает
+// менеджер, кальянщиков — исключительно управляющий (canApproveDept, та же
+// лестница продублирована в базе как can_decide_request_of).
 //
 // Здесь только форма и список. График правит база в момент одобрения
 // (shift_requests_decide), и это принципиально: сотруднику писать в schedules
@@ -24,7 +25,7 @@ const REQ_REJECTED_LIMIT = 100;   // сколько отказов показы�
 function canDecideRequest(r) {
   if(!r || r.status !== 'pending' || isBoss()) return false;
   if(r.employee_id === currentProfile?.employee_id && !canEditData()) return false;
-  return canLeadDept(r.department);
+  return canApproveDept(r.department);
 }
 
 // Отказы теперь хранятся без срока, и в их истории попадаются прошлые годы —
@@ -480,7 +481,7 @@ async function loadRequestsCard() {
     const myPending = canApply ? rows.filter(r => r.employee_id === currentProfile.employee_id).length : 0;
     // Список заявок открывается и когда решать нечего: посмотреть, чем кончились
     // прошлые, нужно не реже, чем одобрить новую.
-    const canDecideAny = canEditData() || !!myLeadDept();
+    const canDecideAny = canApproveAny();
     if(!canApply && !canDecideAny) { el.innerHTML = ''; return; }
     const inboxLabel = toDecide ? t('req.toDecide',{n:toDecide})
                      : myPending ? t('req.myPending',{n:myPending})
