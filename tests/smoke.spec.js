@@ -2105,6 +2105,63 @@ test('снять можно только свою задачу', async ({ page }
   expect(r.foreign, 'чужую — нет').not.toContain('deleteMyTask');
 });
 
+// «Срочную» ставит только руководство и владелец: пометка ценна ровно до тех
+// пор, пока её ставят редко. То же правило стоит в политике на вставку, а тест
+// стережёт интерфейс — чтобы старшему цеха кнопку не показали.
+test('срочный приоритет доступен руководству, старшему цеха — нет', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.renderTaskPriorityPicker === 'function');
+
+  const r = await page.evaluate(() => {
+    const as = (sysRole, dept, jobRole) => {
+      currentProfile = { role: sysRole, employee_id: 1, name: 'Тест' };
+      currentEmployee = { department: dept, role: jobRole };
+      newTaskPriority = 0;
+      renderTaskPriorityPicker();
+      return Array.from(document.querySelectorAll('#task-priority button')).map((b) => b.textContent.trim());
+    };
+    const out = { lead: as('employee', 'Бармены', 'Старший бармен'), manager: as('manager', 'Менеджеры', 'Менеджер'), boss: as('boss', '', 'BOSS') };
+    // выбранный уровень не теряется при перерисовке
+    pickTaskPriority(2);
+    out.picked = newTaskPriority;
+    // а если срочную выбрать нельзя — тихо откатываемся на обычную
+    currentProfile = { role: 'employee', employee_id: 1 };
+    currentEmployee = { department: 'Бармены', role: 'Старший бармен' };
+    renderTaskPriorityPicker();
+    out.afterDowngrade = newTaskPriority;
+    return out;
+  });
+
+  expect(r.lead, 'старшему цеха — две кнопки').toHaveLength(2);
+  expect(r.lead.join(' ')).not.toContain('Срочная');
+  expect(r.manager, 'менеджеру — три').toHaveLength(3);
+  expect(r.manager.join(' ')).toContain('Срочная');
+  expect(r.boss, 'владельцу — три').toHaveLength(3);
+  expect(r.picked, 'выбор запоминается').toBe(2);
+  expect(r.afterDowngrade, 'кому срочную нельзя — сбрасываем на обычную').toBe(0);
+});
+
+// Метка приоритета видна в строке задачи, у обычной её нет — иначе она
+// зашумит список, где обычных задач большинство.
+test('метка приоритета в строке задачи', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.taskHTML === 'function');
+
+  const r = await page.evaluate(() => {
+    currentUser = { id: 'me' }; currentProfile = { role: 'manager' }; taskUnreadMap = {};
+    const row = (priority) => taskHTML({ id: 1, title: 'Задача', status: 'pending',
+      assigned_to_id: 'x', assigned_to_name: 'Кто-то', created_by: 'me',
+      due_date: '2026-09-03', filial: 'chekhov', priority });
+    return { normal: row(0), high: row(1), urgent: row(2) };
+  });
+
+  expect(r.normal, 'у обычной метки нет').not.toContain('Обычная');
+  expect(r.high).toContain('Важная');
+  expect(r.urgent).toContain('Срочная');
+});
+
 // Уведомления обязаны знать про филиал. Менеджер Истикбола неделю не получал
 // ничего о своём филиале: рассылка выбирала только роль admin и не спрашивала,
 // где событие произошло. Теперь получателей отдаёт база, а клиент передаёт ей

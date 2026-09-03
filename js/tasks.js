@@ -14,6 +14,36 @@ const JOB_TITLE_LEVEL = {
   'Охранник': 1, 'Уборщик': 1
 };
 
+// ===== Приоритет задачи =====
+// В базе число (tasks.priority), в интерфейсе слово и цвет. Число — чтобы
+// сортировка шла в базе: текстовые коды она отсортировала бы по алфавиту.
+// «Срочную» ставит только руководство и владелец: пометка ценна ровно до тех
+// пор, пока её ставят редко, иначе через месяц срочным станет всё. То же
+// правило продублировано в политике на вставку (can_set_urgent).
+const TASK_PRIORITY = [
+  { v: 0, key: 'normal', icon: '○', color: 'var(--text-muted)', bg: 'var(--surface-2)' },
+  { v: 1, key: 'high',   icon: '△', color: '#8a6a2f',           bg: 'rgba(184,143,58,0.14)' },
+  { v: 2, key: 'urgent', icon: '▲', color: '#A13C3C',           bg: 'rgba(161,60,60,0.12)' },
+];
+function taskPrio(v) { return TASK_PRIORITY[Number(v) || 0] || TASK_PRIORITY[0]; }
+function canSetUrgent() { return canEditData() || isBoss(); }
+
+let newTaskPriority = 0;   // что выбрано в открытой форме
+
+// Кнопки вместо выпадающего списка: на телефоне это один тап вместо трёх
+function renderTaskPriorityPicker() {
+  const box = document.getElementById('task-priority');
+  if(!box) return;
+  const allowed = TASK_PRIORITY.filter(p => p.v < 2 || canSetUrgent());
+  if(!allowed.some(p => p.v === newTaskPriority)) newTaskPriority = 0;
+  box.innerHTML = allowed.map(p => {
+    const on = p.v === newTaskPriority;
+    return `<button type="button" onclick="pickTaskPriority(${p.v})" style="flex:1;padding:10px 4px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:${on?'700':'500'};
+      border:1.5px solid ${on?p.color:'var(--border)'};background:${on?p.bg:'var(--surface)'};color:${on?p.color:'var(--text-primary)'}">${p.icon} ${t('tasks.prio.'+p.key)}</button>`;
+  }).join('');
+}
+function pickTaskPriority(v) { newTaskPriority = Number(v) || 0; renderTaskPriorityPicker(); }
+
 // Список user_id, чьи задачи видит текущий сотрудник: свои + (если он выше линейного
 // уровня) тех, кто на его уровне должности или ниже, в том же отделе. Линейный
 // персонал (уровень 1) друг друга не видит — только свои задачи. Для manager/admin/boss
@@ -77,6 +107,7 @@ function taskHTML(t) {
   const isMyTask = t.assigned_to_id === currentUser?.id;   // мне поручена
   const isMine   = t.created_by === currentUser?.id;       // я поставил
   const isDone = t.status === 'done';
+  const prio = taskPrio(t.priority);
 
   let reportSection = '';
   if(t.report_url) {
@@ -96,7 +127,7 @@ function taskHTML(t) {
     <div class="task-body">
       <div class="task-text" style="${isDone?'text-decoration:line-through;color:var(--text-muted)':''}">${escapeHtml(t.title)}</div>
       ${t.description?`<div style="font-size:12px;color:#666;margin-top:2px">${escapeHtml(t.description)}</div>`:''}
-      <div class="task-meta">👤 ${escapeHtml(t.assigned_to_name||'—')} ${t.due_date?'· '+tr('tasks.due')+' '+fmtDateShort(t.due_date):''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">'+tr('tasks.mine')+'</span>':''}</div>
+      <div class="task-meta">${prio.v ? `<span style="background:${prio.bg};color:${prio.color};border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-right:4px">${prio.icon} ${tr('tasks.prio.'+prio.key)}</span>` : ''}👤 ${escapeHtml(t.assigned_to_name||'—')} ${t.due_date?'· '+tr('tasks.due')+' '+fmtDateShort(t.due_date):''} · 📍 ${getFilialName(t.filial||'istikbol')}${isMyTask?' <span style="background:#f0e6d2;color:#8a6a2f;border-radius:4px;padding:1px 5px;font-size:10px">'+tr('tasks.mine')+'</span>':''}</div>
       ${t.photo_url?`<img src="${escapeHtml(t.photo_url)}" loading="lazy" decoding="async" alt="" onclick="event.stopPropagation();viewReport('${escJsAttr(t.photo_url)}','image')" style="margin-top:6px;width:84px;height:84px;object-fit:cover;border-radius:8px;cursor:zoom-in;background:var(--surface-2);display:block">`:''}
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
         ${reportSection}
@@ -184,7 +215,8 @@ async function loadTasks() {
     renderTasksDaySwitcher();
     const role = currentProfile?.role;
     await renderTasksEmpFilter(role);
-    let query = sb.from('tasks').select('*').order('due_date');
+    // Внутри дня срочные поднимаются наверх — иначе пометка ничего не меняет
+    let query = sb.from('tasks').select('*').order('due_date').order('priority', { ascending: false });
     if(role==='employee') {
       // Свои задачи и задачи подчинённых — плюс всё, что поставил сам. Без
       // последнего задача менеджеру исчезала бы сразу после постановки: ставить
@@ -254,6 +286,8 @@ async function loadTaskEmployees() {
   const el = document.getElementById('task-filial-display');
   if(el) el.textContent = t('tasks.forFilial') + getFilialName(currentFilial);
   clearTaskPhoto(); // модалка открывается заново — снимок от прошлой задачи не тянем
+  newTaskPriority = 0;              // и приоритет от прошлой тоже
+  renderTaskPriorityPicker();
   const { data: allEmps } = await sb.from('employees').select('id,name,department,filials,status').order('name');
   // Старший цеха ставит задачи своим и менеджерам — то же правило проверяет
   // база (can_assign_task_to), так что показывать остальные отделы нельзя:
@@ -317,7 +351,7 @@ async function addTask() {
         title, description, assigned_to_name: empName,
         assigned_to_id: profile?.user_id||null,
         due_date: dueDate, status:'pending', created_by: currentUser.id,
-        filial: currentFilial, photo_url: photoUrl
+        filial: currentFilial, photo_url: photoUrl, priority: newTaskPriority
       });
 
       await logActivity('add_task', title + ' → ' + empName);
@@ -325,7 +359,11 @@ async function addTask() {
       if(profile?.user_id) {
         // Кто поставил — теперь задачи ставит не только управляющий, и «от
         // управляющего» в подписи от старшего цеха просто врало бы
-        await notifyEmployee(profile.user_id, `🐘 <b>Новая задача</b>\n\n👤 От: ${tgEscape(currentProfile?.name || '')}\n📋 ${title}${description?'\n📝 '+description:''}${photoUrl?'\n📷 К задаче приложено фото':''}\n📅 Срок: ${dueDate}\n\nОткрой приложение: https://slon-app.vercel.app`, 'task_new');
+        // Срочную видно ещё в списке уведомлений, до открытия сообщения
+        const head = newTaskPriority === 2 ? '🔥 <b>СРОЧНАЯ задача</b>'
+                   : newTaskPriority === 1 ? '❗ <b>Важная задача</b>'
+                   : '🐘 <b>Новая задача</b>';
+        await notifyEmployee(profile.user_id, `${head}\n\n👤 От: ${tgEscape(currentProfile?.name || '')}\n📋 ${title}${description?'\n📝 '+description:''}${photoUrl?'\n📷 К задаче приложено фото':''}\n📅 Срок: ${dueDate}\n\nОткрой приложение: https://slon-app.vercel.app`, 'task_new');
       }
       successCount++;
     }
