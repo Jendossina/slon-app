@@ -345,7 +345,6 @@ async function addTask() {
 // цеха не заходит. Чужие задачи здесь не трогаем, это по-прежнему руководство:
 // то же правило стоит в политике tasks_delete.
 async function deleteMyTask(id, title) {
-  if(isBoss()) return showToast(t('common.observerMode'));
   if(!await confirmDialog(t('tasks.removeConfirm', { title }),
       { title: t('tasks.remove'), okText: t('common.delete') })) return;
   const { error } = await sb.from('tasks').delete().eq('id', id);

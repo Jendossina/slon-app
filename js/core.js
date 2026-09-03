@@ -137,11 +137,15 @@ function canLeadDept(dept) {
 // Видит ли зарплату конкретного человека: руководство — всех, старший — своих.
 // Ставка сотрудника цеха — часть управления цехом, чужие цеха по-прежнему закрыты.
 function canSeeSalaryOf(dept) { return canSeeSalaryRole() || canLeadDept(dept); }
-// Ставит задачи: руководство — кому угодно, старший цеха — своим. Раньше кнопка
-// была только у admin/manager, и старший бармен не мог поручить работу своей же
-// смене — приходилось просить менеджера. График и карточки людей он ведёт давно,
-// задачи выпадали из этого набора без причины.
-function canCreateTasks() { return canEditData() || isDeptLead(); }
+// Ставит задачи: руководство и владелец — кому угодно, старший цеха — своим.
+// Раньше кнопка была только у admin/manager, и старший бармен не мог поручить
+// работу своей же смене — приходилось просить менеджера. График и карточки
+// людей он ведёт давно, задачи выпадали из этого набора без причины.
+//
+// BOSS остаётся наблюдателем во всём остальном — не правит данные, не
+// отмечает выполнение, — но поручения раздаёт: это его прямая работа, а не
+// редактирование чужих записей.
+function canCreateTasks() { return canEditData() || isBoss() || isDeptLead(); }
 
 // Карточка сотрудника текущего пользователя (должность и цех) — нужна для прав
 // по должности. Заполняется при входе, чтобы не ходить в базу на каждый клик.
@@ -1010,6 +1014,11 @@ function applyRolePermissions() {
   // FAB-кнопки (плавающие "+") — только тем, кто реально может редактировать
   const fabAll = ['fab-hr','fab-tasks','fab-finance','fab-crm'];
   fabAll.forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
+  // Владельцу — только «+» в задачах: остальные разделы он смотрит, но не правит
+  if(isBoss()) {
+    const fab = document.getElementById('fab-tasks');
+    if(fab) fab.style.display = 'flex';
+  }
   if(canEditData()) {
     if(role === 'admin') {
       ['fab-hr','fab-tasks','fab-finance','fab-crm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
