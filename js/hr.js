@@ -169,7 +169,7 @@ async function openDailyPayroll() {
     const [schedR, empR, attR, premR] = await Promise.all([
       sb.from('schedules').select('employee_id,employee_name,shift_start,shift_end,is_day_off').eq('filial',currentFilial).eq('date',t),
       sb.from('employees_view').select('id,name,salary,filials,role,department'),
-      sb.from('attendance').select('employee_id,check_in_time,is_late,late_minutes,penalty,checkin_video').eq('filial',currentFilial).eq('date',t),
+      sb.from('attendance').select('id,employee_id,check_in_time,is_late,late_minutes,penalty,checkin_video,present_confirmed,confirmed_at').eq('filial',currentFilial).eq('date',t),
       sb.from('premiums').select('*').eq('filial',currentFilial).eq('date',t)
     ]);
     const empById = {}; (empR.data||[]).forEach(e=>{ empById[e.id]=e; });
@@ -201,11 +201,40 @@ async function openDailyPayroll() {
       if(!a || !a.check_in_time) status = `<span style="color:#A13C3C">${tr('hr.notCheckedIn')}</span>`;
       else if(a.is_late) status = tr('hr.arrivedLate',{time:a.check_in_time,m:a.late_minutes||''});
       else status = tr('hr.arrivedOnTime',{time:a.check_in_time});
-      // Видео прихода — здесь его смотрит управляющий и менеджер: ведомость за день
+      // Отметка присутствия в строке дневной ведомости.
+// true — был, false — не было, null — ещё не смотрели. Нажатие на активную
+// кнопку снимает отметку: менеджер должен иметь право передумать.
+function presenceHTML(a) {
+  const c = a.present_confirmed;
+  const when = a.confirmed_at ? ' · ' + fmtLocale(new Date(a.confirmed_at), {hour:'2-digit',minute:'2-digit'}) : '';
+  if(!canEditData()) {
+    if(c === true)  return ` <span title="${tr('hr.presentYes')}${when}" style="font-size:11px;color:#3B6D11">✅</span>`;
+    if(c === false) return ` <span title="${tr('hr.presentNo')}${when}" style="font-size:11px;color:#A13C3C">🚫</span>`;
+    return '';
+  }
+  const btn = (val, icon, on, color) => `<button onclick="setPresence(${a.id},${c === val ? 'null' : val})"
+    title="${tr(val ? 'hr.presentYes' : 'hr.presentNo')}${on ? when : ''}"
+    style="background:${on?color:'var(--surface-2)'};color:${on?'#fff':'var(--text-muted)'};border:1px solid var(--border);
+    border-radius:6px;padding:2px 6px;font-size:11px;cursor:pointer;margin-left:4px">${icon}</button>`;
+  return btn(true, '✅', c === true, '#3B6D11') + btn(false, '🚫', c === false, '#A13C3C');
+}
+
+async function setPresence(id, value) {
+  if(!canEditData()) return showToast(t('common.observerMode'));
+  const { error } = await sb.from('attendance').update({ present_confirmed: value }).eq('id', id);
+  if(error) return showToast(t('common.error') + error.message);
+  showToast(value === true ? t('hr.presentSaved') : value === false ? t('hr.absentSaved') : t('hr.presentCleared'));
+  openDailyPayroll();   // перерисовываем ведомость целиком: пересчитываются и итоги
+}
+
+// Видео прихода — здесь его смотрит управляющий и менеджер: ведомость за день
       // и есть то место, где разбирают, кто во сколько пришёл.
       if(a && a.checkin_video) {
         status += ` <button onclick="viewReport('${escJsAttr(a.checkin_video)}','video')" title="${tr('hr.checkinVideo')}" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:6px;padding:2px 6px;font-size:11px;cursor:pointer">🎥</button>`;
       }
+      // Присутствие: видео говорит, где человек был в момент отметки, а это —
+      // был ли он на смене. Ставит менеджер, который и так разбирает этот день.
+      if(a && a.check_in_time) status += presenceHTML(a);
       html += `<div class="list-item" style="flex-wrap:wrap;align-items:flex-start">
         <div class="item-info" style="flex:1 1 100%">
           <div class="item-name">${escapeHtml(s.employee_name||emp?.name||'—')}</div>
