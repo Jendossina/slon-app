@@ -697,6 +697,19 @@ function showToast(msg) {
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
+// ===== Почему ИИ не ответил =====
+// Коды приходят одинаковые от всех трёх функций (read-receipt, read-hookah,
+// ask-slon). Раньше каждая беда выглядела как «не удалось распознать», и на
+// кончившихся деньгах люди переснимали фото по десять раз. Тексты держим в
+// одном месте: экранов три, а причины у них общие.
+const AI_ERROR_KEYS = {
+  no_credit: 'ai.noCredit', no_key: 'ai.noKey', bad_key: 'ai.noKey',
+  rate_limit: 'ai.busy', truncated: 'ai.truncated', refusal: 'ai.refusal',
+};
+function aiErrorText(code, fallbackKey) {
+  return t(AI_ERROR_KEYS[code] || fallbackKey);
+}
+
 // ===== Медиа, которого больше нет =====
 // Фото и видео живут две недели: ночная уборка (edge-функция cleanup-media)
 // удаляет файлы, а ссылки на них в записях остаются — по ним видно, что отчёт

@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
 
   try {
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!apiKey) return json({ error: "Не настроен ключ ANTHROPIC_API_KEY" }, 500);
+    if (!apiKey) return json({ error: "Не настроен ключ ANTHROPIC_API_KEY", code: "no_key" }, 500);
 
     const { imageUrl, imageBase64, mimeType } = await req.json();
     let imageBlock;
@@ -81,9 +81,17 @@ Deno.serve(async (req) => {
 
     if (!resp.ok) {
       const errText = await resp.text();
+      // Отделяем «сервис недоступен» от «не смог прочитать»: кончившиеся деньги
+      // на счёте Anthropic выглядели так же, как плохое фото, и люди
+      // переснимали впустую. Те же коды у read-receipt.
+      const low = errText.toLowerCase();
+      const code = low.includes("credit balance") || low.includes("billing") ? "no_credit"
+                 : resp.status === 401 || resp.status === 403 ? "bad_key"
+                 : resp.status === 429 ? "rate_limit"
+                 : "api";
       // Ошибку отдаём со статусом 200: приложению важно показать человеку
       // причину, а не свалиться на сетевом уровне
-      return json({ error: "Ошибка Claude API: " + errText });
+      return json({ error: "Ошибка Claude API: " + errText, code });
     }
 
     const data = await resp.json();

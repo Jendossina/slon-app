@@ -97,7 +97,7 @@ async function readHookahPhoto(url) {
       body: JSON.stringify({ imageUrl: url }),
     });
     const out = await res.json();
-    if(!out?.ok || !out.data) { if(status) status.textContent = t('hk.readFailed'); return; }
+    if(!out?.ok || !out.data) { if(status) status.textContent = aiErrorText(out?.code, 'hk.readFailed'); return; }
 
     const d = out.data;
     const countEl = document.getElementById('hookah-count');

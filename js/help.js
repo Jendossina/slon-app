@@ -91,6 +91,10 @@ async function askHelp(preset) {
 
     if(result.answer) {
       chat.insertAdjacentHTML('beforeend', helpBubble(result.answer, false));
+    } else if(result.code) {
+      // Помощник молчит по понятной причине — говорим её, а не отделываемся
+      // общей подсказкой «посмотрите в разделах»
+      chat.insertAdjacentHTML('beforeend', helpBubble(aiErrorText(result.code, 'help.fallbackIntro'), false));
     } else {
       showHelpFallback(chat);
     }

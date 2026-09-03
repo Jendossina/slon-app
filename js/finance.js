@@ -238,14 +238,9 @@ function scanReceipt() {
         body: JSON.stringify({ imageUrl: photoUrl })
       });
       const result = await res.json();
-      if(!result.ok || !result.data) {
-        // «Не распознал» и «сервис недоступен» — разные беды, и лечатся по-разному:
-        // в первом случае надо переснять чек, во втором переснимать бесполезно.
-        const byCode = { no_credit: 'fin.scanNoCredit', no_key: 'fin.scanNoKey',
-                         bad_key: 'fin.scanNoKey', rate_limit: 'fin.scanBusy' };
-        status.textContent = t(byCode[result.code] || 'fin.scanFail');
-        return;
-      }
+      // «Не распознал» и «сервис недоступен» — разные беды и лечатся по-разному:
+      // в первом случае чек надо переснять, во втором переснимать бесполезно.
+      if(!result.ok || !result.data) { status.textContent = aiErrorText(result.code, 'fin.scanFail'); return; }
       const d = result.data;
       kassaClearLines();
       (d.lines || []).forEach(l => { if(l && l.label) kassaAddLine(l.label, l.amount); });
