@@ -1099,9 +1099,10 @@ test('опрос непрочитанных не ходит за цехом и �
   expect(res.pollingAfterReturn, 'при возврате опрос возобновляется').toBe(true);
 });
 
-// Заявки на замену и об опоздании: кто вправе вынести решение. Список тот же,
-// что правит график, плюс два исключения — владелец только смотрит, а свою
-// заявку старший цеха не утверждает сам, она уходит наверх.
+// Заявки на замену и об опоздании: кто вправе вынести решение. Матрицу отделов
+// держит соседний тест (canApproveDept), здесь — обвязка вокруг неё: владелец
+// только смотрит, свою заявку шеф цеха не утверждает сам (она уходит наверх),
+// и решённую заявку не перерешивают.
 test('заявки: кто может одобрять, а кто нет', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => typeof window.canDecideRequest === 'function');
@@ -1116,19 +1117,20 @@ test('заявки: кто может одобрять, а кто нет', async
       adminAnyDept:     check('admin', null, null, { department: 'Бармены' }),
       managerAnyDept:   check('manager', null, null, { department: 'Официанты' }),
       bossDenied:       check('boss', null, null, { department: 'Бармены' }),
+      chefOwnDept:      check('employee', 'Шеф бармен', 'Бармены', { department: 'Бармены' }),
+      chefOtherDept:    check('employee', 'Шеф бармен', 'Бармены', { department: 'Повара' }),
+      chefOwnRequest:   check('employee', 'Шеф бармен', 'Бармены', { department: 'Бармены', employee_id: 1 }),
       seniorOwnDept:    check('employee', 'Старший бармен', 'Бармены', { department: 'Бармены' }),
-      seniorOtherDept:  check('employee', 'Старший бармен', 'Бармены', { department: 'Повара' }),
-      seniorOwnRequest: check('employee', 'Старший бармен', 'Бармены', { department: 'Бармены', employee_id: 1 }),
       adminOwnRequest:  check('admin', null, null, { department: 'Бармены', employee_id: 1 }),
       lineWaiter:       check('employee', 'Официант', 'Официанты', { department: 'Официанты' }),
       alreadyDecided:   check('admin', null, null, { department: 'Бармены', status: 'approved' }),
     };
   });
 
-  for (const k of ['adminAnyDept','managerAnyDept','seniorOwnDept','adminOwnRequest']) {
+  for (const k of ['adminAnyDept','managerAnyDept','chefOwnDept','adminOwnRequest']) {
     expect(r[k], `${k} должен мочь решать`).toBe(true);
   }
-  for (const k of ['bossDenied','seniorOtherDept','seniorOwnRequest','lineWaiter','alreadyDecided']) {
+  for (const k of ['bossDenied','chefOtherDept','chefOwnRequest','seniorOwnDept','lineWaiter','alreadyDecided']) {
     expect(r[k], `${k} НЕ должен мочь решать`).toBe(false);
   }
 });
