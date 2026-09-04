@@ -1921,7 +1921,10 @@ test('старший цеха ставит задачи своим, линейн
       return {
         can: canCreateTasks(),
         lead: myLeadDept(),
-        fab: document.getElementById('fab-tasks').style.display,
+        // Именно вычисленный стиль: inline display из applyRolePermissions
+        // ничего не значит, если правило body.boss-readonly .fab перебивает
+        // его через !important — так кнопка у владельца и пропала.
+        fab: getComputedStyle(document.getElementById('fab-tasks')).display,
       };
     };
     return {
