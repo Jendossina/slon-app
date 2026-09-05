@@ -698,6 +698,15 @@ async function saveChecklistDeadlines() {
   } catch(e) { showToast(t('common.error')+e.message); }
 }
 
+// В базе у невыполнения лежит начало смены, а сдать можно час после него —
+// в журнале показываем именно этот, наказуемый срок. Те же тексты в
+// уведомлениях правит миграция 2026-09-05_checklist_deadline_wording.
+function cldDeadline(due) {
+  const [h, m] = String(due || '').split(':');
+  if(h === undefined || m === undefined) return '';
+  return String((Number(h) + 1) % 24).padStart(2, '0') + ':' + m;
+}
+
 async function loadChecklistMisses() {
   const el = document.getElementById('cld-misses');
   if(!el) return;
@@ -712,7 +721,7 @@ async function loadChecklistMisses() {
       <div class="list-item" style="align-items:flex-start">
         <div class="item-info">
           <div class="item-name" style="font-size:13px">${escapeHtml(m.template_name||'')}</div>
-          <div class="item-sub">${fmtLocale(new Date(m.date),{day:'numeric',month:'short'})} · ${t('cld.wasDue',{time:(m.due_time||'').slice(0,5)})}</div>
+          <div class="item-sub">${fmtLocale(new Date(m.date),{day:'numeric',month:'short'})} · ${t('cld.wasDue',{time:cldDeadline(m.due_time)})}</div>
           <div class="item-sub">${escapeHtml(m.employee_names||'—')}${m.points_given>0?` · <span style="color:#A13C3C">${t('cld.pointsGiven',{n:m.points_given})}</span>`:''}</div>
         </div>
         <span onclick="deleteChecklistMiss(${m.id})" style="color:#A32D2D;cursor:pointer;font-weight:700">✕</span>
