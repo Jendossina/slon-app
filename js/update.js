@@ -192,12 +192,14 @@ async function renderUpdateCard() {
         <div style="font-size:13px;font-weight:600;color:#8A5B12">${t('upd.apkNew', { v: rel.version })}</div>
         <div style="font-size:12px;color:var(--text-muted);margin:4px 0 8px;line-height:1.5">${t('upd.apkDesc')}</div>
         <a href="${escapeHtml(rel.url)}" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none">${t('upd.apkBtn')}</a>
+        ${apkTelegramBtn(rel)}
       </div>`;
     } else if(rel && rel.version && !native) {
       // старая сборка не сообщает свою версию — сравнить не с чем, просто даём ссылку
       apkBlock = `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;line-height:1.5">${t('upd.apkUnknown', { v: rel.version })}</div>
         <a href="${escapeHtml(rel.url)}" class="btn btn-secondary" style="display:block;text-align:center;text-decoration:none">${t('upd.apkBtn')}</a>
+        ${apkTelegramBtn(rel)}
       </div>`;
     }
   }
@@ -212,4 +214,42 @@ async function renderUpdateCard() {
       </div>
       ${apkBlock}
     </div>`;
+}
+
+// ===== APK файлом в Telegram =====
+// Скачивание APK ссылкой на части телефонов доходит до 100% и обрывается: файла
+// на устройстве нет. Чаще всего виноват не сервер (там всё в порядке —
+// application/vnd.android.package-archive и полный размер), а браузер: внутри
+// Telegram он кладёт файл в своё хранилище, а MIUI молча режет установку из
+// неизвестных источников. Файл, присланный в чат ботом, ставится нажатием и
+// этих преград не знает — поэтому рядом со ссылкой есть кнопка «прислать в
+// Telegram». Показываем её только тем, у кого чат привязан: остальным она
+// ничего не даст, а привязка живёт на главной.
+function apkTelegramBtn(rel) {
+  if(!currentProfile?.telegram_id) return '';
+  return `<button class="btn btn-secondary" style="margin-top:8px" onclick="sendApkToTelegram('${escJsAttr(rel.url)}','${escJsAttr(rel.version)}')">${t('upd.apkTgBtn')}</button>`;
+}
+
+async function sendApkToTelegram(url, version) {
+  const chat = currentProfile?.telegram_id;
+  if(!chat) return showToast(t('upd.apkTgNoChat'));
+  showToast(t('upd.apkTgSending'));
+  try {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/send-telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+      body: JSON.stringify({
+        chat_id: chat,
+        document: url,
+        filename: `slon-${version || 'app'}.apk`,
+        text: t('upd.apkTgCaption', { v: version || '' }),
+      }),
+    });
+    const j = await res.json().catch(()=>({}));
+    if(!res.ok || j.ok === false) throw new Error(j.description || ('HTTP ' + res.status));
+    showToast(t('upd.apkTgSent'));
+  } catch(e) {
+    console.error('sendApkToTelegram', e);
+    showToast(t('upd.apkTgFailed'));
+  }
 }

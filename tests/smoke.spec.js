@@ -2724,3 +2724,41 @@ test('свою карточку кнопкой не уволишь', async ({ pa
   await page.evaluate(() => { currentProfile.employee_id = 7; return openEditEmployee(7); });
   await expect(page.locator('#edit-emp-fire-group')).toBeHidden();
 });
+
+
+// Скачивание APK ссылкой на части телефонов доходит до 100% и обрывается —
+// файл в чате обходит и браузер, и запрет установки из неизвестных источников.
+test('APK уходит в Telegram файлом, а не ссылкой', async ({ page }) => {
+  const sent = [];
+  await page.route('**/rest/v1/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/functions/v1/send-telegram', (route) => {
+    sent.push(route.request().postDataJSON());
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.sendApkToTelegram === 'function');
+
+  const r = await page.evaluate(async () => {
+    const url = 'https://github.com/Jendossina/slon-app/releases/download/apk-v1.2-4/slon-1.2.apk';
+    currentProfile = { role: 'admin', telegram_id: 555000111 };
+    const withChat = apkTelegramBtn({ url, version: '1.2.4' });
+    await sendApkToTelegram(url, '1.2.4');
+    const okToast = document.getElementById('toast').textContent;
+    // без привязанного чата кнопки нет и отправлять некуда
+    currentProfile = { role: 'admin', telegram_id: null };
+    const noChat = apkTelegramBtn({ url, version: '1.2.4' });
+    await sendApkToTelegram(url, '1.2.4');
+    return { withChat, noChat, okToast, noChatToast: document.getElementById('toast').textContent };
+  });
+
+  expect(r.withChat, 'с привязанным чатом кнопка есть').toContain('Telegram');
+  expect(r.noChat, 'без привязки кнопки нет').toBe('');
+  expect(sent.length, 'без чата запрос не уходит').toBe(1);
+  expect(sent[0].chat_id).toBe(555000111);
+  expect(sent[0].document, 'шлём ссылку на релиз, файл качает функция').toContain('slon-1.2.apk');
+  expect(sent[0].filename, 'с расширением .apk, иначе Telegram не предложит установку').toBe('slon-1.2.4.apk');
+  expect(r.okToast).toContain('чате');
+  expect(r.noChatToast, 'и сказано, что нужна привязка').toContain('Telegram');
+});

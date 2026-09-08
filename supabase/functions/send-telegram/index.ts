@@ -14,8 +14,44 @@ Deno.serve(async (req)=>{
   }
   try {
     const body = await req.text();
-    const { chat_id, text, media } = JSON.parse(body);
+    const { chat_id, text, media, document: doc, filename } = JSON.parse(body);
     const TG_TOKEN = Deno.env.get("TG_TOKEN");
+
+    // doc — файл по ссылке (сейчас это APK из релизов GitHub). Отправляем
+    // документом, потому что скачивание APK браузером на части телефонов молча
+    // застревает: полоска доходит до 100%, а файла на устройстве нет (браузер
+    // внутри Telegram кладёт его в своё хранилище, MIUI режет установку из
+    // неизвестных источников). Файл в чате ставится нажатием и этих преград не
+    // знает. Качаем байтами: GitHub отвечает редиректом на подписанный адрес,
+    // и Telegram по такой ссылке файл забрать не может.
+    const DOC_HOSTS = ['github.com', 'objects.githubusercontent.com', 'release-assets.githubusercontent.com'];
+    if (doc) {
+      let host = '';
+      try { host = new URL(String(doc)).hostname; } catch (_e) { /* адрес разберём ниже */ }
+      if (!DOC_HOSTS.includes(host)) {
+        // Иначе бот превратился бы в пересыльщик любых файлов кому угодно:
+        // функция открыта, токен в ней свой
+        return new Response(JSON.stringify({ ok: false, description: 'посторонний адрес файла' }), {
+          status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+      const file = await fetch(String(doc));
+      if (!file.ok) {
+        return new Response(JSON.stringify({ ok: false, description: `файл не скачался: ${file.status}` }), {
+          status: 502, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+      const form = new FormData();
+      form.append('chat_id', String(chat_id));
+      form.append('document', await file.blob(), String(filename || 'file.apk'));
+      if (text) { form.append('caption', text); form.append('parse_mode', 'HTML'); }
+      const docRes = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendDocument`, {
+        method: 'POST', body: form,
+      });
+      return new Response(JSON.stringify(await docRes.json()), {
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
 
     // media — альбом видео (дайджест прихода): до 10 роликов одним сообщением,
     // подпись у каждого своя.
