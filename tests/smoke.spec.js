@@ -358,6 +358,13 @@ test('приложение поднимается из кеша, а не из с
 });
 
 test('неверный пароль показывает ошибку, а не тишину', async ({ page }) => {
+  // Ответ Auth подставляем сами — ровно тот, что отдаёт боевой сервер. Тест про
+  // то, что приложение скажет человеку, а не про доступность сервера: с живой
+  // сетью он падал от случайного таймаута, хотя код был ни при чём.
+  await page.route('**/auth/v1/token**', (route) => route.fulfill({
+    status: 400, contentType: 'application/json',
+    body: JSON.stringify({ code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' }),
+  }));
   await page.goto('/');
   await page.fill('#login-email', 'no-such-user@slon.uz');
   await page.fill('#login-password', 'definitely-wrong-password');
@@ -383,6 +390,9 @@ test('кнопка «Внести кассу» открывает модалку
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
 
+  // Проверяем, что модалка открывается, а не то, как быстро отвечает боевая база
+  await page.route('**/rest/v1/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   await page.goto('/');
   await page.waitForFunction(() => typeof window.openKassaModal === 'function');
 
@@ -2013,7 +2023,11 @@ test('удалённое по сроку хранения медиа не пок
                    + `<img id="local" src="/icon-192.png" style="width:40px">`;
     document.body.appendChild(host);
     viewReport(gone, 'video');
-    await new Promise((ok) => setTimeout(ok, 700));
+    // Ждём саму подмену, а не фиксированные 700 мс: под нагрузкой картинка не
+    // успевала сообщить об ошибке, и тест падал на ровном месте
+    const both = () => document.querySelector('#probe .media-gone') && document.querySelector('#view-report-content .media-gone');
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline && !both()) await new Promise((ok) => setTimeout(ok, 50));
     const tile = document.querySelector('#probe .media-gone');
     const full = document.querySelector('#view-report-content .media-gone');
     return {
