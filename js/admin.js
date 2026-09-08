@@ -254,7 +254,10 @@ async function toggleEmployeeFired() {
 
 // Закрыть/открыть вход в приложение. Возвращает true, если Auth действительно
 // перенастроен (или учётки у человека нет — тогда и закрывать нечего).
-async function setUserBan(employeeId, banned) {
+// Мобильный интернет отваливается на секунды, а осечка тут дорогая: уволенный
+// останется с живым входом, а вернувшийся в штат — заблокированным. Поэтому
+// вторая попытка, как в loadProfile.
+async function setUserBan(employeeId, banned, attempt = 1) {
   try {
     const { data: sessionData } = await sb.auth.getSession();
     const accessToken = sessionData?.session?.access_token;
@@ -265,9 +268,19 @@ async function setUserBan(employeeId, banned) {
       body: JSON.stringify({ employeeId: parseInt(employeeId), banned }),
     });
     const result = await res.json().catch(()=>({}));
-    if(!res.ok || result.error) { console.error('set-user-ban', res.status, result.error); return false; }
+    if(!res.ok || result.error) {
+      console.error('set-user-ban', res.status, result.error);
+      // Повторяем только сетевые осечки и сбои сервера: «недостаточно прав» или
+      // «сотрудник не уволен» со второго раза не станут другими
+      if(res.status >= 500 && attempt < 2) return await setUserBan(employeeId, banned, attempt + 1);
+      return false;
+    }
     return true;
-  } catch(e) { console.error('set-user-ban', e); return false; }
+  } catch(e) {
+    console.error('set-user-ban', e);
+    if(attempt < 2) { await new Promise(r => setTimeout(r, 1500)); return await setUserBan(employeeId, banned, attempt + 1); }
+    return false;
+  }
 }
 
 // Кнопки готовых ставок по выбранной должности (вызывается при открытии карточки и смене должности)
