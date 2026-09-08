@@ -2593,7 +2593,11 @@ test('фильтр отклонённых показывает историю г
 async function openEmpCard(page, emp) {
   await page.route('**/rest/v1/**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
-  const calls = { patch: [], del: [] };
+  const calls = { patch: [], del: [], ban: [] };
+  await page.route('**/functions/v1/admin-set-user-ban', (route) => {
+    calls.ban.push(route.request().postDataJSON());
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, authChanged: true }) });
+  });
   await page.route(/\/rest\/v1\/employees_view/, (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(emp) }));
   await page.route(/\/rest\/v1\/employees\?/, (route) => {
@@ -2615,6 +2619,7 @@ async function openEmpCard(page, emp) {
     currentEmployee = { id: 1, role: 'Управляющий', department: '', filials: ['istikbol'] };
     currentFilial = 'istikbol';
     confirmDialog = async () => true;      // диалог подтверждения в тесте всегда «да»
+    sb.auth.getSession = async () => ({ data: { session: { access_token: 'test-token' } } });
     businessToday = () => '2026-09-08';
     await openEditEmployee(e.id);
   }, emp);
@@ -2635,6 +2640,8 @@ test('кнопка увольнения ставит статус и снима�
   expect(calls.del.length, 'будущие смены сняты').toBe(1);
   expect(calls.del[0], 'только будущие: сегодня и прошлое нужны для зарплаты').toContain('date=gt.2026-09-08');
   expect(calls.del[0]).toContain('employee_id=eq.7');
+  // Статус — это только данные: пока учётка жива, уволенный входит логином и паролем
+  expect(calls.ban, 'учётка блокируется вместе с увольнением').toEqual([{ employeeId: 7, banned: true }]);
 });
 
 test('уволенного та же кнопка возвращает в штат, смены при этом не трогает', async ({ page }) => {
@@ -2647,6 +2654,53 @@ test('уволенного та же кнопка возвращает в шта
 
   expect(calls.patch[0].body).toEqual({ status: 'Активен' });
   expect(calls.del.length, 'график чужой рукой не чистим').toBe(0);
+  expect(calls.ban, 'и вход открывается обратно').toEqual([{ employeeId: 7, banned: false }]);
+});
+
+// Второй рубеж: даже с живой учёткой (функция не ответила, статус поставили из
+// базы) приложение разворачивает уволенного на входе.
+async function loginAs(page, emp) {
+  await page.route('**/rest/v1/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route(/\/rest\/v1\/profiles/, (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify({ id: 1, user_id: 'u-7', employee_id: 7, role: 'employee', name: emp.name }) }));
+  await page.route(/\/rest\/v1\/employees/, (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(emp) }));
+  await page.route('**/auth/v1/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.loadProfile === 'function');
+  return await page.evaluate(async () => {
+    currentUser = { id: 'u-7', email: 'barmen@slon.uz' };
+    const res = await loadProfile();
+    return {
+      ok: res.ok, reason: res.reason,
+      err: document.getElementById('login-error').textContent,
+      loginPage: document.getElementById('login-page').style.display,
+      appPage: document.getElementById('app-page').style.display,
+    };
+  });
+}
+
+test('уволенного не пускают в приложение под его логином', async ({ page }) => {
+  const r = await loginAs(page, { id: 7, name: 'Бармен Уволенный', role: 'Бармен',
+    department: 'Бармены', salary: 200000, filials: ['istikbol'], status: 'Уволен' });
+
+  expect(r.ok, 'вход не состоялся').toBe(false);
+  expect(r.reason).toBe('fired');
+  expect(r.err, 'и сказано, почему').toContain('уволен');
+  expect(r.loginPage, 'остаётся экран входа').toBe('block');
+  expect(r.appPage, 'приложение не показано').toBe('none');
+});
+
+test('работающего сотрудника проверка увольнения не трогает', async ({ page }) => {
+  const r = await loginAs(page, { id: 7, name: 'Бармен Работающий', role: 'Бармен',
+    department: 'Бармены', salary: 200000, filials: ['istikbol'], status: 'Активен' });
+
+  expect(r.ok, 'входит как обычно').toBe(true);
+  expect(r.err).toBe('');
 });
 
 test('свою карточку кнопкой не уволишь', async ({ page }) => {

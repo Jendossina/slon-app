@@ -965,8 +965,13 @@ async function loadProfile(attempt = 1) {
     if(data.employee_id) {
       // salary тянем сразу: карточка зарплаты и аттестация на главной раньше
       // ходили за той же строкой ещё двумя отдельными запросами
-      const { data: emp } = await sb.from('employees').select('id,name,role,department,salary,filials').eq('id', data.employee_id).single();
+      const { data: emp } = await sb.from('employees').select('id,name,role,department,salary,filials,status').eq('id', data.employee_id).single();
       if(emp) currentEmployee = emp;
+      // Уволенный в приложение не входит. Учётку при увольнении блокируют в Auth
+      // (admin-set-user-ban) — там настоящая стена, токен просто не выдаётся.
+      // Эта проверка на случай, когда учётка осталась живой: функция не
+      // ответила, статус поставили из базы или руками в старой версии.
+      if(emp && emp.status === 'Уволен') return await denyFiredLogin();
     }
     return { ok: true };
   }
@@ -987,6 +992,20 @@ async function loadProfile(attempt = 1) {
   document.getElementById('app-page').style.display = 'none';
   document.getElementById('login-page').style.display = 'block';
   return { ok: false, reason: 'unknown' };
+}
+
+// Уволенного разворачиваем на входе: сессию гасим, на экране входа — почему.
+async function denyFiredLogin() {
+  try { await sb.auth.signOut(); } catch(e) { console.warn('signOut failed', e); }
+  currentUser = null; currentProfile = null; currentEmployee = null;
+  const err = document.getElementById('login-error');
+  if(err) err.textContent = t('login.errFired');
+  hideSplashSafe();
+  document.getElementById('app-page').style.display = 'none';
+  document.getElementById('login-page').style.display = 'block';
+  const passEl = document.getElementById('login-password');
+  if(passEl) passEl.value = '';
+  return { ok: false, reason: 'fired' };
 }
 
 // Заставка снимается только когда решено, что показать: приложение, вход или

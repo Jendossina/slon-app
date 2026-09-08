@@ -234,15 +234,40 @@ async function toggleEmployeeFired() {
     if(!fired) {
       try { await sb.from('schedules').delete().eq('employee_id', id).gt('date', businessToday()); } catch(e) {}
     }
+    // Учётная запись. Статус — это только данные: пока учётка жива, уволенный
+    // входит своим логином и паролем. Блокировку ставит функция со служебным
+    // ключом (забаненному Auth просто не выдаёт токен), возврат в штат — снимает.
+    const authOk = await setUserBan(id, !fired);
     for(let o of statusEl.options) o.selected = (o.value === newStatus);
     renderFireButton(newStatus);
     if(typeof invalidateScheduleEmps === 'function') invalidateScheduleEmps();
     try { await logActivity('edit_employee', name + ' → ' + newStatus); } catch(e) {}
     closeModal('modal-edit-employee');
-    showToast(t(fired ? 'adm.rehired' : 'adm.fired', { name }));
+    // Статус уже сохранён, поэтому осечка с учёткой не отменяет увольнение — но
+    // молчать о ней нельзя, иначе будут уверены, что вход закрыт.
+    showToast(authOk ? t(fired ? 'adm.rehired' : 'adm.fired', { name })
+                     : t(fired ? 'adm.rehiredNoAuth' : 'adm.firedNoAuth', { name }));
     if(typeof loadAdminEmployees === 'function' && document.getElementById('screen-admin')?.classList.contains('active')) loadAdminEmployees();
     if(typeof loadHR === 'function' && document.getElementById('screen-hr')?.classList.contains('active')) loadHR();
   } catch(e) { showToast(t('common.error') + e.message); }
+}
+
+// Закрыть/открыть вход в приложение. Возвращает true, если Auth действительно
+// перенастроен (или учётки у человека нет — тогда и закрывать нечего).
+async function setUserBan(employeeId, banned) {
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if(!accessToken) return false;
+    const res = await fetch(SUPABASE_URL + '/functions/v1/admin-set-user-ban', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_KEY, 'Authorization':'Bearer '+accessToken },
+      body: JSON.stringify({ employeeId: parseInt(employeeId), banned }),
+    });
+    const result = await res.json().catch(()=>({}));
+    if(!res.ok || result.error) { console.error('set-user-ban', res.status, result.error); return false; }
+    return true;
+  } catch(e) { console.error('set-user-ban', e); return false; }
 }
 
 // Кнопки готовых ставок по выбранной должности (вызывается при открытии карточки и смене должности)

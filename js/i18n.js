@@ -96,6 +96,7 @@ const I18N = {
     // Вход
     'login.title': 'Войти', 'login.login': 'Логин', 'login.password': 'Пароль', 'login.submit': 'Войти',
     'login.remember': 'Запомнить меня', 'login.error': 'Неверный логин или пароль',
+    'login.errFired': 'Доступ закрыт: сотрудник уволен. Если это ошибка — обратитесь к управляющему.',
     'login.errNetwork': 'Нет связи с сервером. Пароль тут ни при чём — проверьте интернет или попробуйте Wi-Fi.',
     'login.diagBtn': 'Проверить связь', 'login.diagRunning': 'Проверяю связь…',
     'login.diagOnline': 'Телефон считает, что интернет есть', 'login.diagSite': 'Сайт приложения',
@@ -489,6 +490,8 @@ const I18N = {
     'adm.rehireConfirm': 'Вернуть {name} в штат? Статус станет «Активен», человек снова появится в графике и задачах — смены нужно будет расставить заново.',
     'adm.fireOk': 'Уволить', 'adm.rehireOk': 'Вернуть',
     'adm.fired': '{name} — уволен', 'adm.rehired': '{name} снова в штате',
+    'adm.firedNoAuth': '{name} уволен, но вход закрыть не вышло — смени ему пароль вручную',
+    'adm.rehiredNoAuth': '{name} снова в штате, но вход открыть не вышло — проверь учётную запись',
     'adm.filterTasksTitle': '🔍 Фильтр задач', 'adm.filterEmp': 'Сотрудник', 'adm.filterAll': 'Все', 'adm.filterActive': 'Активные', 'adm.filterCompleted': 'Выполненные', 'adm.dateFrom': 'Дата от', 'adm.dateTo': 'Дата до', 'adm.applyFilter': 'Применить фильтр', 'adm.resetFilter': 'Сбросить',
     // Дашборд
     'dash.title': '📈 Дашборд', 'dash.subtitle': 'Сводка по сети', 'dash.allNetwork': 'Вся сеть',
@@ -733,6 +736,7 @@ const I18N = {
     // Вход
     'login.title': 'Кириш', 'login.login': 'Логин', 'login.password': 'Парол', 'login.submit': 'Кириш',
     'login.remember': 'Мени эслаб қол', 'login.error': 'Логин ёки парол нотўғри',
+    'login.errFired': 'Кириш ёпилган: ходим ишдан бўшатилган. Агар бу хато бўлса — бошқарувчига мурожаат қилинг.',
     'login.errNetwork': 'Сервер билан алоқа йўқ. Парол айбдор эмас — интернетни текширинг ёки Wi-Fi орқали уриниб кўринг.',
     'login.diagBtn': 'Алоқани текшириш', 'login.diagRunning': 'Алоқа текширилмоқда…',
     'login.diagOnline': 'Телефон интернет бор деб ҳисоблайди', 'login.diagSite': 'Илова сайти',
@@ -1125,6 +1129,8 @@ const I18N = {
     'adm.rehireConfirm': '{name} штатга қайтарилсинми? Статус «Активен» бўлади, одам яна графикда ва вазифаларда кўринади — сменаларни қайтадан қўйиш керак.',
     'adm.fireOk': 'Бўшатиш', 'adm.rehireOk': 'Қайтариш',
     'adm.fired': '{name} ишдан бўшатилди', 'adm.rehired': '{name} яна штатда',
+    'adm.firedNoAuth': '{name} ишдан бўшатилди, лекин кириш ёпилмади — паролини қўлда алмаштиринг',
+    'adm.rehiredNoAuth': '{name} яна штатда, лекин кириш очилмади — аккаунтни текширинг',
     'adm.filterTasksTitle': '🔍 Вазифалар фильтри', 'adm.filterEmp': 'Ходим', 'adm.filterAll': 'Ҳаммаси', 'adm.filterActive': 'Фаол', 'adm.filterCompleted': 'Бажарилган', 'adm.dateFrom': 'Санадан', 'adm.dateTo': 'Санагача', 'adm.applyFilter': 'Фильтрни қўллаш', 'adm.resetFilter': 'Тозалаш',
     // Дашборд
     'dash.title': '📈 Дашборд', 'dash.subtitle': 'Тармоқ бўйича хулоса', 'dash.allNetwork': 'Бутун тармоқ',
