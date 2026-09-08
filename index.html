@@ -1807,9 +1807,13 @@ body.boss-readonly [data-edit-only] { display: none !important; }
       <input class="form-input" id="edit-emp-password" placeholder="минимум 6 символов" data-i18n-ph="pf.passNewPh">
     </div>
     <button class="btn btn-secondary" id="edit-emp-pass-btn" onclick="changePassword()" data-i18n="adm.changePwBtn">Сменить пароль</button>
+    <div id="edit-emp-fire-group" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <button class="btn btn-secondary" id="edit-emp-fire-btn" onclick="toggleEmployeeFired()">🚪 Уволить сотрудника</button>
+      <div id="edit-emp-fire-hint" style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center"></div>
+    </div>
     <div id="edit-emp-delete-group" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
       <button class="btn btn-secondary" onclick="deleteEmployeeFromCard()" style="background:#FCEBEB;color:#A32D2D" data-i18n="adm.delEmpBtn">🗑 Удалить сотрудника</button>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center" data-i18n="adm.delEmpHint">Удаление безвозвратно уберёт сотрудника и его аккаунт. Если человек просто уволился — лучше поставить статус «Уволен».</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center" data-i18n="adm.delEmpHint">Удаление безвозвратно уберёт сотрудника и его аккаунт. Если человек просто уволился — жми «Уволить» выше: карточка и история останутся.</div>
     </div>
   </div>
 </div>

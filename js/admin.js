@@ -188,7 +188,61 @@ async function openEditEmployee(id) {
   if(deptEl2) deptEl2.disabled = lead;
   const roleEl2 = document.getElementById('edit-emp-role');
   if(roleEl2) roleEl2.disabled = lead && isSelf;
+  // Свою карточку не увольняем: кнопка рядом с «Сохранить» — слишком лёгкий способ
+  // выключить себе доступ, а вернуть статус будет уже некому
+  const fireGroup = document.getElementById('edit-emp-fire-group');
+  const mine = String(currentProfile?.employee_id || '') === String(id);
+  if(fireGroup) fireGroup.style.display = mine ? 'none' : '';
+  renderFireButton(emp.status || 'Активен');
   openModal('modal-edit-employee');
+}
+
+// Кнопка увольнения в карточке. Статус «Уволен» был только в выпадающем списке —
+// его не находили и вместо увольнения удаляли человека вместе с историей.
+// Кнопка переключается: уволенного та же кнопка возвращает в штат.
+function renderFireButton(status) {
+  const btn = document.getElementById('edit-emp-fire-btn');
+  const hint = document.getElementById('edit-emp-fire-hint');
+  if(!btn) return;
+  const fired = status === 'Уволен';
+  btn.textContent = t(fired ? 'adm.rehireBtn' : 'adm.fireBtn');
+  btn.style.background = fired ? '#EAF3DE' : '#FCEBEB';
+  btn.style.color = fired ? '#3B6D11' : '#A32D2D';
+  if(hint) hint.textContent = t(fired ? 'adm.rehireHint' : 'adm.fireHint');
+}
+
+async function toggleEmployeeFired() {
+  const id = document.getElementById('edit-emp-id').value;
+  if(!id) return;
+  const name = document.getElementById('edit-emp-name').value || t('adm.empFallback');
+  const statusEl = document.getElementById('edit-emp-status');
+  const fired = statusEl.value === 'Уволен';
+  // Границы те же, что при сохранении карточки: старший цеха — только свои люди
+  const lead = !canEditData();
+  if(lead && !canLeadDept(document.getElementById('edit-emp-department').value)) return showToast(t('common.observerMode'));
+  const ok = await confirmDialog(
+    t(fired ? 'adm.rehireConfirm' : 'adm.fireConfirm', { name }),
+    { okText: t(fired ? 'adm.rehireOk' : 'adm.fireOk'), danger: !fired }
+  );
+  if(!ok) return;
+  const newStatus = fired ? 'Активен' : 'Уволен';
+  try {
+    const { error } = await sb.from('employees').update({ status: newStatus }).eq('id', id);
+    if(error) throw error;
+    // График на неделю вперёд уже расставлен — уволенный висел бы в нём сменами.
+    // Трогаем только будущие дни: сегодня и прошлое нужны для зарплаты и табеля.
+    if(!fired) {
+      try { await sb.from('schedules').delete().eq('employee_id', id).gt('date', businessToday()); } catch(e) {}
+    }
+    for(let o of statusEl.options) o.selected = (o.value === newStatus);
+    renderFireButton(newStatus);
+    if(typeof invalidateScheduleEmps === 'function') invalidateScheduleEmps();
+    try { await logActivity('edit_employee', name + ' → ' + newStatus); } catch(e) {}
+    closeModal('modal-edit-employee');
+    showToast(t(fired ? 'adm.rehired' : 'adm.fired', { name }));
+    if(typeof loadAdminEmployees === 'function' && document.getElementById('screen-admin')?.classList.contains('active')) loadAdminEmployees();
+    if(typeof loadHR === 'function' && document.getElementById('screen-hr')?.classList.contains('active')) loadHR();
+  } catch(e) { showToast(t('common.error') + e.message); }
 }
 
 // Кнопки готовых ставок по выбранной должности (вызывается при открытии карточки и смене должности)

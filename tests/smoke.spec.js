@@ -2585,3 +2585,74 @@ test('фильтр отклонённых показывает историю г
   await expect(body).toContainText('Старый отказ');           // а в истории — есть
   await expect(body).toContainText('июня');                   // и дата читается целиком
 });
+
+
+// Увольнение одной кнопкой. Статус «Уволен» был только в выпадающем списке, его
+// не находили и удаляли человека целиком — вместе с историей и зарплатой.
+// Кнопка ставит тот же статус, снимает будущие смены и умеет вернуть в штат.
+async function openEmpCard(page, emp) {
+  await page.route('**/rest/v1/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  const calls = { patch: [], del: [] };
+  await page.route(/\/rest\/v1\/employees_view/, (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(emp) }));
+  await page.route(/\/rest\/v1\/employees\?/, (route) => {
+    const req = route.request();
+    if (req.method() === 'PATCH') calls.patch.push({ url: req.url(), body: req.postDataJSON() });
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  });
+  await page.route(/\/rest\/v1\/schedules/, (route) => {
+    const req = route.request();
+    if (req.method() === 'DELETE') calls.del.push(req.url());
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.toggleEmployeeFired === 'function');
+  await page.evaluate(async (e) => {
+    currentUser = { id: '00000000-0000-0000-0000-000000000001', email: 'x@slon.uz' };
+    currentProfile = { role: 'admin', name: 'Админ', employee_id: 1 };
+    currentEmployee = { id: 1, role: 'Управляющий', department: '', filials: ['istikbol'] };
+    currentFilial = 'istikbol';
+    confirmDialog = async () => true;      // диалог подтверждения в тесте всегда «да»
+    businessToday = () => '2026-09-08';
+    await openEditEmployee(e.id);
+  }, emp);
+  return calls;
+}
+
+test('кнопка увольнения ставит статус и снимает будущие смены', async ({ page }) => {
+  const emp = { id: 7, name: 'Бармен Уходящий', role: 'Бармен', department: 'Бармены',
+    status: 'Активен', filials: ['istikbol'], salary: 200000, in_schedule: true };
+  const calls = await openEmpCard(page, emp);
+
+  await expect(page.locator('#edit-emp-fire-btn')).toContainText('Уволить');
+  await page.evaluate(() => toggleEmployeeFired());
+
+  expect(calls.patch.length, 'статус сохранён одним запросом').toBe(1);
+  expect(calls.patch[0].body, 'ставим «Уволен», остального не трогаем').toEqual({ status: 'Уволен' });
+  expect(calls.patch[0].url).toContain('id=eq.7');
+  expect(calls.del.length, 'будущие смены сняты').toBe(1);
+  expect(calls.del[0], 'только будущие: сегодня и прошлое нужны для зарплаты').toContain('date=gt.2026-09-08');
+  expect(calls.del[0]).toContain('employee_id=eq.7');
+});
+
+test('уволенного та же кнопка возвращает в штат, смены при этом не трогает', async ({ page }) => {
+  const emp = { id: 7, name: 'Бармен Вернувшийся', role: 'Бармен', department: 'Бармены',
+    status: 'Уволен', filials: ['istikbol'], salary: 200000, in_schedule: true };
+  const calls = await openEmpCard(page, emp);
+
+  await expect(page.locator('#edit-emp-fire-btn')).toContainText('Вернуть в штат');
+  await page.evaluate(() => toggleEmployeeFired());
+
+  expect(calls.patch[0].body).toEqual({ status: 'Активен' });
+  expect(calls.del.length, 'график чужой рукой не чистим').toBe(0);
+});
+
+test('свою карточку кнопкой не уволишь', async ({ page }) => {
+  const emp = { id: 7, name: 'Сам Себе Админ', role: 'Управляющий', department: 'Менеджеры',
+    status: 'Активен', filials: ['istikbol'], in_schedule: true };
+  await openEmpCard(page, emp);
+  await page.evaluate(() => { currentProfile.employee_id = 7; return openEditEmployee(7); });
+  await expect(page.locator('#edit-emp-fire-group')).toBeHidden();
+});
