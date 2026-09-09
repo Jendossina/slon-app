@@ -309,8 +309,26 @@ function checkinCameraHint() {
   return t('att.cameraBlocked');
 }
 
+// Кодек просим ЯВНО, а не просто «video/mp4».
+//
+// Почему: на Redmi с Android 15 браузер по запросу «video/mp4» без кодека
+// отдавал VP9 внутри mp4 (ролики Азалии с 06.09 — единственные такие из
+// двадцати девяти человек: у всех остальных H.264). На её собственном телефоне
+// такое видео открывается, а на айфоне — нет: iOS не умеет VP9 в mp4 вовсе.
+// Со стороны это выглядело как «сняла видео, а приложение не засчитало»: в
+// отметке ссылка есть, руководитель жмёт 🎥 и видит чёрный квадрат.
+//
+// H.264 baseline играет везде — и в приложении, и на айфоне, и в телеграме,
+// поэтому он первый в списке, а безымянные варианты остаются запасными.
 function pickRecorderMime() {
-  const types = ['video/mp4', 'video/webm;codecs=vp8', 'video/webm'];
+  const types = [
+    'video/mp4;codecs=avc1.42E01E',   // H.264 baseline — играет везде
+    'video/mp4;codecs=avc1',
+    'video/mp4',
+    'video/webm;codecs=h264',
+    'video/webm;codecs=vp8',
+    'video/webm',
+  ];
   for(const ty of types) { if(MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(ty)) return ty; }
   return '';
 }
