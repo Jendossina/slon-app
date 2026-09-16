@@ -545,8 +545,37 @@ async function compressImage(file, maxSide = 1280, quality = 0.7) {
   if(!file || !file.type || !file.type.startsWith('image/')) return file;
   // gif не трогаем (потеряется анимация)
   if(file.type === 'image/gif') return file;
+  // На слабом Android сжатие срабатывало через раз: из пачки в девять снимков
+  // половина уходила оригиналами по 3 МБ, и один бармен за полмесяца занял
+  // треть бесплатного хранилища. Раскодированный 12-мегапиксельный снимок —
+  // это ~50 МБ памяти, и когда её не хватает, браузер молча отдаёт пустой
+  // результат. Поэтому при неудаче ждём, пока память освободится, и пробуем
+  // ещё раз, раскодируя сразу в уменьшенном размере.
+  for(const light of [false, true]) {
+    try {
+      const out = await compressImageOnce(file, maxSide, quality, light);
+      if(out) return out.size < file.size ? out : file;
+    } catch(e) {
+      console.warn('compressImage failed' + (light ? '' : ', retrying'), e);
+    }
+    if(!light) await new Promise(r => setTimeout(r, 400));
+  }
+  return file;
+}
+
+// Одна попытка сжатия. null — браузер не смог (обычно не хватило памяти).
+// light — раскодировать сразу уменьшенным: памяти нужно в десятки раз меньше.
+async function compressImageOnce(file, maxSide, quality, light) {
+  let src = null;
+  if(light && typeof createImageBitmap === 'function') {
+    // Сторону заранее не знаем, поэтому уменьшаем по ширине; вертикальный кадр
+    // выйдет чуть выше maxSide и дожмётся на холсте ниже.
+    try { src = await createImageBitmap(file, { imageOrientation: 'from-image', resizeWidth: maxSide, resizeQuality: 'medium' }); }
+    catch(e) { src = null; }
+  }
+  if(!src) src = await loadOrientedImage(file);
+  const canvas = document.createElement('canvas');
   try {
-    const src = await loadOrientedImage(file);
     // Доворачиваем сами ТОЛЬКО если браузер этого не сделал — иначе двойной поворот
     const auto = await browserAppliesExif();
     const o = auto ? 1 : ((await readExifOrientation(file)) || 1);
@@ -556,23 +585,22 @@ async function compressImage(file, maxSide = 1280, quality = 0.7) {
       if(width >= height) { height = Math.round(height * maxSide / width); width = maxSide; }
       else { width = Math.round(width * maxSide / height); height = maxSide; }
     }
-    const canvas = document.createElement('canvas');
     const swap = orientationSwapsSides(o);
     canvas.width = swap ? height : width;
     canvas.height = swap ? width : height;
     const ctx = canvas.getContext('2d');
+    if(!ctx) return null;
     if(o > 1) applyOrientationTransform(ctx, o, width, height);
     ctx.drawImage(src, 0, 0, width, height);
-    if(typeof src.close === 'function') src.close(); // освобождаем ImageBitmap
     const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
-    if(!blob) return file;
-    // Если сжатие не дало выигрыша — оставляем оригинал
-    if(blob.size >= file.size) return file;
-    const newName = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
+    if(!blob) return null;
+    const newName = (file.name || 'photo').replace(/.[^.]+$/, '') + '.jpg';
     return new File([blob], newName, { type: 'image/jpeg' });
-  } catch(e) {
-    console.warn('compressImage failed, using original', e);
-    return file;
+  } finally {
+    // Память отдаём сразу, не дожидаясь сборщика мусора: иначе следующий снимок
+    // из пачки раскодируется, пока предыдущий ещё занимает место
+    if(typeof src.close === 'function') src.close();
+    canvas.width = canvas.height = 0;
   }
 }
 
