@@ -457,6 +457,54 @@ test('compressImage применяет EXIF-ориентацию, а не зер
   expect(r.right[0], `справа должно стать красным, получено rgb(${r.right.slice(0,3)})`).toBeGreaterThan(r.right[2]);
 });
 
+// Телефон бармена (vivo Y35, Android WebView): раскодировать снимок на
+// двенадцать мегапикселей целиком — это ~50 МБ памяти, которых там нет, а файл
+// из камеры читается один раз, и после провалившейся тяжёлой попытки читать
+// уже нечего. Пока тяжёлый путь шёл первым, сжатие не срабатывало ВООБЩЕ:
+// в облако месяц уходили оригиналы по 3 МБ. Сторожим порядок попыток.
+test('фото сжимается, даже когда полное раскодирование не проходит', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.compressImage === 'function');
+
+  const r = await page.evaluate(async () => {
+    const c = document.createElement('canvas');
+    c.width = 3060; c.height = 4080;                  // столько снимает vivo Y35
+    const cx = c.getContext('2d');
+    const g = cx.createLinearGradient(0, 0, 3060, 4080);
+    g.addColorStop(0, '#cc3333'); g.addColorStop(1, '#3366cc');
+    cx.fillStyle = g; cx.fillRect(0, 0, 3060, 4080);
+    const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.95));
+    const file = new File([blob], 'IMG_20260921.jpg', { type: 'image/jpeg' });
+
+    const realBitmap = window.createImageBitmap;
+    const realReader = window.FileReader;
+    let heavyTried = false;
+    window.createImageBitmap = (src, opts) => {
+      if (src !== file) return realBitmap(src, opts);
+      if (!(opts && opts.resizeWidth)) { heavyTried = true; throw new DOMException('нет памяти', 'InvalidStateError'); }
+      if (heavyTried) throw new DOMException('файл уже прочитан', 'NotReadableError');
+      return realBitmap(src, opts);
+    };
+    // запасной путь через <img> на таком телефоне тоже не проходит
+    window.FileReader = class {
+      readAsDataURL() { setTimeout(() => this.onerror && this.onerror(new Error('нет памяти')), 0); }
+    };
+
+    let out;
+    try { out = await window.compressImage(file, 1024, 0.62); }
+    finally { window.createImageBitmap = realBitmap; window.FileReader = realReader; }
+
+    const bmp = await realBitmap(out);
+    const side = Math.max(bmp.width, bmp.height);
+    bmp.close();
+    return { original: file.size, size: out.size, name: out.name, side };
+  });
+
+  expect(r.size, `ушёл оригинал на ${Math.round(r.original / 1024)} КБ`).toBeLessThan(r.original / 2);
+  expect(r.side, 'сторона больше 1024 — значит сжатия не было').toBeLessThanOrEqual(1024);
+  expect(r.name, 'имя файла потеряло символы').toBe('IMG_20260921.jpg');
+});
+
 // Математика разворота — то, чем приложение доворачивает фото в браузерах,
 // которые не применяют EXIF сами (их в этом наборе тестов не воспроизвести).
 test('applyOrientationTransform разворачивает верно (зеркало и поворот)', async ({ page }) => {

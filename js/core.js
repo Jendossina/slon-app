@@ -545,20 +545,25 @@ async function compressImage(file, maxSide = 1280, quality = 0.7) {
   if(!file || !file.type || !file.type.startsWith('image/')) return file;
   // gif не трогаем (потеряется анимация)
   if(file.type === 'image/gif') return file;
-  // На слабом Android сжатие срабатывало через раз: из пачки в девять снимков
-  // половина уходила оригиналами по 3 МБ, и один бармен за полмесяца занял
-  // треть бесплатного хранилища. Раскодированный 12-мегапиксельный снимок —
-  // это ~50 МБ памяти, и когда её не хватает, браузер молча отдаёт пустой
-  // результат. Поэтому при неудаче ждём, пока память освободится, и пробуем
-  // ещё раз, раскодируя сразу в уменьшенном размере.
-  for(const light of [false, true]) {
+  // На слабом Android сжатие не срабатывало вовсе: снимки уходили оригиналами
+  // по 3 МБ, и один бармен занимал ими пятую часть бесплатного хранилища.
+  // Раскодированный 12-мегапиксельный снимок — это ~50 МБ памяти, и когда её
+  // не хватает, браузер молча отдаёт пустой результат.
+  //
+  // Поэтому ПЕРВЫМ идёт лёгкий путь: раскодировать сразу уменьшенным, памяти
+  // нужно в десятки раз меньше. Полное раскодирование осталось запасным — оно
+  // и есть тот самый отказ. Порядок важен не только из-за памяти: снимок из
+  // камеры в Android WebView приходит файлом, который читается один раз, и
+  // после провалившейся тяжёлой попытки читать уже нечего — вторая попытка
+  // падала следом, сколько бы её ни улучшали.
+  for(const light of [true, false]) {
     try {
       const out = await compressImageOnce(file, maxSide, quality, light);
       if(out) return out.size < file.size ? out : file;
     } catch(e) {
-      console.warn('compressImage failed' + (light ? '' : ', retrying'), e);
+      console.warn('compressImage failed' + (light ? ', retrying' : ''), e);
     }
-    if(!light) await new Promise(r => setTimeout(r, 400));
+    if(light) await new Promise(r => setTimeout(r, 400));
   }
   return file;
 }
@@ -594,12 +599,12 @@ async function compressImageOnce(file, maxSide, quality, light) {
     ctx.drawImage(src, 0, 0, width, height);
     const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
     if(!blob) return null;
-    const newName = (file.name || 'photo').replace(/.[^.]+$/, '') + '.jpg';
+    const newName = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
     return new File([blob], newName, { type: 'image/jpeg' });
   } finally {
     // Память отдаём сразу, не дожидаясь сборщика мусора: иначе следующий снимок
     // из пачки раскодируется, пока предыдущий ещё занимает место
-    if(typeof src.close === 'function') src.close();
+    if(src && typeof src.close === 'function') src.close();
     canvas.width = canvas.height = 0;
   }
 }
