@@ -282,8 +282,13 @@ function loadSalaryCard(record) {
 // вместе с недогруженной отметкой. Теперь снимаем прямо в приложении: ролик
 // живёт только в памяти страницы, в галерею не попадает, приложение не
 // сворачивается, а размер файла мы задаём сами — секунды вместо минут загрузки.
-const CHECKIN_SECONDS = 5;       // столько пишем: этого хватает подтвердить, что человек на месте
-// Выше этого ролик пережимаем. Съёмка внутри приложения даёт ~0,45 МБ, так что
+const CHECKIN_SECONDS = 4;       // столько пишем: этого хватает подтвердить, что человек на месте
+// Ролик держим лёгким намеренно: отметка идёт с улицы, по мобильной связи, и
+// каждые лишние полмегабайта — это лишние секунды, за которые человек успеет
+// уйти с экрана. 400 кбит/с на кадре 640x480 хватает, чтобы узнать человека,
+// а весит ролик около 0,2 МБ против прежних 0,5.
+const CHECKIN_BITRATE = 400000;
+// Выше этого ролик пережимаем. Съёмка внутри приложения даёт ~0,2 МБ, так что
 // порог задевает только видео из системной камеры.
 const CHECKIN_MAX_MB = 1.5;
 let checkinStream = null;
@@ -404,7 +409,7 @@ async function recordCheckinVideo() {
   const chunks = [];
   const mime = pickRecorderMime();
   try {
-    checkinRecorder = new MediaRecorder(checkinStream, mime ? { mimeType: mime, videoBitsPerSecond: 800000 } : undefined);
+    checkinRecorder = new MediaRecorder(checkinStream, mime ? { mimeType: mime, videoBitsPerSecond: CHECKIN_BITRATE } : undefined);
   } catch(e) {
     console.error('MediaRecorder failed', e);
     stopCheckinStream(); box.style.display = 'none';
@@ -475,7 +480,7 @@ function startCheckInFallback() {
 // у съёмки внутри приложения. Три таких телефона за десять дней принесли
 // столько же мегабайт, сколько все остальные вместе, и месяца хватило, чтобы
 // упереться в потолок бесплатного хранилища. Пережимаем прямо на телефоне:
-// кадр 480 px, те же 5 секунд, 500 кбит/с — узнать человека этого хватает.
+// кадр 480 px, те же секунды, тот же битрейт — узнать человека этого хватает.
 //
 // Не вышло (нет MediaRecorder, видео не проигрывается, кодек не поддержан) —
 // отправляем оригинал: большой ролик лучше, чем никакого.
@@ -500,7 +505,7 @@ async function shrinkCheckinVideo(file) {
     const ctx = canvas.getContext('2d');
     const mime = pickRecorderMime();
     const rec = new MediaRecorder(canvas.captureStream(15),
-      mime ? { mimeType: mime, videoBitsPerSecond: 500000 } : undefined);
+      mime ? { mimeType: mime, videoBitsPerSecond: CHECKIN_BITRATE } : undefined);
     const chunks = [];
     rec.ondataavailable = ev => { if(ev.data && ev.data.size) chunks.push(ev.data); };
     const stopped = new Promise(ok => { rec.onstop = ok; });
@@ -559,17 +564,76 @@ function setCheckInStatus(text, kind) {
 // Догружаем видео к уже записанной отметке. Возвращает true, если долетело.
 // Триггер в базе разрешает дописать checkin_video, только пока он пустой
 // (миграция 2026-08-06_attach_checkin_video.sql).
-// Недосланное видео: файл в хранилище уже есть, а привязать к отметке не вышло
-// (связь оборвалась ровно между загрузкой и записью). Раньше такое видео
-// пропадало навсегда — 21.08 так потерялась отметка Соснина: файл на месте,
-// в отметке пусто. Запоминаем и дописываем при следующем открытии приложения.
+//
+// Снятый ролик живёт только в памяти вкладки: не ушёл — и его больше нет.
+// Раньше мы запоминали лишь будущий адрес файла, и если файл до хранилища так
+// и не долетел, запись просто забывалась — 22.09 так пропало видео Дооса.
+// Теперь до подтверждения от хранилища держим на телефоне сам ролик и досылаем
+// его при следующем открытии приложения или как только вернётся сеть.
+//
+// localStorage для файла не годится — там строки и пять мегабайт на всё,
+// поэтому ролик лежит в IndexedDB, а маленькая пометка (какая отметка, какой
+// адрес, когда) остаётся в localStorage: её читать дешевле и синхронно.
 const PENDING_VIDEO_KEY = 'slon_pending_checkin_video';
+const PENDING_DB = 'slon-checkin';
+const PENDING_STORE = 'video';
+const PENDING_KEY = 'current';     // отложенный ролик всегда один: отметка в день
 
-function rememberPendingVideo(recordId, url) {
+function pendingStore(mode) {
+  return new Promise((ok, fail) => {
+    if(!window.indexedDB) return fail(new Error('нет IndexedDB'));
+    const req = indexedDB.open(PENDING_DB, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if(!db.objectStoreNames.contains(PENDING_STORE)) db.createObjectStore(PENDING_STORE);
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      try { ok({ db, store: db.transaction(PENDING_STORE, mode).objectStore(PENDING_STORE) }); }
+      catch(e) { db.close(); fail(e); }
+    };
+    req.onerror = () => fail(req.error || new Error('IndexedDB'));
+  });
+}
+
+// Три обёртки ниже отвечают «получилось/не получилось» и наружу не бросают:
+// хранилище на телефоне может быть закрыто настройками браузера, и ломать
+// из-за этого отметку нельзя.
+async function pendingVideoSave(rec) {
+  try {
+    const { db, store } = await pendingStore('readwrite');
+    await new Promise((ok, fail) => { const r = store.put(rec, PENDING_KEY); r.onsuccess = ok; r.onerror = () => fail(r.error); });
+    db.close();
+    return true;
+  } catch(e) { console.warn('ролик не удалось отложить', e); return false; }
+}
+async function pendingVideoLoad() {
+  try {
+    const { db, store } = await pendingStore('readonly');
+    const rec = await new Promise((ok, fail) => { const r = store.get(PENDING_KEY); r.onsuccess = () => ok(r.result); r.onerror = () => fail(r.error); });
+    db.close();
+    return rec || null;
+  } catch(e) { return null; }
+}
+async function pendingVideoDrop() {
+  try {
+    const { db, store } = await pendingStore('readwrite');
+    await new Promise((ok) => { const r = store.delete(PENDING_KEY); r.onsuccess = ok; r.onerror = ok; });
+    db.close();
+  } catch(e) { /* нечего чистить */ }
+}
+
+// Пометку и файл кладём ДО отправки. Самый обидный случай — не обрыв, а
+// выгрузка приложения ровно между «файл долетел» и «ссылка записана»: так
+// 31.08 потерялось видео Ибрагимова.
+async function rememberPendingVideo(recordId, url, file) {
   try { localStorage.setItem(PENDING_VIDEO_KEY, JSON.stringify({ recordId, url, at: Date.now() })); } catch(e) {}
+  if(!file) return false;
+  return await pendingVideoSave({ recordId, url, at: Date.now(), blob: file, name: file.name || 'checkin.mp4', type: file.type || 'video/mp4' });
 }
 function forgetPendingVideo() {
   try { localStorage.removeItem(PENDING_VIDEO_KEY); } catch(e) {}
+  pendingVideoDrop();
 }
 
 // Долетел ли файл до хранилища. Бакет публичный, так что дешевле всего
@@ -584,26 +648,50 @@ async function checkinVideoUploaded(url) {
   } catch(e) { return 'unknown'; }
 }
 
+// Досылка идёт и при открытии главной, и по возвращении сети — два захода
+// разом вполне реальны, и второй только помешает первому.
+let pendingFlushing = false;
+
 async function flushPendingCheckinVideo() {
+  if(pendingFlushing) return;
   let p;
   try { p = JSON.parse(localStorage.getItem(PENDING_VIDEO_KEY) || 'null'); } catch(e) { return; }
   if(!p?.recordId || !p?.url) return;
   // Через трое суток дописывать уже некуда: смена давно закрыта.
   if(Date.now() - (p.at || 0) > 3 * 86400000) { forgetPendingVideo(); return; }
+  pendingFlushing = true;
   try {
     const { data: cur } = await sb.from('attendance').select('checkin_video').eq('id', p.recordId).single();
     if(cur?.checkin_video) { forgetPendingVideo(); return; }
-    // Отметку мы теперь запоминаем ДО отправки, поэтому файла может и не быть:
-    // приложение выгрузили посреди загрузки. Привязывать такую ссылку нельзя —
-    // в отметке появится видео, которое не открывается.
     const state = await checkinVideoUploaded(p.url);
-    if(state === 'no') { forgetPendingVideo(); return; }
     if(state === 'unknown') return;              // нет связи — вернёмся позже
-    await sb.from('attendance').update({ checkin_video: p.url }).eq('id', p.recordId);
-    const { data: after } = await sb.from('attendance').select('checkin_video').eq('id', p.recordId).single();
-    if(after?.checkin_video) forgetPendingVideo();
+    if(state === 'yes') {
+      // Файл на месте, не хватало только ссылки
+      await sb.from('attendance').update({ checkin_video: p.url }).eq('id', p.recordId);
+      const { data: after } = await sb.from('attendance').select('checkin_video').eq('id', p.recordId).single();
+      if(after?.checkin_video) { await markCheckinFailureRecovered(p.recordId); forgetPendingVideo(); }
+      return;
+    }
+    // Файла нет — значит в прошлый раз он не долетел. Раньше ролик на этом
+    // месте забывался навсегда; теперь он лежит на телефоне, и мы отправляем
+    // его заново, под новым именем.
+    const kept = await pendingVideoLoad();
+    if(!kept || kept.url !== p.url || !kept.blob) { forgetPendingVideo(); return; }
+    let file;
+    try { file = new File([kept.blob], kept.name, { type: kept.type }); }
+    catch(e) { file = kept.blob; }
+    if(await attachCheckinVideo(p.recordId, file)) await markCheckinFailureRecovered(p.recordId);
   } catch(e) { /* нет связи — попробуем в следующий раз */ }
+  finally { pendingFlushing = false; }
 }
+
+// Сеть вернулась — не ждём, пока человек снова откроет главную.
+window.addEventListener('online', () => { flushPendingCheckinVideo(); });
+
+// Три попытки с растущим ожиданием. Одной хватало не всегда: отметка идёт с
+// улицы по мобильной связи, отправка то обрывается, то не укладывается в срок,
+// а повторить её было некому — человек к этому моменту уже уходил с экрана.
+const CHECKIN_UPLOAD_WAITS = [45000, 90000, 180000];
 
 async function attachCheckinVideo(recordId, videoFile) {
   try {
@@ -615,25 +703,34 @@ async function attachCheckinVideo(recordId, videoFile) {
     const ext = (f => { const p=(f.name||'').split('.'); return p.length>1?p.pop():'mp4'; })(videoFile);
     const path = `checkin-${currentProfile.employee_id}-${Date.now()}.${ext}`;
     const url = sb.storage.from('task-reports').getPublicUrl(path).data.publicUrl;
-    // Запоминаем ДО отправки. Самый обидный случай — не обрыв, а выгрузка
-    // приложения ровно между «файл долетел» и «ссылка записана»: файл в
-    // хранилище есть, в отметке пусто, и вспомнить его было нечем — так 31.08
-    // потерялось видео Ибрагимова. Адрес известен заранее, поэтому кладём его
-    // в память сразу, а при следующем запуске приложение проверит, долетел ли
-    // файл, и допишет ссылку.
-    rememberPendingVideo(recordId, url);
-    // Загрузка на слабой связи тянется минутами, а может и молча оборваться:
-    // ждём не дольше трёх минут и в любом случае говорим, чем кончилось.
-    const upRes = await Promise.race([
-      sb.storage.from('task-reports').upload(path, videoFile).catch(e => ({ error: e })),
-      new Promise(r => setTimeout(() => r({ timedOut: true }), 180000)),
-    ]);
-    if(upRes.timedOut || upRes.error) {
-      // Память НЕ чистим: «не дождались за три минуты» — это не «файл не
-      // дошёл». На слабой связи он вполне мог долететь. Кто прав, выяснит
-      // проверка при следующем запуске, а не догадка здесь.
-      setCheckInStatus(t('att.videoLater'), 'bad');
-      showToast(t('att.videoLater'));
+    // Адрес и сам ролик — в память телефона ДО отправки (см. rememberPendingVideo)
+    const kept = await rememberPendingVideo(recordId, url, videoFile);
+
+    let uploaded = false, reason = '', tries = 0;
+    for(const wait of CHECKIN_UPLOAD_WAITS) {
+      tries++;
+      const res = await Promise.race([
+        sb.storage.from('task-reports').upload(path, videoFile).catch(e => ({ error: e })),
+        new Promise(r => setTimeout(() => r({ timedOut: true }), wait)),
+      ]);
+      if(!res.timedOut && !res.error) { uploaded = true; break; }
+      reason = res.timedOut ? ('не дождались за ' + Math.round(wait / 1000) + ' c') : (res.error?.message || 'ошибка отправки');
+      // Ждать было некогда, но долететь файл мог: спросить хранилище дёшево, а
+      // без этого повтор положил бы рядом второй такой же ролик.
+      if(await checkinVideoUploaded(url) === 'yes') { uploaded = true; break; }
+      if(tries < CHECKIN_UPLOAD_WAITS.length) {
+        setCheckInStatus(t('att.uploadRetry'));
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+
+    if(!uploaded) {
+      // Память НЕ чистим: ролик лежит на телефоне и уйдёт сам — при следующем
+      // открытии приложения или как только вернётся сеть.
+      await logCheckinFailure({ recordId, stage: 'upload', reason, attempt: tries, bytes: videoFile.size, kept });
+      const msg = kept ? t('att.videoKept') : t('att.videoLater');
+      setCheckInStatus(msg, 'bad');
+      showToast(msg);
       return false;
     }
     const { error } = await sb.from('attendance').update({ checkin_video: url }).eq('id', recordId);
@@ -641,17 +738,50 @@ async function attachCheckinVideo(recordId, videoFile) {
     // так и вышло, что файл лежал в хранилище, а в отметке было пусто.
     const { data: after } = await sb.from('attendance').select('checkin_video').eq('id', recordId).single();
     if(error || !after?.checkin_video) {
-      // Ссылка уже в памяти — допишем при следующем запуске
+      // Файл-то долетел, не хватило только ссылки — допишем при следующем запуске
+      await logCheckinFailure({ recordId, stage: 'link', reason: error?.message || 'ссылка не записалась', attempt: tries, bytes: videoFile.size, kept });
       setCheckInStatus(t('att.videoLater'), 'bad');
       return false;
     }
+    if(tries > 1) await markCheckinFailureRecovered(recordId);
     forgetPendingVideo();
     setCheckInStatus('');
     return true;
   } catch(e) {
+    logCheckinFailure({ recordId, stage: 'upload', reason: e?.message || 'сбой отправки', bytes: videoFile?.size });
     setCheckInStatus(t('att.videoLater'), 'bad');
     return false;
   }
+}
+
+// Журнал отказов. Почему в базу, а не в консоль: консоль на телефоне
+// сотрудника никто не увидит, а логи Supabase живут сутки — когда 23.09
+// разбирались с пропавшим видео Дооса, смотреть было уже нечего, и причину
+// пришлось восстанавливать по косвенным следам.
+async function logCheckinFailure(info) {
+  try {
+    await sb.from('checkin_video_failures').insert({
+      attendance_id: info.recordId || null,
+      employee_id: currentProfile?.employee_id || null,
+      employee_name: currentProfile?.name || null,
+      stage: info.stage,
+      reason: String(info.reason || '').slice(0, 300),
+      attempt: info.attempt || null,
+      bytes: info.bytes || null,
+      kept: !!info.kept,
+      user_agent: String(navigator.userAgent || '').slice(0, 300),
+    });
+  } catch(e) { /* журнал не должен мешать отметке */ }
+}
+
+// Ролик всё-таки долетел — закрываем записи. Иначе по журналу не отличить
+// «потеряли навсегда» от «ушло со второй попытки», а разница в этом и есть.
+async function markCheckinFailureRecovered(recordId) {
+  try {
+    await sb.from('checkin_video_failures')
+      .update({ recovered_at: new Date().toISOString() })
+      .eq('attendance_id', recordId).is('recovered_at', null);
+  } catch(e) { /* не смертельно */ }
 }
 
 async function sendResendVideo(recordId, file) {

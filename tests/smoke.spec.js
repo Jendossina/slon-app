@@ -2146,6 +2146,110 @@ test('видео, загруженное но не привязанное, до�
   expect(offline.remembered, 'но и не забываем: вернёмся при следующем запуске').toBe(true);
 });
 
+// Одной попытки отправки не хватало: отметка идёт с улицы по мобильной связи,
+// соединение срывается, а повторить было некому — человек к этому моменту уже
+// уходил с экрана. Попыток теперь три, и между ними мы спрашиваем хранилище,
+// не долетел ли файл всё-таки: иначе повтор положил бы рядом второй ролик.
+test('видео прихода уходит со второй попытки, а не теряется на первой', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.attachCheckinVideo === 'function');
+
+  let uploads = 0, patched = 0, gets = 0, link = null;
+  await page.unrouteAll();
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/attendance*', (route) => {
+    if (route.request().method() === 'PATCH') {
+      patched += 1; link = route.request().postData();
+      return route.fulfill({ status: 204, body: '' });
+    }
+    gets += 1;
+    const body = gets === 1 ? '{"checkin_video":null}' : '{"checkin_video":"есть"}';
+    return route.fulfill({ status: 200, contentType: 'application/json', body });
+  });
+  await page.route('**/storage/v1/object/**', (route) => {
+    if (route.request().method() === 'HEAD') return route.fulfill({ status: 404, body: '' });
+    uploads += 1;
+    if (uploads === 1) return route.abort('failed');           // связь оборвалась
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{"Key":"task-reports/x.mp4"}' });
+  });
+
+  const ok = await page.evaluate(async () => {
+    currentProfile = { employee_id: 7, name: 'Тест' };
+    const file = new File([new Uint8Array(1024)], 'checkin.mp4', { type: 'video/mp4' });
+    return await attachCheckinVideo(7, file);
+  });
+
+  expect(ok, 'со второй попытки ролик должен уйти').toBe(true);
+  expect(uploads, 'две попытки, третья уже не нужна').toBe(2);
+  expect(patched, 'ссылка записана один раз').toBe(1);
+  expect(link, 'в отметку записан адрес ролика').toContain('checkin-7-');
+});
+
+// Главное: снятый ролик живёт только в памяти вкладки, и если отправка не
+// удалась, раньше он пропадал навсегда — 22.09 так потерялось видео Дооса.
+// Теперь до подтверждения от хранилища он лежит на телефоне и уходит сам.
+test('не ушедшее видео остаётся на телефоне и досылается при следующем запуске', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.attachCheckinVideo === 'function');
+
+  let storageUp = false, uploads = 0, linked = false;
+  const journal = [], patched = [];
+  await page.unrouteAll();
+  await page.route('**/rest/v1/**', (route) => {
+    if (route.request().url().includes('checkin_video_failures')) {
+      journal.push({ method: route.request().method(), body: route.request().postData() || '' });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  });
+  await page.route('**/rest/v1/attendance*', (route) => {
+    if (route.request().method() === 'PATCH') {
+      patched.push(route.request().postData()); linked = true;
+      return route.fulfill({ status: 204, body: '' });
+    }
+    const body = linked ? '{"checkin_video":"есть"}' : '{"checkin_video":null}';
+    return route.fulfill({ status: 200, contentType: 'application/json', body });
+  });
+  await page.route('**/storage/v1/object/**', (route) => {
+    if (route.request().method() === 'HEAD') return route.fulfill({ status: 404, body: '' });
+    uploads += 1;
+    if (!storageUp) return route.abort('failed');
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{"Key":"task-reports/x.mp4"}' });
+  });
+
+  // 1. Связи нет: все три попытки срываются
+  const first = await page.evaluate(async () => {
+    currentProfile = { employee_id: 7, name: 'Тест' };
+    const file = new File([new Uint8Array(2048)], 'checkin.mp4', { type: 'video/mp4' });
+    const ok = await attachCheckinVideo(7, file);
+    const kept = await pendingVideoLoad();
+    return { ok, keptBytes: kept && kept.blob ? kept.blob.size : 0, note: localStorage.getItem('slon_pending_checkin_video') };
+  });
+
+  expect(first.ok, 'отправка не удалась').toBe(false);
+  expect(uploads, 'три попытки').toBe(3);
+  expect(first.keptBytes, 'ролик остался на телефоне целиком').toBe(2048);
+  expect(first.note, 'и пометка, к какой отметке он относится').toBeTruthy();
+  expect(journal.length, 'отказ записан в журнал').toBe(1);
+  expect(journal[0].body, 'с пометкой, что ролик сохранён').toContain('"kept":true');
+
+  // 2. Связь вернулась — приложение досылает ролик само
+  storageUp = true;
+  const second = await page.evaluate(async () => {
+    await flushPendingCheckinVideo();
+    const kept = await pendingVideoLoad();
+    return { kept: !!kept, note: localStorage.getItem('slon_pending_checkin_video') };
+  });
+
+  expect(patched.length, 'ролик дослан и привязан к отметке').toBe(1);
+  expect(patched[0], 'в отметке адрес ролика').toContain('checkin-7-');
+  expect(second.kept, 'с телефона его убрали').toBe(false);
+  expect(second.note, 'и пометку тоже').toBe(null);
+  expect(journal.some((j) => j.method === 'PATCH'), 'в журнале отмечено, что ролик всё-таки дошёл').toBe(true);
+});
+
 // Кнопка «Снять» появляется только на своих задачах. Удаление раньше жило в
 // админ-панели, куда старший цеха не заходит: поставил по ошибке — зови
 // менеджера. Чужие задачи он снимать не должен, иначе сотрёт поручение,
