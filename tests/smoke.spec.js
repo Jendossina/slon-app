@@ -3195,3 +3195,69 @@ test('телефон досылает только свои снимки, а н�
   expect(JSON.stringify(rpcCalls[0].p_media), 'чужих снимков в запросе быть не должно').not.toContain('chuzhoe');
   expect(patchedLogs, 'списком целиком больше не перезаписываем').toBe(0);
 });
+
+// Уволенные всплывали в двух местах: пустой строкой в сетке графика (там
+// фильтра по статусу не было вовсе) и в списке сотрудников, где их путали с
+// работающими. Совсем прятать нельзя — иначе человека не вернуть в штат.
+test('уволенных нет в списке сотрудников, пока их не попросят показать', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/employees_view*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify([
+      { id: 1, name: 'Работающий Иван', role: 'Повар', department: 'Повара', status: 'Активен', filials: ['chekhov'], in_schedule: true },
+      { id: 2, name: 'Уволенный Пётр', role: 'Повар', department: 'Повара', status: 'Уволен', filials: ['chekhov'], in_schedule: true },
+    ]),
+  }));
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.loadHR === 'function');
+
+  const r = await page.evaluate(async () => {
+    currentUser = { id: 'u1' };
+    currentProfile = { role: 'admin', name: 'Тест', employee_id: 9 };
+    currentEmployee = { department: 'Повара', role: 'Шеф повар' };
+    currentFilial = 'chekhov';
+    hrShowAll = false; hrShowFired = false; hrSearchQuery = '';
+    await loadHR();
+    const closed = document.getElementById('hr-list').textContent;
+    hrShowFired = true;
+    await loadHR();
+    const opened = document.getElementById('hr-list').textContent;
+    return { closed, opened };
+  });
+
+  expect(r.closed, 'работающий на месте').toContain('Работающий Иван');
+  expect(r.closed, 'уволенного не видно').not.toContain('Уволенный Пётр');
+  expect(r.closed, 'но кнопка про них есть').toContain('Уволенные');
+  expect(r.opened, 'по кнопке уволенный показывается').toContain('Уволенный Пётр');
+});
+
+// Сетку графика строит отдельный запрос, и статус в нём не проверялся вовсе:
+// уволенный висел пустой строкой каждую неделю. Ловим сам запрос — если
+// условие потеряется, тест это увидит.
+test('график не запрашивает уволенных', async ({ page }) => {
+  const urls = [];
+  await page.route('**/rest/v1/**', (route) => {
+    const u = route.request().url();
+    if (u.includes('employees')) urls.push(decodeURIComponent(u));
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.loadSchedule === 'function');
+
+  await page.evaluate(async () => {
+    currentUser = { id: 'u1' };
+    currentProfile = { role: 'admin', name: 'Тест', employee_id: 9 };
+    currentEmployee = { department: 'Повара', role: 'Шеф повар' };
+    currentFilial = 'chekhov';
+    if (typeof invalidateScheduleEmps === 'function') invalidateScheduleEmps();
+    await loadSchedule();
+  });
+
+  const gridQueries = urls.filter((u) => u.includes('employees_view') && u.includes('in_schedule'));
+  expect(gridQueries.length, 'сетка вообще спросила сотрудников').toBeGreaterThan(0);
+  for (const u of gridQueries) {
+    expect(u, 'и в каждом запросе отсекает уволенных: ' + u).toContain('status=neq.Уволен');
+  }
+});

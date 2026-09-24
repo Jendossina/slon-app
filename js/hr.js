@@ -1,4 +1,8 @@
 let hrShowAll = false;
+// Уволенные в списке только мешают: их ищут раз в полгода, а путаются в
+// них каждый день. Не выкидываем совсем — по кнопке их видно, иначе
+// человека не вернуть в штат и не посмотреть его карточку.
+let hrShowFired = false;
 let hrSearchQuery = '';
 let _hrSearchTimer = null;
 function hrSearch(v) {
@@ -12,6 +16,8 @@ async function loadHR() {
     const canSeeSalary = payrollVisible();   // руководство — по всем, старший цеха — по своим
     const { data: allEmps } = await sb.from('employees_view').select('*').order('name');
     let emps = hrShowAll ? (allEmps||[]) : (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
+    const firedCount = emps.filter(e => e.status === 'Уволен').length;
+    if(!hrShowFired) emps = emps.filter(e => e.status !== 'Уволен');
     // Фильтр по поиску (имя, должность, телефон)
     const q = (hrSearchQuery||'').trim().toLowerCase();
     if(q) {
@@ -33,7 +39,7 @@ async function loadHR() {
       ? `<button onclick="openDailyPayroll()" style="width:100%;background:linear-gradient(135deg,#22331d,#3b5a2d);color:#eaf3de;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:10px">${t('hr.dailyPayrollBtn',{f:getFilialName(currentFilial)})}</button>
          <button onclick="openPayroll()" style="width:100%;background:linear-gradient(135deg,#2d2416,#4a3a1f);color:#f0e9db;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px">${t('hr.monthPayrollBtn',{f:getFilialName(currentFilial)})}</button>`
       : '';
-    const toggleBtn = q ? '' : `<div style="padding:0 4px 10px"><button onclick="hrShowAll=!hrShowAll;loadHR()" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${hrShowAll?t('hr.showThisFilial'):t('hr.showAll')}</button></div>`;
+    const toggleBtn = q ? '' : `<div style="padding:0 4px 10px"><button onclick="hrShowAll=!hrShowAll;loadHR()" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${hrShowAll?t('hr.showThisFilial'):t('hr.showAll')}</button>${firedCount?`<button onclick="hrShowFired=!hrShowFired;loadHR()" style="background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;margin-left:8px">${hrShowFired?t('hr.hideFired'):t('hr.showFired',{n:firedCount})}</button>`:''}</div>`;
     if(!emps||emps.length===0) { list.innerHTML=toggleBtn+`<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">${q?t('hr.nobodyFound'):t('hr.noEmpFilial')}</div></div>`; return; }
 
     // Группировка по отделам

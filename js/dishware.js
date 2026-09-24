@@ -282,7 +282,7 @@ async function openDishwareBreak(itemId) {
   document.getElementById('dishware-break-qty').value = '';
   document.getElementById('dishware-break-note').value = '';
   // Список сотрудников филиала
-  const { data: allEmps } = await sb.from('employees').select('id,name,filials').order('name');
+  const { data: allEmps } = await sb.from('employees').select('id,name,filials').neq('status', 'Уволен').order('name');
   const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial));
   const sel = document.getElementById('dishware-break-who');
   sel.innerHTML = `<option value="">${t('dish.selectEmp')}</option>` + emps.map(e=>`<option value="${escapeHtml(e.name)}">${escapeHtml(e.name)}</option>`).join('');
