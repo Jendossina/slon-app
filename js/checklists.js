@@ -342,9 +342,23 @@ function viewChecklistItemMedia(itemId) {
   openModal('modal-view-report');
 }
 
+// Одна отправка за раз. Сжатие и загрузка пяти снимков занимают секунд
+// десять, и всё это время кнопка оставалась живой: 24.09 официант нажал её
+// трижды, в хранилище легли пятнадцать файлов вместо пяти, а в чек-листе
+// появились дубли — каждая отправка дописывала свои снимки к тому списку,
+// который видела на старте.
+let clMediaBusy = false;
+
 async function uploadChecklistMedia() {
+  if(clMediaBusy) return;
   const templateId = document.getElementById('cl-media-template-id').value;
   if(!clMediaFiles.length) return showToast(t('cl.selectFile'));
+
+  clMediaBusy = true;
+  // Гасим и саму кнопку: человек должен видеть, что нажатие принято, а не
+  // гадать, сработало ли оно.
+  const sendBtn = document.getElementById('cl-media-send');
+  if(sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '0.55'; }
 
   const bar = document.getElementById('cl-media-uploading-bar');
   const total = clMediaFiles.length;
@@ -435,6 +449,10 @@ async function uploadChecklistMedia() {
     showToast(uploaded.length>1 ? t('cl.photosAttached',{n:uploaded.length}) : t('cl.photoAttached'));
     loadChecklist(currentChecklistType);
   } catch(e) { hideBar(); showToast(t('common.error')+e.message); }
+  finally {
+    clMediaBusy = false;
+    if(sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = ''; }
+  }
 }
 
 // Клик по пункту: мгновенно обновляем интерфейс, а запись в базу — в фоне (с задержкой),

@@ -3109,3 +3109,45 @@ test('экран разворачивается на весь телевизор
   expect(r.asked, 'нажатие разворачивает экран').toBeGreaterThan(0);
   expect(r.text, 'подсказка объясняет, что нажать').toContain('ОК на пульте');
 });
+
+// Сжатие и отправка пяти снимков занимают секунд десять, и всё это время
+// кнопка «Прикрепить» оставалась живой. 24.09 официант нажал её трижды: в
+// хранилище легли пятнадцать файлов вместо пяти, а в чек-листе — дубли.
+test('повторное нажатие «Прикрепить» не шлёт фото второй раз', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.uploadChecklistMedia === 'function');
+
+  let uploads = 0;
+  await page.route('**/storage/v1/object/task-reports/**', async (route) => {
+    uploads += 1;
+    await new Promise((r) => setTimeout(r, 800));   // отправка идёт небыстро
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{"Key":"task-reports/x.jpg"}' });
+  });
+
+  const state = await page.evaluate(async () => {
+    currentUser = { id: 'u1' };
+    currentProfile = { name: 'Тест', employee_id: 1, role: 'employee' };
+    currentFilial = 'chekhov';
+    currentChecklistLog = { id: 1, media: [] };
+    document.getElementById('cl-media-template-id').value = '1';
+
+    const c = document.createElement('canvas');
+    c.width = 40; c.height = 40;
+    const blob = await new Promise((ok) => c.toBlob(ok, 'image/jpeg', 0.8));
+    clMediaFiles = [new File([blob], 'photo.jpg', { type: 'image/jpeg' })];
+
+    const btn = document.getElementById('cl-media-send');
+    const first = uploadChecklistMedia();          // первое нажатие
+    await new Promise((r) => setTimeout(r, 300));  // человек жмёт ещё раз
+    const disabledWhileBusy = !!btn && btn.disabled;
+    uploadChecklistMedia();
+    uploadChecklistMedia();
+    await first;
+    return { disabledWhileBusy, disabledAfter: !!btn && btn.disabled };
+  });
+
+  expect(state.disabledWhileBusy, 'пока идёт отправка, кнопка погашена').toBe(true);
+  expect(uploads, 'снимок ушёл ровно один раз, а не трижды').toBe(1);
+  expect(state.disabledAfter, 'после отправки кнопка снова живая').toBe(false);
+});

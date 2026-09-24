@@ -1636,7 +1636,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div style="font-size:12px;color:var(--text-muted);margin-top:8px;text-align:center" data-i18n="cl.mediaHintSub">Можно выбрать сразу несколько</div>
     <div class="upload-preview" id="cl-media-preview"></div>
     <div class="uploading-bar" id="cl-media-uploading-bar" data-i18n="common.uploadingFile">⏳ Загружаю файл...</div>
-    <button class="btn btn-primary" style="margin-top:14px" onclick="uploadChecklistMedia()" data-i18n="cl.attachBtn">Прикрепить</button>
+    <button class="btn btn-primary" id="cl-media-send" style="margin-top:14px" onclick="uploadChecklistMedia()" data-i18n="cl.attachBtn">Прикрепить</button>
   </div>
 </div>
 
@@ -1931,7 +1931,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     </div>
     <div class="upload-preview" id="cleaning-media-preview"></div>
     <div class="uploading-bar" id="cleaning-media-bar" data-i18n="common.uploadingFile">⏳ Загружаю файл...</div>
-    <button class="btn btn-primary" style="margin-top:14px" onclick="uploadCleaningMedia()" data-i18n="cl.attachBtn">Прикрепить</button>
+    <button class="btn btn-primary" id="cleaning-media-send" style="margin-top:14px" onclick="uploadCleaningMedia()" data-i18n="cl.attachBtn">Прикрепить</button>
   </div>
 </div>
 

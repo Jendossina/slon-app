@@ -327,8 +327,17 @@ function previewCleaningMedia(input) {
     `</div><div style="font-size:12px;color:var(--text-muted);margin-top:8px">${t('cl.photoChosen', { n: cleaningMediaFiles.length })}</div>`;
 }
 
+// Одна отправка за раз — ровно та же история, что в чек-листах: пока идут
+// сжатие и загрузка, кнопка оставалась живой, и повторное нажатие слало
+// второй комплект снимков.
+let cleaningMediaBusy = false;
+
 async function uploadCleaningMedia() {
+  if(cleaningMediaBusy) return;
   if(!cleaningMediaFiles.length) return showToast(t('cl.selectFile'));
+  cleaningMediaBusy = true;
+  const sendBtn = document.getElementById('cleaning-media-send');
+  if(sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '0.55'; }
   const bar = document.getElementById('cleaning-media-bar');
   bar.style.display = 'block';
   try {
@@ -358,6 +367,10 @@ async function uploadCleaningMedia() {
     showToast(t('cl.photoAttached'));
     loadCleaning();
   } catch(e) { bar.style.display = 'none'; showToast(t('common.error') + e.message); }
+  finally {
+    cleaningMediaBusy = false;
+    if(sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = ''; }
+  }
 }
 
 function viewCleaningMedia(itemId) {
