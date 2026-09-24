@@ -2914,3 +2914,97 @@ test('APK уходит в Telegram файлом, а не ссылкой', async 
   expect(r.okToast).toContain('чате');
   expect(r.noChatToast, 'и сказано, что нужна привязка').toContain('Telegram');
 });
+
+// ===== ЭКРАНЫ В ГОСТЕВОЙ ЗОНЕ =====
+
+// Пункт меню видит пока только владелец: функция обкатывается на живом зале.
+// Проверяем обе стороны, иначе «скрыли» легко превращается в «скрыли от всех»
+// или, наоборот, в «видно всем».
+test('вкладка «Экраны» есть у владельца и её нет у других управляющих', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.openMoreMenu === 'function');
+
+  const menuFor = async (userId) => page.evaluate((id) => {
+    currentUser = { id };
+    currentProfile = { role: 'admin', name: 'Тест', employee_id: 1 };
+    currentEmployee = { department: null, role: null };
+    openMoreMenu();
+    return document.getElementById('more-menu-items').textContent;
+  }, userId);
+
+  const owner = await menuFor('8d0f1022-502a-4d46-95bf-743d564ba505');
+  expect(owner, 'владельцу пункт показываем').toContain('Экраны');
+
+  const other = await menuFor('b907ff29-fbc9-4488-98a8-9deba49ccdbf');
+  expect(other, 'второму управляющему — пока нет').not.toContain('Экраны');
+  expect(other, 'остальные пункты при этом на месте').toContain('Админ');
+});
+
+// Ссылку на ролик люди копируют в пяти разных видах, и каждый раз это должен
+// быть один и тот же ролик, иначе экран молча покажет чёрный квадрат.
+test('ссылка на YouTube разбирается в любом виде', async ({ page }) => {
+  await page.addInitScript(() => { window.__TV_NO_AUTOSTART = true; });
+  await page.goto('/tv.html');
+  await page.waitForFunction(() => typeof window.parseYoutube === 'function');
+
+  const r = await page.evaluate(() => ({
+    watch: parseYoutube('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
+    short: parseYoutube('https://youtu.be/dQw4w9WgXcQ?t=42'),
+    embed: parseYoutube('https://www.youtube.com/embed/dQw4w9WgXcQ'),
+    list: parseYoutube('https://www.youtube.com/playlist?list=PL1234567890'),
+    bare: parseYoutube('dQw4w9WgXcQ'),
+    junk: parseYoutube('просто текст'),
+    empty: parseYoutube(''),
+  }));
+
+  expect(r.watch.videoId).toBe('dQw4w9WgXcQ');
+  expect(r.short.videoId).toBe('dQw4w9WgXcQ');
+  expect(r.embed.videoId).toBe('dQw4w9WgXcQ');
+  expect(r.list.listId).toBe('PL1234567890');
+  expect(r.bare.videoId).toBe('dQw4w9WgXcQ');
+  expect(r.junk, 'мусор не должен притворяться роликом').toBe(null);
+  expect(r.empty).toBe(null);
+});
+
+// Расписание врезок. Самое коварное тут — окно через полночь: заведение
+// работает до трёх ночи, и «с 18 до 3» обязано включать час ночи, а не быть
+// пустым промежутком.
+test('врезка показывается только в свои дни и часы', async ({ page }) => {
+  await page.addInitScript(() => { window.__TV_NO_AUTOSTART = true; });
+  await page.goto('/tv.html');
+  await page.waitForFunction(() => typeof window.slideDue === 'function');
+
+  const r = await page.evaluate(() => {
+    // 24 сентября 2026 — четверг (getDay() === 4)
+    const at = (h) => new Date(2026, 8, 24, h, 30, 0);
+    const check = (slide, h) => slideDue(slide, at(h));
+    return {
+      weekday: new Date(2026, 8, 24, 12, 0, 0).getDay(),
+      always: check({}, 12),
+      nightIn: check({ hour_from: 18, hour_to: 3 }, 1),
+      nightIn2: check({ hour_from: 18, hour_to: 3 }, 20),
+      nightOut: check({ hour_from: 18, hour_to: 3 }, 12),
+      dayIn: check({ hour_from: 10, hour_to: 16 }, 12),
+      dayOut: check({ hour_from: 10, hour_to: 16 }, 17),
+      dowIn: check({ weekdays: [4, 5] }, 12),
+      dowOut: check({ weekdays: [1, 2] }, 12),
+      dateBefore: check({ date_from: '2026-09-25' }, 12),
+      dateAfter: check({ date_to: '2026-09-23' }, 12),
+      dateInside: check({ date_from: '2026-09-01', date_to: '2026-12-31' }, 12),
+    };
+  });
+
+  expect(r.weekday, 'проверяем на четверге').toBe(4);
+  expect(r.always, 'без ограничений — всегда').toBe(true);
+  expect(r.nightIn, 'окно 18–3 включает час ночи').toBe(true);
+  expect(r.nightIn2, 'и восемь вечера тоже').toBe(true);
+  expect(r.nightOut, 'а полдень — нет').toBe(false);
+  expect(r.dayIn).toBe(true);
+  expect(r.dayOut).toBe(false);
+  expect(r.dowIn, 'четверг в списке').toBe(true);
+  expect(r.dowOut, 'четверга в списке нет').toBe(false);
+  expect(r.dateBefore, 'до начала срока не показываем').toBe(false);
+  expect(r.dateAfter, 'после конца — тоже').toBe(false);
+  expect(r.dateInside).toBe(true);
+});

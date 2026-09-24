@@ -20,7 +20,7 @@
 // Отсюда правило: поменял любой файл оболочки — подними CACHE_VERSION.
 // За этим следит CI (scripts/check-sw-version.mjs), забыть не даст.
 
-const CACHE_VERSION = 'slon-shell-v128';
+const CACHE_VERSION = 'slon-shell-v129';
 
 const SHELL_FILES = [
   '/',
@@ -51,6 +51,7 @@ const SHELL_FILES = [
   '/js/quiz.js',
   '/js/directory.js',
   '/js/help.js',
+  '/js/screens.js',
   '/js/notes.js',
   '/js/dashboard.js',
   '/js/calendar.js',
@@ -124,6 +125,11 @@ self.addEventListener('fetch', (event) => {
   let url;
   try { url = new URL(req.url); } catch (e) { return; }
   if (url.origin !== self.location.origin) return; // Supabase, фото из хранилища — только сеть
+
+  // Страница телевизора открывается на боксе и оболочкой приложения быть не
+  // должна: ниже любой переход отдаёт index.html из кеша, и вместо витрины
+  // в зале появился бы экран входа.
+  if (url.pathname.indexOf('/tv') === 0) return;
 
   const isNavigation = req.mode === 'navigate';
 

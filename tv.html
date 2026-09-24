@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Slon — экран</title>
+<link rel="icon" href="/icon-192.png">
+<style>
+@font-face {
+  font-family: 'Playfair Display'; font-style: normal; font-weight: 600 700; font-display: swap;
+  src: url('/fonts/playfair-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Playfair Display'; font-style: normal; font-weight: 600 700; font-display: swap;
+  src: url('/fonts/playfair-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F;
+}
+:root { --gold: #C9A468; --gold-light: #E8D4AC; --bg: #0b0a09; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: var(--bg); }
+body { font-family: -apple-system, 'Segoe UI', sans-serif; color: var(--gold-light); cursor: none; }
+
+/* Плеер занимает весь экран. Клики до него не доходят намеренно: пульт на
+   телевизоре легко ткнёт в ролик и остановит его на всю ночь. */
+#player-box { position: fixed; inset: 0; }
+#player-box iframe { width: 100%; height: 100%; border: 0; }
+#player-shield { position: fixed; inset: 0; }
+
+/* Карточка поверх ролика. Плеер на паузе прячем под ней целиком, иначе ютуб
+   показывает свои кнопки и «смотрите также» — со стороны это выглядит сбоем. */
+#card { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+        background: radial-gradient(circle at 50% 40%, #241f18 0%, #0b0a09 70%);
+        opacity: 0; visibility: hidden; transition: opacity .6s ease; }
+#card.on { opacity: 1; visibility: visible; }
+#card .inner { text-align: center; padding: 6vh 8vw; max-width: 90vw; }
+#card h1 { font-family: 'Playfair Display', Georgia, serif; font-weight: 700; color: var(--gold-light);
+           font-size: clamp(38px, 7vw, 116px); line-height: 1.1; letter-spacing: .01em; }
+#card p  { margin-top: 3vh; font-size: clamp(20px, 2.6vw, 44px); line-height: 1.45; color: #e6ddcc; }
+#card .note { margin-top: 4vh; display: inline-block; padding: .5em 1.1em; border: 2px solid var(--gold);
+              border-radius: 999px; color: var(--gold); font-size: clamp(22px, 3vw, 52px); font-weight: 600; }
+#card img.full { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+
+/* Служебная строка: видна только когда экран ещё не настроен или сломался */
+#status { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+          text-align: center; padding: 8vw; font-size: clamp(18px, 2.4vw, 34px); line-height: 1.5; }
+#status.on { display: flex; }
+/* Сломался ролик — гостям об этом читать незачем. Уводим объяснение в угол
+   мелким шрифтом: персоналу видно, гостю в глаза не лезет. */
+#status.corner { inset: auto auto 2vh 2vw; display: block; max-width: 44vw; padding: 0;
+                 text-align: left; font-size: 15px; line-height: 1.4; opacity: .5; }
+#status.corner b { font-size: 1.1em; margin-bottom: .2em; }
+#status b { display: block; font-family: 'Playfair Display', Georgia, serif; font-size: 1.6em; color: var(--gold); margin-bottom: .4em; }
+#status code { font-size: 1.4em; letter-spacing: .12em; color: #fff; }
+</style>
+</head>
+<body>
+  <div id="player-box"><div id="player"></div></div>
+  <div id="player-shield"></div>
+  <div id="card"><div class="inner"></div></div>
+  <div id="status"></div>
+
+  <script src="/js/vendor/supabase-js-2.js"></script>
+  <script src="/js/tv.js"></script>
+</body>
+</html>

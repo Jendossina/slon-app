@@ -445,6 +445,34 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
+/* ЭКРАНЫ В ГОСТЕВОЙ ЗОНЕ */
+.screens-card { padding: 14px; margin-bottom: 12px; }
+.screens-card.off { opacity: .55; }
+.screens-row { display: flex; align-items: center; gap: 10px; }
+.screens-name { font-weight: 600; }
+.screens-kind { max-width: 160px; }
+.screens-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.screens-sub { font-size: 12px; color: var(--text-muted); margin: 6px 0 2px; }
+.screens-hint { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4; }
+.screens-label { display: block; font-size: 11px; color: var(--text-muted); margin: 10px 0 4px; }
+.screens-input { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px;
+                 background: var(--surface-2); color: var(--text-primary); font-size: 13px; font-family: inherit; }
+.screens-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.screens-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.screens-addr { padding: 9px 10px; border: 1px dashed var(--border); border-radius: 9px; background: var(--surface-2);
+                font-size: 12px; word-break: break-all; cursor: pointer; color: var(--text-secondary); }
+.screens-days { display: flex; gap: 6px; flex-wrap: wrap; }
+.screens-day { padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2);
+               color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; }
+.screens-day.on { background: var(--gold-dark); border-color: var(--gold-dark); color: #fff; }
+.screens-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); margin-left: auto; white-space: nowrap; }
+.screens-actions { display: flex; gap: 8px; margin-top: 12px; }
+.screens-actions button { flex: 1; padding: 9px; border-radius: 9px; border: 1px solid var(--border);
+                          background: var(--surface-2); color: var(--text-primary); font-size: 12px; font-weight: 600; cursor: pointer; }
+.screens-actions button.danger { color: #a13c3c; }
+.screens-add { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--gold-dark);
+               color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 8px; }
+.screens-thumb { width: 100%; max-height: 160px; object-fit: contain; border-radius: 9px; background: #000; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -935,6 +963,17 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     </div>
     <div class="hscroll" style="display:flex;gap:6px;padding:10px 12px 0;overflow-x:auto" id="mynotes-filters"></div>
     <div class="content" id="mynotes-content" style="padding:12px">
+      <div class="loading">Загрузка...</div>
+    </div>
+  </div>
+  <!-- ЭКРАНЫ В ГОСТЕВОЙ ЗОНЕ (пока только владельцу, см. canSeeScreens) -->
+  <div class="screen" id="screen-screens">
+    <div class="header">
+      <div class="header-row">
+        <div><h1>📺 Экраны</h1><p>Телевизоры в зале</p></div>
+      </div>
+    </div>
+    <div class="content" id="screens-content" style="padding:12px">
       <div class="loading">Загрузка...</div>
     </div>
   </div>
@@ -1728,6 +1767,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
 <script defer src="js/quiz.js"></script>
 <script defer src="js/directory.js"></script>
 <script defer src="js/help.js"></script>
+<script defer src="js/screens.js"></script>
 <script defer src="js/notes.js"></script>
 <script defer src="js/dashboard.js"></script>
 <script defer src="js/calendar.js"></script>

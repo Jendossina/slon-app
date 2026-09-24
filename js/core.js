@@ -1137,6 +1137,14 @@ function applyRolePermissions() {
   document.body.classList.toggle('boss-readonly', isBoss());
 }
 
+// Экраны в гостевой зоне — пока только владельцу. Функция обкатывается на
+// живом зале: пока не понятно, приживётся ли она, показывать её всей команде
+// рано. Снять ограничение — убрать проверку и переписать политики в базе.
+const SCREENS_PREVIEW_USERS = ['8d0f1022-502a-4d46-95bf-743d564ba505'];
+function canSeeScreens() {
+  return !!currentUser && SCREENS_PREVIEW_USERS.indexOf(currentUser.id) >= 0;
+}
+
 function openMoreMenu() {
   // Группы разделов. show определяет, кому пункт виден.
   const groups = [
@@ -1165,6 +1173,7 @@ function openMoreMenu() {
       {id:'dashboard', label:'📈 '+t('more.dashboard'), show: canSeeAdminPanel() || (typeof hookahCanSeeStats === 'function' && hookahCanSeeStats())},
       {id:'directory', label:'📇 '+t('more.directory'), show: canEditData() || isBoss()},
       {id:'admin', label:'⚙️ '+t('more.admin'), show: canOpenAdminPanel()},
+      {id:'screens', label:'📺 Экраны', show: canSeeScreens()},
     ]},
   ];
   const menu = document.getElementById('more-menu-items');
@@ -1215,6 +1224,7 @@ function showScreen(name, btn) {
   if(name==='dashboard') loadDashboard();
   if(name==='mynotes') loadMyNotes();
   if(name==='help') loadHelp();
+  if(name==='screens') loadScreens();
 }
 
 // LOG ACTIVITY
