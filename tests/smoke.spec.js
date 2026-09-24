@@ -3056,3 +3056,31 @@ test('непривязанный экран показывает только с
   expect(r.frame, 'ролик не запускаем, пока экран ничей').toBe(false);
   expect(r.card, 'и врезок не показываем').toBe(false);
 });
+
+// Ссылку на ролик вставляют в телефон уже после того, как экран повесили, —
+// это и есть первая настройка. Если бы страница не замечала правку, человек
+// решил бы, что ничего не работает, и полез бы к боксу.
+test('экран перезагружается, когда в приложении поменяли ссылку или ритм', async ({ page }) => {
+  await page.addInitScript(() => { window.__TV_NO_AUTOSTART = true; });
+  await page.goto('/tv');
+  await page.waitForFunction(() => typeof window.settingsChanged === 'function');
+
+  const r = await page.evaluate(() => {
+    const was = 'https://youtu.be/AAA';
+    return {
+      nothing: settingsChanged({ youtube_url: was, insert_every_min: 15 }, was, 15),
+      linkAdded: settingsChanged({ youtube_url: was, insert_every_min: 15 }, null, 15),
+      linkChanged: settingsChanged({ youtube_url: 'https://youtu.be/BBB', insert_every_min: 15 }, was, 15),
+      rhythm: settingsChanged({ youtube_url: was, insert_every_min: 5 }, was, 15),
+      unpaired: settingsChanged({ youtube_url: was, insert_every_min: 15, pending: true }, was, 15),
+      noRow: settingsChanged(null, was, 15),
+    };
+  });
+
+  expect(r.nothing, 'ничего не менялось — не дёргаем экран').toBe(false);
+  expect(r.linkAdded, 'ссылку вставили после привязки').toBe(true);
+  expect(r.linkChanged, 'ролик поменяли').toBe(true);
+  expect(r.rhythm, 'поменяли, как часто врезаться').toBe(true);
+  expect(r.unpaired, 'экран отвязали — возвращаемся к коду').toBe(true);
+  expect(r.noRow, 'связи нет и строки нет — сидим тихо').toBe(false);
+});

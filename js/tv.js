@@ -350,6 +350,17 @@ function loadYoutubeApi() {
   });
 }
 
+// Что из настроек нельзя применить на ходу: плеер ютуба не переделать под
+// новую ссылку, а ритм врезок живёт в setInterval. Проще перезагрузить
+// страницу — для телевизора это полсекунды черноты.
+function settingsChanged(row, startedWith, startedEvery) {
+  if (!row) return false;
+  if (row.pending) return true;                         // экран отвязали
+  if ((row.youtube_url || null) !== startedWith) return true;
+  if ((Number(row.insert_every_min) || 15) !== startedEvery) return true;
+  return false;
+}
+
 // ===== Ночная перезагрузка =====
 // Экран не выключают месяцами, а браузер за это время течёт и начинает
 // заикаться. Дешевле перезагрузить страницу под утро, когда зал пуст.
@@ -382,15 +393,29 @@ async function startTv() {
   }
   showNotice('');
   ping('запуск');
-  setInterval(function () { loadData().catch(function () {}); }, REFRESH_MS);
+
+  // Ссылку на ролик и настройки врезок правят в телефоне уже после того,
+  // как экран повесили. Плеер ютуба на ходу не переделать, поэтому при
+  // смене ссылки просто перезагружаем страницу — для телевизора это
+  // полсекунды черноты, зато настройка из приложения доезжает сразу, а не
+  // «когда-нибудь под утро». Первая же настройка идёт именно этим путём:
+  // экран привязали, ссылку вставили следом.
+  const startedWith = screenRow.youtube_url || null;
+  const startedEvery = Number(screenRow.insert_every_min) || 15;
+  setInterval(function () {
+    loadData().then(function () {
+      if (showingCard) return;                          // не рвём врезку на полуслове
+      if (settingsChanged(screenRow, startedWith, startedEvery)) location.reload();
+    }).catch(function () {});
+  }, REFRESH_MS);
   setInterval(function () { ping(); }, REFRESH_MS);
   scheduleNightReload();
 
-  const parsed = parseYoutube(screenRow.youtube_url);
+  const parsed = parseYoutube(startedWith);
   if (!parsed) { startCardsFallback(); return; }
   await loadYoutubeApi();
   startPlayer(parsed);
-  setInterval(runBreak, Math.max(1, Number(screenRow.insert_every_min) || 15) * 60000);
+  setInterval(runBreak, startedEvery * 60000);
 }
 
 if (typeof window !== 'undefined' && !window.__TV_NO_AUTOSTART) startTv();
