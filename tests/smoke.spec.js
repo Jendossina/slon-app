@@ -2945,7 +2945,7 @@ test('вкладка «Экраны» есть у владельца и её н�
 // быть один и тот же ролик, иначе экран молча покажет чёрный квадрат.
 test('ссылка на YouTube разбирается в любом виде', async ({ page }) => {
   await page.addInitScript(() => { window.__TV_NO_AUTOSTART = true; });
-  await page.goto('/tv.html');
+  await page.goto('/tv');
   await page.waitForFunction(() => typeof window.parseYoutube === 'function');
 
   const r = await page.evaluate(() => ({
@@ -2972,7 +2972,7 @@ test('ссылка на YouTube разбирается в любом виде', 
 // пустым промежутком.
 test('врезка показывается только в свои дни и часы', async ({ page }) => {
   await page.addInitScript(() => { window.__TV_NO_AUTOSTART = true; });
-  await page.goto('/tv.html');
+  await page.goto('/tv');
   await page.waitForFunction(() => typeof window.slideDue === 'function');
 
   const r = await page.evaluate(() => {
@@ -3007,4 +3007,52 @@ test('врезка показывается только в свои дни и �
   expect(r.dateBefore, 'до начала срока не показываем').toBe(false);
   expect(r.dateAfter, 'после конца — тоже').toBe(false);
   expect(r.dateInside).toBe(true);
+});
+
+// Экран должен привязываться без набора длинного адреса пультом: страница сама
+// придумывает код, запоминает его и показывает на телевизоре. Проверяем, что
+// код переживает перезагрузку — иначе после моргнувшего света в зале повиснет
+// новый экран с новым кодом, а настроенный останется сиротой.
+test('экран придумывает себе код один раз и помнит его', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: 'null' }));
+  await page.addInitScript(() => { window.__TV_NO_AUTOSTART = true; });
+
+  await page.goto('/tv');
+  const first = await page.evaluate(() => ({ code: window.CODE_SAVED = localStorage.getItem('slon_tv_code'), made: makeCode() }));
+  expect(first.code, 'код придуман и сохранён').toMatch(/^[ACDEFGHJKLMNPQRTUVWXY34679]{6}$/);
+  expect(first.made, 'без нуля, единицы, O и I — их не разглядеть с другого конца зала').toMatch(/^[ACDEFGHJKLMNPQRTUVWXY34679]{6}$/);
+
+  await page.reload();
+  const second = await page.evaluate(() => localStorage.getItem('slon_tv_code'));
+  expect(second, 'после перезагрузки код тот же').toBe(first.code);
+
+  // Код из адреса главнее: так настроенный экран переносят на другой бокс
+  await page.goto('/tv?code=ZZZZ99');
+  const forced = await page.evaluate(() => localStorage.getItem('slon_tv_code'));
+  expect(forced).toBe('ZZZZ99');
+});
+
+// Пока экраном не занялись, он не должен показывать чужие акции: в зале висит
+// телевизор, про который ещё никто не знает, что это за телевизор.
+test('непривязанный экран показывает только свой код', async ({ page }) => {
+  await page.addInitScript(() => { window.__TV_NO_AUTOSTART = true; });
+  await page.route('**/rest/v1/rpc/screen_announce', (route) => route.fulfill({ status: 200, body: '' }));
+  await page.route('**/rest/v1/screens*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ id: 1, code: 'AAA111', pending: true, name: 'Новый экран', youtube_url: 'https://youtu.be/dQw4w9WgXcQ' }),
+  }));
+  await page.route('**/rest/v1/screen_slides*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+
+  await page.goto('/tv?code=AAA111');
+  await page.evaluate(() => { startTv(); });
+  await page.waitForFunction(() => document.getElementById('status').textContent.indexOf('привязк') >= 0, { timeout: 10000 });
+
+  const r = await page.evaluate(() => ({
+    text: document.getElementById('status').textContent,
+    frame: !!document.querySelector('#player-box iframe'),
+    card: document.getElementById('card').classList.contains('on'),
+  }));
+  expect(r.text, 'на экране объяснение и код').toContain('AAA111');
+  expect(r.frame, 'ролик не запускаем, пока экран ничей').toBe(false);
+  expect(r.card, 'и врезок не показываем').toBe(false);
 });

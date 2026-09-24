@@ -1,6 +1,6 @@
 // ============ ЭКРАН В ГОСТЕВОЙ ЗОНЕ ============
 //
-// Страница открывается на ТВ-боксе в режиме киоска: /tv.html?code=A1B2C3
+// Страница открывается на ТВ-боксе в режиме киоска: slon-app.vercel.app/tv
 // Фоном крутится ролик с YouTube (обычно двухчасовой), раз в несколько минут
 // он встаёт на паузу, во весь экран показывается карточка с акцией, потом
 // ролик продолжается С ТОЙ ЖЕ СЕКУНДЫ — пауза позицию не теряет.
@@ -16,7 +16,37 @@ const TV_URL = 'https://omeomdkurvtvirhfkffu.supabase.co';
 const TV_KEY = 'sb_publishable_h7pdCQTKnGIlIR9SaswShw_ur8eauw6';
 const sb = supabase.createClient(TV_URL, TV_KEY, { auth: { persistSession: false } });
 
-const CODE = (new URLSearchParams(location.search).get('code') || '').trim().toUpperCase();
+// Код экрана. Раньше его набирали пультом в адресной строке — пять минут
+// мучений по экранной клавиатуре. Теперь страница придумывает код сама,
+// запоминает его на боксе и показывает крупно: в приложении экран появится
+// сам. Код из адреса по-прежнему уважаем — так удобнее перенести уже
+// настроенный экран на другой бокс.
+const CODE_KEY = 'slon_tv_code';
+// Буквы и цифры, которые не спутаешь с другого конца зала: ни нуля с
+// буквой O, ни единицы с I.
+const CODE_ALPHABET = 'ACDEFGHJKLMNPQRTUVWXY34679';
+
+function makeCode() {
+  let out = '';
+  for (let i = 0; i < 6; i++) out += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+  return out;
+}
+
+function resolveCode() {
+  const fromUrl = (new URLSearchParams(location.search).get('code') || '').trim().toUpperCase();
+  if (fromUrl) {
+    try { localStorage.setItem(CODE_KEY, fromUrl); } catch (e) {}
+    return fromUrl;
+  }
+  let saved = null;
+  try { saved = localStorage.getItem(CODE_KEY); } catch (e) {}
+  if (saved) return saved;
+  const fresh = makeCode();
+  try { localStorage.setItem(CODE_KEY, fresh); } catch (e) {}
+  return fresh;
+}
+
+const CODE = resolveCode();
 const CACHE_KEY = 'slon_tv_payload_' + CODE;
 const REFRESH_MS = 60000;      // как часто перечитываем настройки и врезки
 const NIGHT_RELOAD_HOUR = 5;   // тихая перезагрузка страницы под утро
@@ -121,8 +151,19 @@ function renderCard(s) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
     });
   };
-  const old = box.querySelectorAll('img.full');
-  for (let i = 0; i < old.length; i++) old[i].remove();
+  const old = box.querySelectorAll('img.full, video.full');
+  for (let i = 0; i < old.length; i++) { try { old[i].pause(); } catch (e) {} old[i].remove(); }
+  if (s.kind === 'video' && s.image_url) {
+    inner.innerHTML = '';
+    const vid = document.createElement('video');
+    vid.className = 'full';
+    vid.src = s.image_url;
+    vid.muted = true;             // звук в зал идёт с колонок, а не отсюда
+    vid.autoplay = true;
+    vid.playsInline = true;
+    box.appendChild(vid);
+    return vid;
+  }
   if (s.kind === 'image' && s.image_url) {
     inner.innerHTML = '';
     const img = document.createElement('img');
@@ -145,10 +186,20 @@ function slideSeconds(s) {
 
 async function showCard(s) {
   const box = document.getElementById('card');
-  renderCard(s);
+  const media = renderCard(s);
   box.classList.add('on');
   await wait(600);                       // даём затемнению дойти до конца
-  await wait(slideSeconds(s) * 1000);
+  // Ролик доигрываем до конца, а не по таймеру: обрубленная на полуслове
+  // вставка заметнее, чем лишние пять секунд. Длительность из настроек
+  // остаётся только потолком на случай, если видео зависнет.
+  if (s.kind === 'video' && media) {
+    await Promise.race([
+      new Promise(function (ok) { media.addEventListener('ended', ok, { once: true }); }),
+      wait(Math.max(slideSeconds(s), 120) * 1000),
+    ]);
+  } else {
+    await wait(slideSeconds(s) * 1000);
+  }
   box.classList.remove('on');
   await wait(600);
 }
@@ -201,6 +252,24 @@ async function cardsOnlyLoop() {
     box.classList.add('on');
     await wait(slideSeconds(s) * 1000);
   }
+}
+
+// ===== Заявка о себе =====
+// Экран сам сообщает базе, что он существует. В приложении он появляется
+// строкой «ждёт привязки», и остаётся только назвать его и вставить ссылку.
+async function announce() {
+  try {
+    await sb.rpc('screen_announce', { p_code: CODE, p_agent: String(navigator.userAgent || '').slice(0, 300) });
+    return true;
+  } catch (e) { return false; }
+}
+
+// Пока экраном не занялись, показываем только его код: чужие акции на
+// неизвестном телевизоре хуже, чем пустой экран.
+function showPairing() {
+  showNotice('<b>Экран готов к привязке</b>' +
+    'Откройте приложение: «Ещё» → «Экраны». Там уже появился этот экран — ' +
+    'назовите его и вставьте ссылку на ролик.<br><br>Код экрана <code>' + CODE + '</code>');
 }
 
 // ===== Пульс =====
@@ -293,18 +362,23 @@ function scheduleNightReload() {
 
 // ===== Запуск =====
 async function startTv() {
-  if (!CODE) {
-    showNotice('<b>Экран не привязан</b>Откройте адрес с кодом экрана: <code>/tv.html?code=КОД</code><br>Код выдаётся в приложении, раздел «Экраны».');
-    return;
-  }
   showNotice('<b>Загружаю…</b><code>' + CODE + '</code>');
+  await announce();
   try {
     await loadData();
   } catch (e) {
     if (!loadCached()) {
-      showNotice('<b>Экран не найден</b>Код <code>' + CODE + '</code> в приложении не заведён либо на боксе нет интернета.');
+      showNotice('<b>Нет связи</b>Бокс не видит интернет. Код экрана <code>' + CODE + '</code>');
+      setTimeout(function () { location.reload(); }, 60000);
       return;
     }
+  }
+
+  // Экраном ещё не занялись — стоим на заставке с кодом и ждём
+  while (screenRow && screenRow.pending) {
+    showPairing();
+    await wait(10000);
+    await loadData().catch(function () {});
   }
   showNotice('');
   ping('запуск');

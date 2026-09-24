@@ -22,7 +22,7 @@ const SCREEN_FILIALS = [
 const WEEKDAY_NAMES = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
 function tvPageUrl(code) {
-  return location.origin + '/tv.html?code=' + encodeURIComponent(code);
+  return location.origin + '/tv?code=' + encodeURIComponent(code);
 }
 
 // «На связи» считаем по последнему пульсу: страница отмечается раз в минуту,
@@ -63,19 +63,47 @@ async function loadScreens() {
 
 function renderScreens() {
   const box = document.getElementById('screens-content');
-  const screensHtml = screensList.length
-    ? screensList.map(renderScreenCard).join('')
-    : '<div class="empty">Экранов пока нет. Заведите первый — код появится сразу.</div>';
+  // Экраны, которые заявились сами и ждут, пока ими займутся, — наверх:
+  // человек стоит у телевизора и ждёт, пока код появится в телефоне.
+  const pending = screensList.filter(function (s) { return s.pending; });
+  const ready = screensList.filter(function (s) { return !s.pending; });
+  const pendingHtml = pending.length
+    ? '<div class="section-title" style="margin-top:0">Ждут привязки</div>' +
+      pending.map(renderPendingCard).join('')
+    : '';
+  const screensHtml = ready.length
+    ? ready.map(renderScreenCard).join('')
+    : '<div class="empty">Экранов пока нет. Откройте на боксе <b>slon-app.vercel.app/tv</b> — ' +
+      'экран появится здесь сам, со своим кодом.</div>';
   const slidesHtml = screenSlides.length
     ? screenSlides.map(renderSlideCard).join('')
     : '<div class="empty">Врезок нет. Пока их нет, экран просто крутит ролик.</div>';
-  box.innerHTML =
-    '<div class="section-title" style="margin-top:0">Экраны</div>' + screensHtml +
-    '<button onclick="createScreen()" class="screens-add">+ Добавить экран</button>' +
+  box.innerHTML = pendingHtml +
+    '<div class="section-title"' + (pendingHtml ? '' : ' style="margin-top:0"') + '>Экраны</div>' + screensHtml +
+    '<div class="screens-hint">Новый телевизор: откройте на боксе <b>slon-app.vercel.app/tv</b>. Он покажет свой код и появится здесь сам — набирать длинный адрес не нужно.</div>' +
     '<div class="section-title">Врезки</div>' +
     '<div class="screens-hint">Показываются поверх ролика по очереди. Пустые поля «когда» — значит всегда.</div>' +
     slidesHtml +
     '<button onclick="createSlide()" class="screens-add">+ Добавить врезку</button>';
+}
+
+// Экран заявился сам: показываем его код, чтобы человек у телевизора
+// убедился, что это именно тот ящик, а не соседний.
+function renderPendingCard(s) {
+  return '<div class="card screens-card">' +
+    '<div class="screens-row"><b>Код ' + escapeHtml(s.code) + '</b>' +
+      '<span class="screens-dot" style="background:' + (screenAlive(s) ? '#2f6a2f' : '#a13c3c') + '"></span></div>' +
+    '<div class="screens-sub">' + escapeHtml(screenSeenText(s)) + '</div>' +
+    '<label class="screens-label">Где висит</label>' +
+    '<input class="screens-input" id="pair-name-' + s.id + '" placeholder="Чехов, бокс" value="">' +
+    '<label class="screens-label">Филиал</label>' +
+    '<select class="screens-input" id="pair-filial-' + s.id + '">' +
+      '<option value="chekhov">Чехов</option><option value="istikbol">Истикбол</option></select>' +
+    '<div class="screens-actions">' +
+      '<button onclick="pairScreen(' + s.id + ')">Привязать</button>' +
+      '<button class="danger" onclick="deleteScreen(' + s.id + ')">Это не мой</button>' +
+    '</div>' +
+  '</div>';
 }
 
 function renderScreenCard(s) {
@@ -125,21 +153,27 @@ function renderSlideCard(s) {
     const on = days.indexOf(i) >= 0;
     return '<button class="screens-day' + (on ? ' on' : '') + '" onclick="toggleSlideDay(' + s.id + ',' + i + ')">' + n + '</button>';
   }).join('');
-  const img = s.kind === 'image' && s.image_url
-    ? '<img src="' + escJsAttr(s.image_url) + '" class="screens-thumb" alt="">'
-    : '';
+  const preview = !s.image_url ? ''
+    : s.kind === 'video'
+      ? '<video src="' + escJsAttr(s.image_url) + '" class="screens-thumb" muted playsinline controls></video>'
+      : s.kind === 'image'
+        ? '<img src="' + escJsAttr(s.image_url) + '" class="screens-thumb" alt="">'
+        : '';
   return '<div class="card screens-card' + (s.is_active ? '' : ' off') + '">' +
     '<div class="screens-row">' +
       '<select class="screens-input screens-kind" onchange="saveSlide(' + s.id + ', {kind: this.value})">' +
-        '<option value="card"' + (s.kind === 'card' ? ' selected' : '') + '>Карточка</option>' +
-        '<option value="image"' + (s.kind === 'image' ? ' selected' : '') + '>Картинка</option>' +
+        '<option value="card"' + (s.kind === 'card' ? ' selected' : '') + '>Текст</option>' +
+        '<option value="image"' + (s.kind === 'image' ? ' selected' : '') + '>Фото</option>' +
+        '<option value="video"' + (s.kind === 'video' ? ' selected' : '') + '>Видео</option>' +
       '</select>' +
       '<label class="screens-toggle"><input type="checkbox"' + (s.is_active ? ' checked' : '') +
         ' onchange="saveSlide(' + s.id + ', {is_active: this.checked})"> показывать</label>' +
     '</div>' +
-    (s.kind === 'image'
-      ? img + '<label class="screens-label">Картинка (jpg, png)</label>' +
-        '<input class="screens-input" type="file" accept="image/*" onchange="uploadSlideImage(' + s.id + ', this)">'
+    (s.kind === 'image' || s.kind === 'video'
+      ? preview + '<label class="screens-label">' +
+        (s.kind === 'video' ? 'Ролик (mp4, до 25 МБ — это секунд 20 съёмки с телефона)' : 'Фото (jpg, png)') + '</label>' +
+        '<input class="screens-input" type="file" accept="' + (s.kind === 'video' ? 'video/*' : 'image/*') +
+        '" onchange="uploadSlideMedia(' + s.id + ', this)">'
       : '<label class="screens-label">Заголовок</label>' +
         '<input class="screens-input" value="' + escJsAttr(s.title || '') + '" placeholder="Кальян дня" ' +
           'onchange="saveSlide(' + s.id + ', {title: this.value})">' +
@@ -149,6 +183,9 @@ function renderSlideCard(s) {
         '<label class="screens-label">Плашка снизу (цена и т.п.)</label>' +
         '<input class="screens-input" value="' + escJsAttr(s.note || '') + '" placeholder="90 000 сум" ' +
           'onchange="saveSlide(' + s.id + ', {note: this.value})">') +
+    (s.kind === 'video'
+      ? '<div class="screens-hint" style="margin:10px 0 0">Ролик доигрывается до конца, поле «держать» на него не влияет.</div>'
+      : '') +
     '<label class="screens-label">Где показывать</label>' +
     '<select class="screens-input" onchange="saveSlide(' + s.id + ', {screen_id: this.value ? +this.value : null})">' + screenOpts + '</select>' +
     '<label class="screens-label">Когда: даты</label>' +
@@ -172,10 +209,15 @@ function renderSlideCard(s) {
 }
 
 // ===== Экраны =====
-async function createScreen() {
-  const { error } = await sb.from('screens').insert({ name: 'Новый экран', filial: 'chekhov' });
+async function pairScreen(id) {
+  const name = (document.getElementById('pair-name-' + id) || {}).value;
+  const filial = (document.getElementById('pair-filial-' + id) || {}).value;
+  const { error } = await sb.from('screens')
+    .update({ pending: false, name: (name || '').trim() || ('Экран ' + id), filial: filial || 'chekhov' })
+    .eq('id', id);
   if (error) return showToast(t('common.error') + error.message);
-  logActivity('Экраны', 'добавлен экран');
+  logActivity('Экраны', 'привязан экран');
+  showToast('Экран привязан');
   loadScreens();
 }
 
@@ -245,18 +287,32 @@ function toggleSlideDay(id, day) {
   saveSlide(id, { weekdays: days.length ? days : null }).then(loadScreens);
 }
 
-// Картинка для врезки. Кладём с приставкой screen/ — уборка медиа стирает всё
-// старше двух недель, и без отдельной приставки акция пропала бы с экрана
-// ровно через четырнадцать дней (см. media_expired в базе).
-async function uploadSlideImage(id, input) {
+// Фото и ролики для врезок. Кладём с приставкой screen/ — уборка медиа
+// стирает всё старше двух недель, и без отдельной приставки акция пропала бы
+// с экрана ровно через четырнадцать дней (см. media_expired в базе).
+//
+// Потолок на ролик — 25 МБ. Бесплатного места в хранилище чуть меньше
+// гигабайта, и половина уже занята фото чек-листов: десяток роликов по
+// двадцать пять мегабайт съест оставшееся за месяц.
+const SCREEN_VIDEO_MAX_MB = 25;
+
+async function uploadSlideMedia(id, input) {
   const file = input.files && input.files[0];
   if (!file) return;
-  showToast('Загружаю картинку...');
+  const isVideo = (file.type || '').indexOf('video') === 0;
+  if (isVideo && file.size > SCREEN_VIDEO_MAX_MB * 1048576) {
+    showToast('Ролик тяжелее ' + SCREEN_VIDEO_MAX_MB + ' МБ — обрежьте его покороче');
+    input.value = '';
+    return;
+  }
+  showToast(isVideo ? 'Загружаю ролик, это дольше...' : 'Загружаю фото...');
   try {
-    const small = await compressImage(file, 1920, 0.85);
-    const ext = (small.type && small.type.indexOf('png') >= 0) ? 'png' : 'jpg';
+    // Видео в браузере не пережимаем: ролик короткий, а перекодирование на
+    // телефоне занимает минуты и часто срывается.
+    const body = isVideo ? file : await compressImage(file, 1920, 0.85);
+    const ext = isVideo ? 'mp4' : ((body.type && body.type.indexOf('png') >= 0) ? 'png' : 'jpg');
     const path = 'screen/slide-' + id + '-' + Date.now() + '.' + ext;
-    const { error } = await sb.storage.from('task-reports').upload(path, small, { contentType: small.type, cacheControl: '31536000' });
+    const { error } = await sb.storage.from('task-reports').upload(path, body, { contentType: body.type || 'video/mp4', cacheControl: '31536000' });
     if (error) throw error;
     const url = sb.storage.from('task-reports').getPublicUrl(path).data.publicUrl;
     await saveSlide(id, { image_url: url });
