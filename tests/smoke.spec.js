@@ -3151,3 +3151,47 @@ test('повторное нажатие «Прикрепить» не шлёт �
   expect(uploads, 'снимок ушёл ровно один раз, а не трижды').toBe(1);
   expect(state.disabledAfter, 'после отправки кнопка снова живая').toBe(false);
 });
+
+// Раньше телефон присылал ВЕСЬ список снимков целиком, и двое, нажавшие
+// «Прикрепить» в одну секунду с разных телефонов, затирали фото друг друга.
+// Теперь он шлёт только свои, а склеивает база.
+test('телефон досылает только свои снимки, а не весь список', async ({ page }) => {
+  const rpcCalls = [];
+  let patchedLogs = 0;
+
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('**/rest/v1/rpc/checklist_media_append', (route) => {
+    rpcCalls.push(JSON.parse(route.request().postData() || '{}'));
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  });
+  await page.route('**/rest/v1/checklist_logs*', (route) => {
+    if (route.request().method() === 'PATCH') patchedLogs += 1;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  });
+  await page.route('**/storage/v1/object/task-reports/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '{"Key":"task-reports/x.jpg"}' }));
+
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.uploadChecklistMedia === 'function');
+
+  await page.evaluate(async () => {
+    currentUser = { id: 'u1' };
+    currentProfile = { name: 'Тест', employee_id: 1, role: 'employee' };
+    currentFilial = 'chekhov';
+    // В чек-листе уже лежат два чужих снимка
+    currentChecklistLog = { id: 77, media: [{ url: 'chuzhoe-1.jpg', type: 'image' }, { url: 'chuzhoe-2.jpg', type: 'image' }] };
+    document.getElementById('cl-media-template-id').value = '1';
+
+    const c = document.createElement('canvas');
+    c.width = 30; c.height = 30;
+    const blob = await new Promise((ok) => c.toBlob(ok, 'image/jpeg', 0.8));
+    clMediaFiles = [new File([blob], 'moe.jpg', { type: 'image/jpeg' })];
+    await uploadChecklistMedia();
+  });
+
+  expect(rpcCalls.length, 'дописываем через базу').toBe(1);
+  expect(rpcCalls[0].p_id, 'в тот самый чек-лист').toBe(77);
+  expect(rpcCalls[0].p_media.length, 'шлём ровно свой снимок').toBe(1);
+  expect(JSON.stringify(rpcCalls[0].p_media), 'чужих снимков в запросе быть не должно').not.toContain('chuzhoe');
+  expect(patchedLogs, 'списком целиком больше не перезаписываем').toBe(0);
+});

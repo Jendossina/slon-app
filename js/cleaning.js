@@ -357,10 +357,9 @@ async function uploadCleaningMedia() {
     const bad = results.find(r => r.error);
     if(bad) { bar.style.display = 'none'; return showToast(t('common.uploadErr') + bad.error.message); }
 
-    const item = cleaningItems.find(x => x.id === cleaningPhotoItemId);
-    const media = (Array.isArray(item?.media) ? item.media : []).concat(
-      results.map(r => ({ url: sb.storage.from('task-reports').getPublicUrl(r.path).data.publicUrl, type: 'image' })));
-    const { error } = await sb.from('cleaning_items').update({ media }).eq('id', cleaningPhotoItemId);
+    // Как в чек-листах: шлём только свои снимки, склеивает база
+    const fresh = results.map(r => ({ url: sb.storage.from('task-reports').getPublicUrl(r.path).data.publicUrl, type: 'image' }));
+    const { error } = await sb.rpc('cleaning_media_append', { p_id: cleaningPhotoItemId, p_media: fresh });
     bar.style.display = 'none';
     if(error) return showToast(t('common.error') + error.message);
     closeModal('modal-cleaning-media');

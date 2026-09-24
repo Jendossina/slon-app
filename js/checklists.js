@@ -412,10 +412,14 @@ async function uploadChecklistMedia() {
     // Проверять надо именно id: при свежем чек-листе объект уже создан галочками,
     // но записи в базе ещё нет, и update уходил в никуда с id = undefined.
     if(currentChecklistLog?.id) {
-      const { error: upErr } = await sb.from('checklist_logs')
-        .update({ media }).eq('id', currentChecklistLog.id);
+      // Склейку делает база: телефон шлёт ТОЛЬКО свои новые снимки.
+      // Раньше он присылал весь список целиком, и двое, нажавшие
+      // «Прикрепить» в одну секунду с разных телефонов, затирали фото
+      // друг друга — выживал тот, кто записал последним.
+      const { data: merged, error: upErr } = await sb.rpc('checklist_media_append',
+        { p_id: currentChecklistLog.id, p_media: uploaded });
       if(upErr) throw upErr;
-      currentChecklistLog.media = media;
+      currentChecklistLog.media = merged || media;
     } else {
       const dateStr = businessToday();
       // Отметки берём локальные — раньше сюда уходил пустой список и стирал их
@@ -433,11 +437,11 @@ async function uploadChecklistMedia() {
         const { data: ex } = await sb.from('checklist_logs').select('*')
           .eq('template_id', templateId).eq('date', dateStr).eq('filial', currentFilial).limit(1).single();
         if(!ex) throw insErr;
-        const mergedMedia = clMediaList(ex.media).concat(uploaded);
-        const { error: e2 } = await sb.from('checklist_logs')
-          .update({ media: mergedMedia }).eq('id', ex.id);
+        const { data: merged2, error: e2 } = await sb.rpc('checklist_media_append',
+          { p_id: ex.id, p_media: uploaded });
         if(e2) throw e2;
-        currentChecklistLog = Object.assign({}, ex, { media: mergedMedia });
+        currentChecklistLog = Object.assign({}, ex,
+          { media: merged2 || clMediaList(ex.media).concat(uploaded) });
       } else if(newLog) {
         currentChecklistLog = newLog;
       }
