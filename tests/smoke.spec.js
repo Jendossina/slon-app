@@ -3084,3 +3084,28 @@ test('экран перезагружается, когда в приложен�
   expect(r.unpaired, 'экран отвязали — возвращаемся к коду').toBe(true);
   expect(r.noRow, 'связи нет и строки нет — сидим тихо').toBe(false);
 });
+
+// Полоса браузера сверху убирается только полноэкранным режимом, а он
+// включается лишь по нажатию. Проверяем, что подсказка появляется, нажатие
+// её убирает и разворачивает страницу.
+test('экран разворачивается на весь телевизор по нажатию пультом', async ({ page }) => {
+  await page.addInitScript(() => { window.__TV_NO_AUTOSTART = true; });
+  await page.goto('/tv');
+  await page.waitForFunction(() => typeof window.hintFullscreen === 'function');
+
+  const r = await page.evaluate(async () => {
+    const hint = document.getElementById('go-full');
+    let asked = 0;
+    // Настоящий полноэкранный режим в тесте не включить — браузер требует
+    // «настоящего» нажатия. Подменяем сам вызов и проверяем, что его делают.
+    document.documentElement.requestFullscreen = function () { asked++; return Promise.resolve(); };
+    hintFullscreen();
+    const before = hint.classList.contains('on');
+    document.body.click();
+    return { before, asked, text: hint.textContent };
+  });
+
+  expect(r.before, 'пока не развернулись — подсказка видна').toBe(true);
+  expect(r.asked, 'нажатие разворачивает экран').toBeGreaterThan(0);
+  expect(r.text, 'подсказка объясняет, что нажать').toContain('ОК на пульте');
+});

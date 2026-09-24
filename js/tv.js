@@ -361,6 +361,51 @@ function settingsChanged(row, startedWith, startedEvery) {
   return false;
 }
 
+// ===== Полоса браузера =====
+// Сверху на телевизоре висит панель браузера. Убрать её из кода нельзя:
+// полноэкранный режим браузеры включают только в ответ на действие
+// человека, иначе любая страница разворачивалась бы во весь экран сама.
+// Поэтому ловим первое же нажатие — на пульте это кнопка ОК — и уходим в
+// полный экран. Насовсем полоса уходит только с браузером-киоском, но
+// одно нажатие при включении бокса дешевле похода за ноутбуком.
+function fullscreenSupported() {
+  const el = document.documentElement;
+  return !!(el.requestFullscreen || el.webkitRequestFullscreen);
+}
+
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function goFullscreen() {
+  if (isFullscreen()) return;
+  const el = document.documentElement;
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!fn) return;
+  try {
+    const r = fn.call(el);
+    if (r && typeof r.catch === 'function') r.catch(function () {});
+  } catch (e) {}
+}
+
+function hintFullscreen() {
+  const hint = document.getElementById('go-full');
+  if (!hint) return;
+  const refresh = function () {
+    const need = fullscreenSupported() && !isFullscreen();
+    hint.classList.toggle('on', need);
+  };
+  refresh();
+  document.addEventListener('fullscreenchange', refresh);
+  document.addEventListener('webkitfullscreenchange', refresh);
+  // Любое нажатие пультом или мышью — повод развернуться
+  ['click', 'keydown', 'touchend'].forEach(function (ev) {
+    document.addEventListener(ev, function () { goFullscreen(); }, true);
+  });
+  // Подсказка не должна мозолить глаза гостям весь вечер
+  setTimeout(function () { hint.classList.remove('on'); }, 120000);
+}
+
 // ===== Ночная перезагрузка =====
 // Экран не выключают месяцами, а браузер за это время течёт и начинает
 // заикаться. Дешевле перезагрузить страницу под утро, когда зал пуст.
@@ -392,6 +437,7 @@ async function startTv() {
     await loadData().catch(function () {});
   }
   showNotice('');
+  hintFullscreen();
   ping('запуск');
 
   // Ссылку на ролик и настройки врезок правят в телефоне уже после того,
