@@ -88,7 +88,7 @@ const I18N = {
     'more.group.personal': 'Личное', 'more.group.work': 'Работа', 'more.group.team': 'Команда', 'more.group.manage': 'Управление',
     // Меню «Ещё» — пункты
     'more.profile': 'Личный кабинет', 'more.mynotes': 'Мой задачник', 'more.help': 'Помощник',
-    'more.knowledge': 'База знаний', 'more.supply': 'Хозчасть', 'more.dishware': 'Посуда', 'more.calendar': 'Календарь',
+    'more.knowledge': 'База знаний', 'more.supply': 'Хозчасть', 'more.dishware': 'Посуда', 'more.cleaning': 'Генеральная уборка', 'more.calendar': 'Календарь',
     'more.stoplist': 'Го/стоп лист',
     'more.hr': 'Сотрудники', 'more.bonus': 'Проценты', 'more.teamchat': 'Общий чат', 'more.feed': 'Лента', 'more.reviews': 'Отзывы',
     'more.finance': 'Финансы', 'more.dashboard': 'Дашборд', 'more.directory': 'Справочник', 'more.admin': 'Админ-панель',
@@ -734,7 +734,7 @@ const I18N = {
     'more.group.personal': 'Шахсий', 'more.group.work': 'Иш', 'more.group.team': 'Жамоа', 'more.group.manage': 'Бошқарув',
     // Меню «Ещё» — пункты
     'more.profile': 'Шахсий кабинет', 'more.mynotes': 'Менинг вазифаларим', 'more.help': 'Ёрдамчи',
-    'more.knowledge': 'Билимлар базаси', 'more.supply': 'Хўжалик қисми', 'more.dishware': 'Идиш-товоқ', 'more.calendar': 'Тақвим',
+    'more.knowledge': 'Билимлар базаси', 'more.supply': 'Хўжалик қисми', 'more.dishware': 'Идиш-товоқ', 'more.cleaning': 'Умумий тозалаш', 'more.calendar': 'Тақвим',
     'more.stoplist': 'Го/стоп рўйхат',
     'more.hr': 'Ходимлар', 'more.bonus': 'Фоизлар', 'more.teamchat': 'Умумий чат', 'more.feed': 'Лента', 'more.reviews': 'Фикрлар',
     'more.finance': 'Молия', 'more.dashboard': 'Дашборд', 'more.directory': 'Маълумотнома', 'more.admin': 'Админ-панел',

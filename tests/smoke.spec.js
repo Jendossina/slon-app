@@ -3293,3 +3293,85 @@ test('финансы убраны из меню и с дашборда, оста
   expect(r.tabs, 'остальные вкладки остались').toEqual(['attendance', 'tasks', 'checklists', 'people', 'positions', 'hookah']);
   expect(r.salary, 'зарплаты это не затронуло').toBe(true);
 });
+
+// На айфоне нижняя панель во время инерционной прокрутки отрывалась и повисала
+// посреди экрана — фотография из зала это и показывала. Лечится не подпорками:
+// страница целиком больше не прокручивается, прокручивается только <main>, а
+// панель стала обычной нижней строкой колонки. Сторожим оба свойства.
+test('нижняя панель остаётся внизу, а прокручивается только содержимое', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+
+  const r = await page.evaluate(async () => {
+    // Показываем оболочку так же, как это делает showApp() после входа
+    document.getElementById('login-page').style.display = 'none';
+    document.getElementById('app-page').style.display = 'flex';
+
+    // Наполняем экран, чтобы было что прокручивать
+    const home = document.getElementById('screen-home');
+    const filler = document.createElement('div');
+    filler.style.height = '3000px';
+    home.appendChild(filler);
+
+    const main = document.querySelector('#app-page > main');
+    const nav = document.querySelector('.bottom-nav');
+    const before = nav.getBoundingClientRect();
+
+    main.scrollTop = 1500;
+    await new Promise((ok) => requestAnimationFrame(ok));
+    const after = nav.getBoundingClientRect();
+
+    return {
+      scrolled: main.scrollTop,
+      mainScrolls: main.scrollHeight > main.clientHeight,
+      pageScrollTop: document.scrollingElement.scrollTop,
+      pageScrolls: document.scrollingElement.scrollHeight > window.innerHeight + 1,
+      navTopBefore: Math.round(before.top),
+      navTopAfter: Math.round(after.top),
+      navBottom: Math.round(after.bottom),
+      viewport: window.innerHeight,
+    };
+  });
+
+  expect(r.mainScrolls, 'содержимое прокручивается внутри main').toBe(true);
+  expect(r.scrolled, 'прокрутка дошла').toBeGreaterThan(1000);
+  expect(r.pageScrolls, 'сама страница не прокручивается — иначе панель снова оторвётся').toBe(false);
+  expect(r.pageScrollTop, 'и не сдвинулась').toBe(0);
+  expect(r.navTopAfter, 'панель не уехала вместе с содержимым').toBe(r.navTopBefore);
+  expect(r.navBottom, 'панель стоит ровно по низу экрана').toBe(r.viewport);
+});
+
+
+// В меню «Ещё» один пункт висел как «more.cleaning»: строки для него не было
+// ни в русском словаре, ни в узбекском, а t() возвращает сам ключ, когда
+// перевода нет. Заметно это только глазами, поэтому — тест на оба языка.
+test('в меню «Ещё» нет непереведённых ключей', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+
+  // Язык переключается только перезагрузкой (setLang вызывает location.reload),
+  // поэтому каждый язык проверяем отдельным заходом, а не вызовом из страницы.
+  const labelsFor = async (lang) => {
+    await page.goto('/');
+    await page.evaluate((l) => { try { localStorage.setItem('slon-lang', l); } catch (e) {} }, lang);
+    await page.reload();
+    await page.waitForFunction(() => typeof window.openMoreMenu === 'function');
+    return page.evaluate(() => {
+      currentUser = { id: 'u1' };
+      currentProfile = { role: 'admin', name: 'Тест', employee_id: 9 };
+      currentEmployee = { department: null, role: null };
+      currentFilial = 'chekhov';
+      openMoreMenu();
+      return Array.from(document.querySelectorAll('#more-menu-items .more-menu-item'))
+        // Иконка-эмодзи приклеена к тексту без пробела — срезаем всё, что не буква
+        .map((b) => b.textContent.replace(/^[^\p{L}]+/u, '').trim());
+    });
+  };
+
+  const isKey = (s) => /^[a-z][a-zA-Z]*\.[a-zA-Z]+$/.test(s);
+  const ru = (await labelsFor('ru')).filter(isKey);
+  const uz = (await labelsFor('uz')).filter(isKey);
+
+  expect(ru, 'в русском меню показывается ключ вместо перевода').toEqual([]);
+  expect(uz, 'в узбекском меню показывается ключ вместо перевода').toEqual([]);
+});

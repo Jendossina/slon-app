@@ -1088,7 +1088,10 @@ async function retryBoot() {
 function showApp() {
   hideSplashSafe();
   document.getElementById('login-page').style.display = 'none';
-  document.getElementById('app-page').style.display = 'block';
+  // Колонка: сверху переключатель филиалов, посередине прокручиваемый
+  // <main>, снизу панель навигации. Раньше было 'block' — с ним колонка не
+  // собиралась и панель снова начинала «летать» по экрану.
+  document.getElementById('app-page').style.display = 'flex';
   // Человек начинает в своём филиале. В сохранённом выборе может лежать чужой —
   // например, остался с пилота, когда всем подставляли Чехов.
   const allowedFilials = myFilials();
