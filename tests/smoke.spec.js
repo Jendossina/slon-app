@@ -171,9 +171,11 @@ test('кальяны: кто вносит отчёт и кто видит сво
   // руководство видит всё, включая новую вкладку
   expect(res.admin.report).toBe(true);
   expect(res.admin.tabs).toContain('hookah');
-  expect(res.admin.tabs).toContain('overview');
+  // «Обзор» был витриной выручки и ушёл вместе с финансами (FINANCE_ENABLED)
+  expect(res.admin.tabs).not.toContain('overview');
   // владелец — обзор и кальяны
-  expect(res.boss.tabs).toEqual(['overview', 'hookah']);
+  // владелец — сводка по явке и кальяны: денежного «Обзора» больше нет
+  expect(res.boss.tabs).toEqual(['attendance', 'hookah']);
 });
 
 // Полоска «доступна новая версия». Главное правило: она предлагает, а не
@@ -3260,4 +3262,34 @@ test('график не запрашивает уволенных', async ({ pag
   for (const u of gridQueries) {
     expect(u, 'и в каждом запросе отсекает уволенных: ' + u).toContain('status=neq.Уволен');
   }
+});
+
+// Финансы выключены целиком: раздела в меню нет ни у кого, включая управляющего,
+// а на дашборде нет вкладки «Обзор» — она и была витриной выручки, прибыли и
+// доли ФОТ. Всё остальное на дашборде осталось на месте.
+test('финансы убраны из меню и с дашборда, остальные вкладки на месте', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.dashTabList === 'function' && typeof window.openMoreMenu === 'function');
+
+  const r = await page.evaluate(() => {
+    currentUser = { id: 'u1' };
+    currentProfile = { role: 'admin', name: 'Тест', employee_id: 9 };
+    currentEmployee = { department: null, role: null };
+    currentFilial = 'chekhov';
+    openMoreMenu();
+    return {
+      menu: document.getElementById('more-menu-items').textContent,
+      tabs: dashTabList().map((x) => x.id),
+      fin: canSeeFinance(),
+      salary: canSeeSalaryRole(),
+    };
+  });
+
+  expect(r.fin, 'финансы закрыты даже управляющему').toBe(false);
+  expect(r.menu, 'раздела «Финансы» в меню нет').not.toContain('Финансы');
+  expect(r.menu, 'остальное меню на месте').toContain('Админ');
+  expect(r.tabs, 'вкладки «Обзор» нет').not.toContain('overview');
+  expect(r.tabs, 'остальные вкладки остались').toEqual(['attendance', 'tasks', 'checklists', 'people', 'positions', 'hookah']);
+  expect(r.salary, 'зарплаты это не затронуло').toBe(true);
 });

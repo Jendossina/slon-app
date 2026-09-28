@@ -251,7 +251,12 @@ function dashTabList() {
     positions,
     hookah,
   ];
-  return isBoss() ? [all[0], hookah] : all;
+  // «Обзор» — витрина выручки, прибыли и доли ФОТ. Пока финансы выключены,
+  // показывать там нечего, кроме дублей из соседних вкладок.
+  const visible = (typeof FINANCE_ENABLED !== 'undefined' && !FINANCE_ENABLED)
+    ? all.filter(x => x.id !== 'overview')
+    : all;
+  return isBoss() ? [visible[0], hookah] : visible;
 }
 
 function renderDashTabs() {
@@ -266,7 +271,10 @@ function renderDashTabs() {
 function setDashTab(id) { dashTab = id; dashClTpl = null; renderDashPeriods(); renderDashTabs(); loadDashboardTab(); }
 
 async function loadDashboard() {
-  if(!dashTabList().some(x => x.id === dashTab)) dashTab = 'overview';
+  // Вкладка из прошлого захода могла исчезнуть (например, «Обзор») — тогда
+  // открываем первую доступную, а не жёстко «Обзор».
+  const tabs = dashTabList();
+  if(!tabs.some(x => x.id === dashTab)) dashTab = (tabs[0] && tabs[0].id) || 'attendance';
   renderDashPeriods();
   renderDashTabs();
   await loadDashboardTab();
@@ -418,7 +426,7 @@ async function loadDashAttendance() {
       const chips = [];
       if(r.miss) chips.push(dashChip(t('dash.a.chipMiss', { n:r.miss }), 'bad'));
       if(r.late) chips.push(dashChip(t('dash.a.chipLate', { n:r.late, m:Math.round(r.lateMin / r.late) }), 'warn'));
-      if(r.penalty > 0 && canSeeFinance()) chips.push(dashChip(t('dash.a.chipPenalty', { n:formatNum(r.penalty) }), 'bad'));
+      if(r.penalty > 0 && canSeeSalaryRole()) chips.push(dashChip(t('dash.a.chipPenalty', { n:formatNum(r.penalty) }), 'bad'));
       if(!r.planned) chips.push(dashChip(t('dash.a.chipNoPlan'), ''));
       if(!chips.length) chips.push(dashChip(t('dash.a.chipOk'), 'ok'));
       return dashLine({

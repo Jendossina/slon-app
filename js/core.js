@@ -619,7 +619,19 @@ function isManager() { return currentRole() === 'manager'; }
 // Может ли реально что-то менять (BOSS — нет, только смотрит)
 function canEditData() { const r = currentRole(); return r === 'admin' || r === 'manager'; }
 // Видит финансы (доходы/расходы): менеджер, управляющий, владелец (дашборд — отдельно, без менеджера)
-function canSeeFinance() { const r = currentRole(); return r === 'admin' || r === 'manager' || r === 'boss'; }
+// Финансы временно выключены (28.09.2026, решение владельца): раздел
+// «Финансы», карточка выручки на главной и денежные блоки дашборда скрыты.
+// Ничего не удалено — ни экран, ни данные, ни записи в таблице finances:
+// поднять обратно значит вернуть здесь true.
+//
+// Зарплат это НЕ касается. Ведомость, ставки, премии и штрафы живут на
+// своих правах (canSeeSalaryRole) и остались как были.
+const FINANCE_ENABLED = false;
+
+function canSeeFinance() {
+  if(!FINANCE_ENABLED) return false;
+  const r = currentRole(); return r === 'admin' || r === 'manager' || r === 'boss';
+}
 // Видит зарплаты: менеджер, управляющий, владелец
 function canSeeSalaryRole() { const r = currentRole(); return r === 'manager' || r === 'admin' || r === 'boss'; }
 // Видит дашборд/финансовую сводку: управляющий и владелец (менеджер — нет)
