@@ -88,9 +88,14 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .bottom-nav { flex: 0 0 auto; background: var(--nav-bg); border-top: 1px solid var(--border); display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
 /* Оболочка не прокручивается — прокручивается только содержимое экрана.
    Без этого на айфоне нижняя панель отрывалась и висела посреди экрана. */
-#app-page { height: 100%; flex-direction: column; }   /* display:flex ставит showApp() */
+/* Высота именно видимой части экрана. 100% и 100vh на айфоне считаются по
+   «раскладочному» окну, которое выше видимого: нижняя строка с подписями
+   уезжала под край. 100dvh — это ровно то, что видно, и оно пересчитывается,
+   когда браузер прячет свои панели. Порядок строк — это запасные варианты
+   для старых версий: кто не знает dvh, возьмёт предыдущую. */
+#app-page { height: 100vh; height: -webkit-fill-available; height: 100dvh; flex-direction: column; }   /* display:flex ставит showApp() */
 #app-page > main { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
-#login-page { height: 100%; overflow-y: auto; }       /* с открытой клавиатурой форма должна прокручиваться */
+#login-page { height: 100vh; height: -webkit-fill-available; height: 100dvh; overflow-y: auto; }  /* с открытой клавиатурой форма должна прокручиваться */
 .filial-switcher { position: sticky; top: 0; left: 0; right: 0; display: flex; background: var(--nav-bg); border-bottom: 1px solid var(--border); z-index: 95; }
 .filial-tab { flex: 1; text-align: center; padding: 11px 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; background: none; border-left: none; border-right: none; border-top: none; }
 .filial-tab.active { color: var(--gold-dark); border-bottom-color: var(--gold-dark); }
