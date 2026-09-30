@@ -132,7 +132,10 @@ Deno.serve(async (req)=>{
         cache_control: { type: "ephemeral" }
       });
     }
-    const userText = (role ? `(Спрашивает пользователь с ролью: ${role}.)\n\n` : "") + String(question).slice(0, 600);
+    // Требования к форме ответа повторяем рядом с вопросом: из длинного системного
+    // промпта (вся База знаний) Haiku их не удерживает — отвечал по-узбекски и с разметкой.
+    const userText = (role ? `(Спрашивает пользователь с ролью: ${role}.)\n\n` : "") + String(question).slice(0, 600) +
+      "\n\n(Ответь по-русски, обычным текстом без markdown, и только на заданный вопрос.)";
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -166,6 +169,13 @@ Deno.serve(async (req)=>{
     if (Array.isArray(data.content)) {
       answer = data.content.filter((b)=>b.type === "text").map((b)=>b.text).join("");
     }
+    // Чат выводит текст как есть, поэтому остатки разметки снимаем здесь:
+    // просьба в промпте срабатывает не всегда.
+    answer = answer
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .replace(/^[-*]\s+/gm, "• ")
+      .trim();
     return new Response(JSON.stringify({ answer: answer || "Не удалось получить ответ." }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
