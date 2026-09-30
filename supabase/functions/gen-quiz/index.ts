@@ -49,7 +49,6 @@ const SYSTEM = `Ты составляешь вопросы для еженеде
 - Проверяй то, что официант реально должен знать на смене: состав и подача блюд и напитков, аллергены, время приготовления, чем блюда отличаются, что к чему предложить, стандарты обслуживания.
 - Ровно 4 варианта ответа. Один правильный, три правдоподобных, но однозначно неверных по материалам.
 - Неправильные варианты должны быть похожи по длине и стилю на правильный — не выдавай ответ длиной или детальностью.
-- Правильный ответ ставь на случайную позицию: correct_index должен быть разным у разных вопросов, а не всегда 0.
 - Формулируй коротко и по-русски, как говорят в зале, без канцелярита.
 - В поле source укажи название статьи Базы знаний, из которой взят вопрос.
 - Не повторяй вопросы: каждый — про своё блюдо, напиток или правило.
@@ -185,17 +184,25 @@ Deno.serve(async (req) => {
         Array.isArray(q.options) && q.options.length === 4 &&
         q.options.every((o: any) => typeof o === "string" && o.trim()) &&
         Number.isInteger(q.correct_index) && q.correct_index >= 0 && q.correct_index <= 3)
-      .map((q: any) => ({
-        department,
-        question: q.question.trim(),
-        options: q.options.map((o: string) => o.trim()),
-        correct_index: q.correct_index,
-        source: (q.source || "").toString().slice(0, 200) || null,
-        topic: (q.topic || "").toString().trim().toLowerCase().slice(0, 100) || null,
-        area,
-        status: "draft",
-        created_by_name: "ИИ по Базе знаний"
-      }));
+      .map((q: any) => {
+        // Позицию правильного ответа выбирает код: у модели она выходит неравномерной
+        const opts = q.options.map((o: string, i: number) => ({ text: o.trim(), ok: i === q.correct_index }));
+        for (let i = opts.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [opts[i], opts[j]] = [opts[j], opts[i]];
+        }
+        return {
+          department,
+          question: q.question.trim(),
+          options: opts.map((o: { text: string }) => o.text),
+          correct_index: opts.findIndex((o: { ok: boolean }) => o.ok),
+          source: (q.source || "").toString().slice(0, 200) || null,
+          topic: (q.topic || "").toString().trim().toLowerCase().slice(0, 100) || null,
+          area,
+          status: "draft",
+          created_by_name: "ИИ по Базе знаний"
+        };
+      });
 
     if (rows.length === 0) return json({ error: "Модель не вернула пригодных вопросов" }, 200);
 

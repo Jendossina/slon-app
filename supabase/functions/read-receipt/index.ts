@@ -7,25 +7,48 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
 
+// Схема ответа: модель обязана вернуть ровно такую структуру, разбирать текст не нужно.
+const LINE_SCHEMA = {
+  type: "array",
+  items: {
+    type: "object",
+    properties: { label: { type: "string" }, amount: { type: "integer" } },
+    required: ["label", "amount"],
+    additionalProperties: false
+  }
+};
+const RECEIPT_SCHEMA = {
+  type: "object",
+  properties: {
+    total: { type: ["integer", "null"] },
+    lines: LINE_SCHEMA,
+    deposits: { type: ["integer", "null"] },
+    withdrawals: { type: ["integer", "null"] },
+    cash_expected: { type: ["integer", "null"] },
+    writeoffs: LINE_SCHEMA,
+    shift: { type: ["string", "null"] },
+    datetime: { type: ["string", "null"] }
+  },
+  required: ["total", "lines", "deposits", "withdrawals", "cash_expected", "writeoffs", "shift", "datetime"],
+  additionalProperties: false
+};
+
 const PROMPT = `Ты распознаёшь печатный Z-отчёт кассы («Итого по смене») ресторана/бара на русском.
-Суммы — целые числа в сумах, без пробелов (может быть отрицательным — верни как есть).
-Верни СТРОГО один JSON-объект без пояснений и без markdown:
-{
- "total": число|null,          // строка «ИТОГО (Продажи)»
- "lines": [ {"label": "название типа оплаты", "amount": число} ],
- "deposits": число|null,       // «внесений наличных»
- "withdrawals": число|null,    // «изъятий наличных»
- "cash_expected": число|null,  // «в кассе должно быть»
- "writeoffs": [ {"label":"название", "amount":число} ],
- "shift": строка|null,         // номер кассовой смены
- "datetime": строка|null       // текущее время на чеке
-}
+Суммы — целые числа в сумах (может быть отрицательным — верни как есть).
+Поля ответа:
+"total" — строка «ИТОГО (Продажи)»;
+"lines" — типы оплат: название и сумма;
+"deposits" — «внесений наличных»;
+"withdrawals" — «изъятий наличных»;
+"cash_expected" — «в кассе должно быть»;
+"writeoffs" — списания: название и сумма;
+"shift" — номер кассовой смены;
+"datetime" — текущее время на чеке.
 В "lines" перечисли КОНКРЕТНЫЕ типы оплат из раздела «Прочие типы оплат» — берущие строки вида
 «ИТОГО (Наличные)», «ИТОГО (Терминал)», «ИТОГО (Rahmat)», «ИТОГО (SLON CASHBACK)», «ИТОГО (Долговой)», «ИТОГО (Карта ...)» и т.п.
 НЕ включай групповые итоги («ИТОГО (Банковские карты)», «ИТОГО (Оплата наличными)», «ИТОГО (Безналичный расчет)») и не включай отдельные чеки.
 В "writeoffs" — «Списания» и «Без выручки» (напр. «На счет заведения», «Удаления блюд», «Комплименты», «Кальянная часть»).
-Если раздела/поля нет — null или [].
-Выведи ТОЛЬКО JSON-объект, без markdown-обёртки и без пояснений.`;
+Если раздела/поля нет — null или [].`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -57,6 +80,7 @@ Deno.serve(async (req) => {
         // переснимал чек, хотя дело было не в фотографии. В read-hookah этот
         // урок уже усвоен, здесь остался старый лимит.
         max_tokens: 8000,
+        output_config: { format: { type: "json_schema", schema: RECEIPT_SCHEMA } },
         messages: [{ role: "user", content: [imageBlock, { type: "text", text: PROMPT }] }]
       })
     });
@@ -86,11 +110,9 @@ Deno.serve(async (req) => {
 
     let raw = "";
     if (Array.isArray(data.content)) raw = data.content.filter((b) => b.type === "text").map((b) => b.text).join("");
-    // Убираем markdown-обёртку ```json ... ``` и достаём JSON-объект
-    raw = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
-    const m = raw.match(/\{[\s\S]*\}/);
+    // Схема гарантирует форму; разбор может упасть только на обрыве по max_tokens
     let parsed = null;
-    if (m) { try { parsed = JSON.parse(m[0]); } catch (_e) {} }
+    try { parsed = JSON.parse(raw); } catch (_e) {}
     if (!parsed) {
       // Обрыв по лимиту и нечитаемый чек — разные беды: в первом случае
       // переснимать бесполезно, во втором как раз нужно.

@@ -12,15 +12,35 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Схема ответа: модель обязана вернуть ровно такую структуру, разбирать текст не нужно.
+const REPORT_SCHEMA = {
+  type: "object",
+  properties: {
+    count: { type: ["integer", "null"] },
+    amount: { type: ["integer", "null"] },
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          qty: { type: ["integer", "null"] },
+          sum: { type: ["integer", "null"] },
+        },
+        required: ["name", "qty", "sum"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["count", "amount", "items"],
+  additionalProperties: false,
+};
+
 const PROMPT = `Ты распознаёшь отчёт кальянной станции бара за смену по фотографии.
 На фото может быть отчёт из iiko, экран кассы, распечатка или рукописный лист.
 
-Верни СТРОГО один JSON-объект без пояснений и без markdown:
-{
- "count": число|null,     // сколько кальянов продано за смену, всего
- "amount": число|null,    // на какую сумму продано, целое в сумах, без пробелов
- "items": [ {"name": "название позиции", "qty": число|null, "sum": число|null} ]
-}
+Поля ответа: "count" — сколько кальянов продано за смену, всего; "amount" — на какую
+сумму продано, целое в сумах; "items" — позиции: название, количество, сумма.
 
 Правила:
 • "count" — количество ПРОДАННЫХ КАЛЬЯНОВ. Если в отчёте есть строка
@@ -32,9 +52,7 @@ const PROMPT = `Ты распознаёшь отчёт кальянной ста
 • "items" — конкретные позиции: сорт табака, вид кальяна, тариф. Групповые
   итоги («ИТОГО», «Всего», «Кальяны») в items НЕ включай.
 • Чего не видно или не разобрать — null или пустой массив, не выдумывай.
-• Если на фото вообще не отчёт по кальянам, верни все поля null и пустой items.
-
-Выведи ТОЛЬКО JSON-объект.`;
+• Если на фото вообще не отчёт по кальянам, верни все поля null и пустой items.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -75,6 +93,7 @@ Deno.serve(async (req) => {
         // размышления включены по умолчанию. Запас взят с учётом этого: с
         // тесным лимитом ответ обрывается на полуслове.
         max_tokens: 8000,
+        output_config: { format: { type: "json_schema", schema: REPORT_SCHEMA } },
         messages: [{ role: "user", content: [imageBlock, { type: "text", text: PROMPT }] }],
       }),
     });
@@ -106,10 +125,9 @@ Deno.serve(async (req) => {
       raw = data.content.filter((b: { type: string }) => b.type === "text")
         .map((b: { text: string }) => b.text).join("");
     }
-    raw = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
-    const m = raw.match(/\{[\s\S]*\}/);
+    // Схема гарантирует форму; разбор может упасть только на обрыве по max_tokens
     let parsed = null;
-    if (m) { try { parsed = JSON.parse(m[0]); } catch (_e) { /* ниже вернём raw */ } }
+    try { parsed = JSON.parse(raw); } catch (_e) { /* ниже вернём raw */ }
 
     if (!parsed) {
       // Диагностика: пустой raw обычно значит, что весь лимит съели размышления
