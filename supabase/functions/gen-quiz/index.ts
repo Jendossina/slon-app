@@ -83,7 +83,12 @@ async function fetchBookArticles(bookId: number): Promise<{ text: string; count:
   let ctx = "";
   for (const a of rows) {
     const piece = `\n### ${a.title || "Без названия"}\n${String(a.content || "")}\n`;
-    if (ctx.length + piece.length > MAX) { ctx += piece.slice(0, MAX - ctx.length); break; }
+    if (ctx.length + piece.length > MAX) {
+      // Обрезка молчаливая для пользователя, поэтому хотя бы в логах её должно быть видно
+      console.warn(`gen-quiz: книга ${bookId} не влезла в ${MAX} символов, обрезана на статье «${a.title}» (всего статей: ${rows.length})`);
+      ctx += piece.slice(0, MAX - ctx.length);
+      break;
+    }
     ctx += piece;
   }
   return { text: ctx.trim(), count: rows.length };
@@ -161,6 +166,7 @@ Deno.serve(async (req) => {
 
     if (!resp.ok) return json({ error: "Ошибка Claude API: " + (await resp.text()) }, 200);
     const data = await resp.json();
+    console.log("gen-quiz usage", JSON.stringify({ stop: data.stop_reason, ...data.usage }));
 
     // На отказ классификаторов content пустой или частичный — читаем только после проверки
     if (data.stop_reason === "refusal") {

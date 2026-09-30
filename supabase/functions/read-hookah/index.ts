@@ -3,9 +3,6 @@
 // количество, сумму и разбивку «чего сколько продано».
 //
 // Секрет ANTHROPIC_API_KEY — тот же, что у ask-slon/analyze-review/read-receipt.
-//
-// Исходник лежит в репозитории намеренно: у остальных функций его нет, и
-// посмотреть, что именно крутится на сервере, было неоткуда.
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -114,10 +111,11 @@ Deno.serve(async (req) => {
     }
 
     const data = await resp.json();
+    console.log("read-hookah usage", JSON.stringify({ stop: data.stop_reason, ...data.usage }));
 
     // Классификаторы могут отклонить запрос — это обычный ответ, а не сбой
     if (data.stop_reason === "refusal") {
-      return json({ error: "Запрос отклонён моделью" });
+      return json({ error: "Запрос отклонён моделью", code: "refusal" });
     }
 
     let raw = "";
@@ -130,10 +128,12 @@ Deno.serve(async (req) => {
     try { parsed = JSON.parse(raw); } catch (_e) { /* ниже вернём raw */ }
 
     if (!parsed) {
-      // Диагностика: пустой raw обычно значит, что весь лимит съели размышления
-      // и текст не успел начаться (stop_reason = max_tokens)
+      // Обрыв по лимиту и нечитаемое фото — разные беды: в первом случае
+      // переснимать бесполезно, во втором как раз нужно. Те же коды у read-receipt.
+      const cut = data.stop_reason === "max_tokens";
       return json({
-        error: "Не удалось разобрать ответ",
+        error: cut ? "Ответ оборвался по лимиту" : "Не удалось разобрать ответ",
+        code: cut ? "truncated" : "unparsed",
         raw,
         stop_reason: data.stop_reason,
         blocks: Array.isArray(data.content) ? data.content.map((b: { type: string }) => b.type) : null,

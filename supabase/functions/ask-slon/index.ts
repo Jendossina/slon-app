@@ -94,7 +94,12 @@ async function fetchKbContext(): Promise<string> {
     let ctx = "";
     for (const a of rows) {
       const piece = `\n### ${a.title || "Без названия"}\n${String(a.content || "")}\n`;
-      if (ctx.length + piece.length > MAX) { ctx += piece.slice(0, MAX - ctx.length); break; }
+      if (ctx.length + piece.length > MAX) {
+        // Обрезка молчаливая для пользователя, поэтому хотя бы в логах её должно быть видно
+        console.warn(`ask-slon: База знаний не влезла в ${MAX} символов, обрезана на статье «${a.title}» (всего статей: ${rows.length})`);
+        ctx += piece.slice(0, MAX - ctx.length);
+        break;
+      }
       ctx += piece;
     }
     return ctx.trim();
@@ -145,7 +150,8 @@ Deno.serve(async (req)=>{
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5",
-        max_tokens: 600,
+        // 600 хватало на «где что лежит», но рецептура из Базы знаний длиннее
+        max_tokens: 1500,
         system: systemBlocks,
         messages: [ { role: "user", content: userText } ]
       })
@@ -165,6 +171,8 @@ Deno.serve(async (req)=>{
       });
     }
     const data = await resp.json();
+    // Расход и попадание в кэш — в логи: иначе не видно, во что обходится помощник
+    console.log("ask-slon usage", JSON.stringify({ stop: data.stop_reason, ...data.usage }));
     let answer = "";
     if (Array.isArray(data.content)) {
       answer = data.content.filter((b)=>b.type === "text").map((b)=>b.text).join("");
@@ -176,6 +184,8 @@ Deno.serve(async (req)=>{
       .replace(/\*\*(.+?)\*\*/g, "$1")
       .replace(/^[-*]\s+/gm, "• ")
       .trim();
+    // Оборванный ответ не выдаём за полный
+    if (answer && data.stop_reason === "max_tokens") answer += "…\n\n(Ответ не поместился целиком — спроси про конкретную часть.)";
     return new Response(JSON.stringify({ answer: answer || "Не удалось получить ответ." }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
     });

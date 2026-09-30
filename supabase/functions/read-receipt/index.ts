@@ -77,8 +77,7 @@ Deno.serve(async (req) => {
         // max_tokens ограничивает размышления И ответ вместе. На 2000 длинный
         // чек срывался примерно раз из шести: лимит уходил на размышления, JSON
         // обрывался на полуслове, и человек видел «не удалось распознать» —
-        // переснимал чек, хотя дело было не в фотографии. В read-hookah этот
-        // урок уже усвоен, здесь остался старый лимит.
+        // переснимал чек, хотя дело было не в фотографии.
         max_tokens: 8000,
         output_config: { format: { type: "json_schema", schema: RECEIPT_SCHEMA } },
         messages: [{ role: "user", content: [imageBlock, { type: "text", text: PROMPT }] }]
@@ -100,6 +99,7 @@ Deno.serve(async (req) => {
       });
     }
     const data = await resp.json();
+    console.log("read-receipt usage", JSON.stringify({ stop: data.stop_reason, ...data.usage }));
 
     // Классификаторы могут отклонить запрос — это обычный ответ, а не сбой
     if (data.stop_reason === "refusal") {
@@ -122,6 +122,11 @@ Deno.serve(async (req) => {
         code: cut ? "truncated" : "unparsed",
         raw, stop_reason: data.stop_reason, usage: data.usage,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    // Касса печатает изъятия то с минусом, то без — и в базе они лежали вперемешку.
+    // Внесения и изъятия храним без знака: направление уже сказано названием поля.
+    for (const k of ["deposits", "withdrawals"]) {
+      if (typeof parsed[k] === "number") parsed[k] = Math.abs(parsed[k]);
     }
     return new Response(JSON.stringify({ ok: true, data: parsed }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
