@@ -319,13 +319,18 @@ async function openGenerateQuiz() {
   const { data: books } = await sb.from('kb_books').select('id,title').order('title');
   sel.innerHTML = (books||[]).map(b=>`<option value="${b.id}">${escapeHtml(b.title)}</option>`).join('');
 }
+// Генерация идёт полминуты, и кнопку успевали нажать дважды: два запуска шли
+// одновременно, друг о друге не знали и выдавали одни и те же вопросы.
+let quizGenBusy = false;
 async function generateQuizQuestions() {
   if(!canEditData()) return showToast(t('bonus.onlyMgr'));
+  if(quizGenBusy) return;
   const bookId = document.getElementById('qg-book').value;
   const count = parseInt(document.getElementById('qg-count').value) || 10;
   if(!bookId) return showToast(t('quiz.genPickBook'));
   const status = document.getElementById('qg-status');
   status.textContent = t('quiz.genWorking');
+  quizGenBusy = true;
   try {
     const { data, error } = await sb.functions.invoke('gen-quiz', {
       body: { book_id: Number(bookId), count, department: quizBankDept },
@@ -336,4 +341,5 @@ async function generateQuizQuestions() {
     showToast(t('quiz.genDone', { n: data?.created ?? 0 }));
     setTimeout(()=>{ closeModal('modal-quiz-generate'); renderQuizBank(); }, 900);
   } catch(e) { status.textContent = t('quiz.genErr') + e.message; }
+  finally { quizGenBusy = false; }
 }

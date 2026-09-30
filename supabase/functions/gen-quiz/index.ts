@@ -94,6 +94,24 @@ async function fetchBookArticles(bookId: number): Promise<{ text: string; count:
   return { text: ctx.trim(), count: rows.length };
 }
 
+// Вопросы, которые уже лежат в банке отдела (кроме архива). Каждый запуск
+// раньше был сам по себе и про банк не знал — поэтому два запуска подряд
+// выдавали одни и те же «очевидные» вопросы: гарниш к Hendrick's, Aperol 3-2-1.
+async function fetchExisting(department: string): Promise<{ question: string; topic: string | null }[]> {
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return [];
+  const q = `${url}/rest/v1/quiz_questions?select=question,topic&department=eq.${encodeURIComponent(department)}&status=neq.archived&order=id`;
+  const r = await fetch(q, { headers: { apikey: key, Authorization: `Bearer ${key}` } });
+  if (!r.ok) return [];
+  const rows = await r.json();
+  return Array.isArray(rows) ? rows : [];
+}
+
+// Сравнение вопросов без учёта регистра, «ё», знаков и пробелов
+const normQ = (s: string) =>
+  String(s || "").toLowerCase().replace(/ё/g, "е").replace(/[^a-zа-я0-9]+/gi, " ").trim();
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -131,6 +149,13 @@ Deno.serve(async (req) => {
     const kb = await fetchBookArticles(bookId);
     if (!kb.text) return json({ error: "В этой книге пока нет статей" }, 200);
     const area = await bookArea(bookId);
+    const existing = await fetchExisting(department);
+    // Список уже заданного идёт в сообщение пользователя, а не в system:
+    // он меняется от запуска к запуску и сломал бы кэш материалов.
+    const existingNote = existing.length
+      ? "\n\nВ банке уже есть вопросы, перечисленные ниже (в скобках — тема). Не повторяй их и не спрашивай то же самое другими словами: бери другие позиции и другие факты из материалов. Если новый вопрос относится к уже существующей теме-шаблону, используй её название в точности.\n" +
+        existing.map((e) => `- (${e.topic || "без темы"}) ${e.question}`).join("\n")
+      : "";
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -159,7 +184,7 @@ Deno.serve(async (req) => {
           format: { type: "json_schema", schema: QUESTION_SCHEMA }
         },
         messages: [
-          { role: "user", content: `Составь ${count} вопросов для аттестации официантов по этим материалам.` }
+          { role: "user", content: `Составь ${count} вопросов для аттестации официантов по этим материалам.` + existingNote }
         ]
       })
     });
@@ -183,8 +208,17 @@ Deno.serve(async (req) => {
     try { parsed = JSON.parse(text); }
     catch { return json({ error: "Не удалось разобрать ответ модели" }, 200); }
 
+    // Дословные повторы отсекаем сами — и против банка, и внутри одной пачки
+    const seen = new Set(existing.map((e) => normQ(e.question)));
     // Страхуемся от кривых вариантов, даже при схеме
     const rows = (parsed?.questions || [])
+      .filter((q: any) => {
+        if (!q || typeof q.question !== "string") return false;
+        const k = normQ(q.question);
+        if (!k || seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      })
       .filter((q: any) =>
         q && typeof q.question === "string" && q.question.trim() &&
         Array.isArray(q.options) && q.options.length === 4 &&
