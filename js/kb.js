@@ -169,6 +169,12 @@ const KB_TAB_COMMON = '*';           // статьи без отдела — в�
 let kbBookArticles = [];
 const kbDeptTabByBook = {};          // выбранная вкладка, чтобы «Назад» из статьи вернул туда же
 
+// Цех по-человечески — как на вкладке: «Зал», а не «Официанты»
+function kbDeptLabel(d) {
+  const tab = KB_DEPT_TABS.find(x => x.dept === d);
+  return tab ? t(tab.key) : d;
+}
+
 function kbArticleDepts(a) { return Array.isArray(a.depts) ? a.depts.filter(Boolean) : []; }
 
 function kbTabArticles(tab) {
@@ -443,7 +449,7 @@ function kbDeptsLine(a) {
   if(!canSeeAdminPanel() && !canEditData()) return '';
   const d = Array.isArray(a.depts) ? a.depts.filter(Boolean) : [];
   if(!d.length) return '';
-  return `<div style="font-size:12px;color:var(--gold-dark);margin-top:3px">${escapeHtml(t('kb.forDepts', { list: d.join(', ') }))}</div>`;
+  return `<div style="font-size:12px;color:var(--gold-dark);margin-top:3px">${escapeHtml(t('kb.forDepts', { list: d.map(kbDeptLabel).join(', ') }))}</div>`;
 }
 
 function kbMediaHtml(media) {
@@ -632,7 +638,7 @@ function kbRenderDepts(selected) {
   if(!box) return;
   const sel = new Set(selected || []);
   box.innerHTML = KB_DEPTS.map(d => `<label style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:20px;font-size:13px;cursor:pointer;color:var(--text-primary)">
-      <input type="checkbox" value="${escapeHtml(d)}" ${sel.has(d) ? 'checked' : ''}> ${DEPT_ICONS[d] || ''} ${escapeHtml(d)}</label>`).join('');
+      <input type="checkbox" value="${escapeHtml(d)}" ${sel.has(d) ? 'checked' : ''}> ${DEPT_ICONS[d] || ''} ${escapeHtml(kbDeptLabel(d))}</label>`).join('');
 }
 
 function kbCheckedDepts() {
