@@ -254,3 +254,20 @@ test('пункт с несколькими фото и пояснением', as
   expect(r.plainText, 'в обычной статье список с тире пропал').toContain('- лёд');
   expect(r.plainClickable).toBe(0);
 });
+
+test('строка пояснения с двоеточием — подзаголовок, а не пункт', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.kbOpenItem === 'function');
+  const r = await page.evaluate(() => {
+    kbCurrentArticle = {
+      title: 'Открытие', media: [{ type: 'image', url: 'a.jpg' }],
+      content: '10. Стейшен заполнен [фото 1]\n- Комплектация (минимум):\n- Вилки 15\n- Ножи 15',
+    };
+    kbOpenItem(0);
+    const rows = [...document.getElementById('kb-media-content').querySelectorAll('div > div')].map((d) => d.innerText.replace(/\s+/g, ' ').trim());
+    return rows;
+  });
+  expect(r).toContain('Комплектация (минимум)');
+  expect(r).toContain('• Вилки 15');
+  expect(r.some((x) => x.startsWith('•') && x.includes('Комплектация')), 'подзаголовок показан пунктом').toBe(false);
+});

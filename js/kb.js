@@ -463,7 +463,11 @@ function kbOpenItem(li) {
   const files = refs.map(i => media[i].type === 'video'
     ? `<video src="${escapeHtml(media[i].url)}" controls${autoplay} playsinline preload="metadata" style="width:100%;border-radius:12px;background:#000"></video>`
     : `<img src="${escapeHtml(media[i].url)}" loading="lazy" style="width:100%;border-radius:12px">`).join('');
-  const detail = item.detail.filter(Boolean).map(d => `<div style="display:flex;gap:8px"><span style="color:var(--gold-dark)">•</span><span>${escapeHtml(d)}</span></div>`).join('');
+  // Строка с двоеточием на конце — подзаголовок («Комплектация (минимум):»),
+  // а не очередной пункт: без точки и жирным, с отступом сверху
+  const detail = item.detail.filter(Boolean).map((d, k) => /:\s*$/.test(d)
+    ? `<div style="font-weight:700;margin-top:${k ? 10 : 0}px">${escapeHtml(d.replace(/:\s*$/, ''))}</div>`
+    : `<div style="display:flex;gap:8px"><span style="color:var(--gold-dark)">•</span><span>${escapeHtml(d)}</span></div>`).join('');
   document.getElementById('kb-media-title').textContent = kbStripRefs(item.text).trim() || a.title || '';
   document.getElementById('kb-media-content').innerHTML =
     `<div style="display:flex;flex-direction:column;gap:10px">${files}</div>` +
