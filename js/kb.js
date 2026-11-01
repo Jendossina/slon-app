@@ -101,14 +101,15 @@ async function runKbSearch(q) {
       results.map(a=>{
         const book = bookMap[a.book_id] || {};
         // короткий фрагмент вокруг найденного слова
-        const lc = (a.content||'').toLowerCase();
+        const body = kbStripRefs(a.content);
+        const lc = body.toLowerCase();
         const pos = lc.indexOf(q);
         let snippet = '';
         if(pos>=0) {
           const start = Math.max(0, pos-40);
-          snippet = (start>0?'…':'') + (a.content||'').slice(start, pos+q.length+60) + '…';
+          snippet = (start>0?'…':'') + body.slice(start, pos+q.length+60) + '…';
         } else {
-          snippet = (a.content||'').slice(0,100);
+          snippet = body.slice(0,100);
         }
         return `<div class="card" style="cursor:pointer" onclick="openKbArticle(${a.id})">
           <div style="font-size:11px;color:var(--gold-dark);margin-bottom:2px">${book.icon||'📖'} ${escapeHtml(book.title||'')}</div>
@@ -147,7 +148,7 @@ async function openKbBook(bookId) {
       html += articles.map(a=>`
         <div class="card" style="cursor:pointer" onclick="openKbArticle(${a.id})">
           <div style="font-size:15px;font-weight:600;color:var(--text-primary)">${kbMediaBadge(a)}${escapeHtml(a.title)}</div>${kbDeptsLine(a)}
-          <div style="font-size:13px;color:var(--text-muted);margin-top:4px">${escapeHtml((a.content||'').slice(0,80))}${(a.content||'').length>80?'…':''}</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:4px">${escapeHtml(kbStripRefs(a.content).slice(0,80))}${kbStripRefs(a.content).length>80?'…':''}</div>
         </div>`).join('');
     }
     content.innerHTML = html;
@@ -174,8 +175,9 @@ async function openKbArticle(articleId) {
     if(kbCanEdit()) html += ` <button onclick="openKbArticleModal(${a.book_id}, ${a.id})" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${t('kb.edit')}</button>`;
     html += `</div>`;
     html += `<div class="card"><div style="font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:12px">${escapeHtml(a.title)}</div>${kbDeptsLine(a)}
-      ${kbMediaHtml(a.media)}
-      <div style="font-size:15px;color:var(--text-primary);line-height:1.7;white-space:pre-wrap">${escapeHtml(a.content||'')}</div></div>`;
+      ${kbMediaHtml(kbUnreferencedMedia(a))}
+      ${kbContentHtml(a)}</div>`;
+    kbCurrentArticle = a;
     content.innerHTML = html;
   } catch(e) { content.innerHTML = `<div class="card"><div class="empty"><div class="empty-text">${t('kb.loadErr')}</div></div></div>`; }
 }
@@ -241,7 +243,9 @@ function openKbArticleModal(bookId, articleId) {
   document.getElementById('kb-article-book-id').value = bookId || '';
   document.getElementById('kb-article-id').value = articleId || '';
   const delBtn = document.getElementById('kb-article-delete-btn');
-  kbEditMedia = []; kbRemovedMedia = [];
+  kbEditMedia = []; kbRemovedMedia = []; kbLastCaret = null;
+  const ta = document.getElementById('kb-article-content');
+  if(ta) ta.onblur = () => { kbLastCaret = ta.selectionStart; };
   kbRenderEditMedia(); kbRenderDepts([]);
   kbSetProgress('');
   if(articleId) {
@@ -386,9 +390,87 @@ function kbAddMedia(input) {
   kbRenderEditMedia();
 }
 
+// ===== Пункт стандарта открывает своё видео или фото =====
+// В тексте стоит метка «[видео 2]» / «[фото 3]» — номер файла в списке
+// вложений статьи. Строка с меткой становится кликабельной: тап по пункту
+// «Столы протёрты…» открывает ролик, как раньше ссылка на пост в Telegram.
+// Номер, а не скрытый id — чтобы метку можно было прочитать и поправить
+// руками прямо в тексте.
+const KB_REF_RE = /\[(?:видео|фото|video|photo|расм)\s*(\d+)\]/gi;
+
+function kbMediaRefs(text) {
+  const out = [];
+  String(text || '').replace(KB_REF_RE, (_, n) => { out.push(parseInt(n, 10) - 1); return ''; });
+  return out;
+}
+
+// Файлы без метки в тексте показываем над текстом, как раньше
+function kbUnreferencedMedia(a) {
+  const arr = Array.isArray(a.media) ? a.media : [];
+  const used = new Set(kbMediaRefs(a.content));
+  return arr.filter((m, i) => !used.has(i));
+}
+
+// Для превью в списке и поиске: метки там ни к чему
+function kbStripRefs(text) {
+  return String(text || '').replace(KB_REF_RE, '').replace(/[ \t]+$/gm, '');
+}
+
+let kbCurrentArticle = null;
+
+function kbOpenMedia(i) {
+  const m = (kbCurrentArticle?.media || [])[i];
+  if(m) viewReport(m.url, m.type === 'video' ? 'video' : 'image');
+}
+
+function kbContentHtml(a) {
+  const media = Array.isArray(a.media) ? a.media : [];
+  const lines = String(a.content || '').split('\n');
+  const html = lines.map(line => {
+    const refs = kbMediaRefs(line).filter(i => media[i]);
+    const text = escapeHtml(line.replace(KB_REF_RE, '').replace(/\s+$/, ''));
+    if(!refs.length) return `<div style="min-height:1.7em">${text}</div>`;
+    const icons = refs.map(i => `<span onclick="event.stopPropagation();kbOpenMedia(${i})" style="display:inline-block;margin-left:6px;padding:0 8px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);font-size:14px;line-height:1.6">${media[i].type === 'video' ? '🎥' : '📷'}</span>`).join('');
+    return `<div class="kb-ref-line" onclick="kbOpenMedia(${refs[0]})" style="cursor:pointer;color:var(--gold-dark);text-decoration:underline;text-decoration-color:rgba(127,127,127,.4);text-underline-offset:3px">${text}${icons}</div>`;
+  }).join('');
+  return `<div style="font-size:15px;color:var(--text-primary);line-height:1.7;white-space:pre-wrap">${html}</div>`;
+}
+
+// Кнопка «в текст»: метка встаёт в конец строки, где стоял курсор, — то есть
+// в конец пункта. Курсор запоминаем при уходе из поля: на телефоне нажатие
+// кнопки уводит фокус раньше, чем она сработает.
+let kbLastCaret = null;
+
+function kbInsertMediaRef(i) {
+  const ta = document.getElementById('kb-article-content');
+  const m = kbEditMedia[i];
+  if(!ta || !m) return;
+  const tag = `[${m.type === 'video' ? 'видео' : 'фото'} ${i + 1}]`;
+  const caret = document.activeElement === ta ? ta.selectionStart : kbLastCaret;
+  let at = typeof caret === 'number' ? caret : ta.value.length;
+  const eol = ta.value.indexOf('\n', at);
+  at = eol < 0 ? ta.value.length : eol;
+  const before = ta.value.slice(0, at).replace(/[ \t]+$/, ''), after = ta.value.slice(at);
+  ta.value = before + (before ? ' ' : '') + tag + after;
+  kbLastCaret = (before + (before ? ' ' : '') + tag).length;
+  ta.focus();
+  try { ta.setSelectionRange(kbLastCaret, kbLastCaret); } catch(e) {}
+}
+
+// Убрали файл — метки на него из текста уходят, а номера следующих сдвигаются,
+// иначе «[видео 3]» стала бы показывать чужой ролик.
 function kbRemoveMedia(i) {
   const [m] = kbEditMedia.splice(i, 1);
   if(m && !m.file) kbRemovedMedia.push(m);
+  const ta = document.getElementById('kb-article-content');
+  if(ta) {
+    ta.value = ta.value.replace(/[ \t]?\[(видео|фото|video|photo|расм)\s*(\d+)\]/gi, (all, word, n) => {
+      const k = parseInt(n, 10) - 1;
+      if(k === i) return '';
+      if(k > i) return all.replace(/\d+/, String(k));
+      return all;
+    });
+  }
   kbRenderEditMedia();
 }
 
@@ -398,12 +480,15 @@ function kbRenderEditMedia() {
   box.innerHTML = kbEditMedia.map((m, i) => {
     const name = m.file ? (m.file.name || '') : (m.path || '').split('/').pop();
     const size = m.file ? ` · ${(m.file.size / 1048576).toFixed(1)} МБ · ${t('kb.mediaNew')}` : '';
+    // mousedown гасим, чтобы textarea не теряла курсор до нажатия «в текст»
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:6px;border:1px solid var(--border);border-radius:10px;font-size:13px">
+      <span style="font-weight:700;color:var(--text-muted)">${i + 1}</span>
       <span>${m.type === 'video' ? '🎥' : '🖼'}</span>
       <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary)">${escapeHtml(name)}<span style="color:var(--text-muted)">${size}</span></span>
+      <button type="button" onmousedown="event.preventDefault()" onclick="kbInsertMediaRef(${i})" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--gold-dark);font-size:12px;font-weight:600;cursor:pointer;padding:3px 8px">${t('kb.mediaToText')}</button>
       <button type="button" onclick="kbRemoveMedia(${i})" style="background:none;border:none;color:#A32D2D;font-size:12px;font-weight:600;cursor:pointer">${t('kb.mediaRemove')}</button>
     </div>`;
-  }).join('');
+  }).join('') + (kbEditMedia.length ? `<div style="font-size:12px;color:var(--text-muted);margin:2px 0 8px">${t('kb.mediaToTextHint')}</div>` : '');
 }
 
 function kbRenderDepts(selected) {

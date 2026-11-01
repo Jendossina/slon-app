@@ -131,3 +131,74 @@ test('стандарт без отмеченных отделов виден в�
   expect(saved.depts, 'пустой выбор должен значить «всем»').toBe(null);
   expect(saved.media).toEqual([]);
 });
+
+// Пункт стандарта с меткой «[видео N]» кликабелен и открывает свой файл —
+// как раньше ссылка на пост в Telegram (пример владельца, 01.11.2026).
+test('пункт стандарта открывает своё видео или фото', async ({ page }) => {
+  const article = {
+    id: 7, book_id: 4, title: 'Открытие зала',
+    content: '1. Свет во всех зонах включён.\n6. Столы протёрты с моющим средством. [видео 1]\n7. Менажные наборы чистые [фото 2]',
+    media: [
+      { type: 'video', url: 'https://x/kb/stol.mp4', path: 'kb/stol.mp4' },
+      { type: 'image', url: 'https://x/kb/menazh.jpg', path: 'kb/menazh.jpg' },
+      { type: 'image', url: 'https://x/kb/obshee.jpg', path: 'kb/obshee.jpg' },
+    ],
+    depts: ['Официанты'],
+  };
+  await page.route('**/rest/v1/kb_articles**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(article) }));
+  await page.route('**/rest/v1/kb_books**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 4, title: 'Стандарты', edit_role: 'admin' }) }));
+  await page.route('**/rest/v1/**', (route) => route.fallback ? route.fallback() : route.continue());
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.openKbArticle === 'function');
+
+  const r = await page.evaluate(async () => {
+    currentUser = { id: 'u1' };
+    currentProfile = { name: 'Тест', employee_id: 1, role: 'employee' };
+    await openKbArticle(7);
+    const lines = [...document.querySelectorAll('#kb-content .kb-ref-line')];
+    const opened = [];
+    window.viewReport = (url, type) => opened.push(type + ' ' + url);
+    lines.forEach((l) => l.click());
+    const text = document.getElementById('kb-content').innerText;
+    const topMedia = [...document.querySelectorAll('#kb-content img, #kb-content video')].map((e) => e.getAttribute('src'));
+    return { n: lines.length, first: lines[0] && lines[0].innerText, opened, hasRawTag: /\[(видео|фото)/.test(text), topMedia };
+  });
+
+  expect(r.n, 'кликабельных пунктов должно быть два').toBe(2);
+  expect(r.first, 'кликабелен не тот пункт').toContain('Столы протёрты');
+  expect(r.opened).toEqual(['video https://x/kb/stol.mp4', 'image https://x/kb/menazh.jpg']);
+  expect(r.hasRawTag, 'метка «[видео 1]» видна сотруднику как текст').toBe(false);
+  expect(r.topMedia, 'над текстом — только файл без метки').toEqual(['https://x/kb/obshee.jpg']);
+});
+
+test('метка встаёт в конец пункта, а при удалении файла номера сдвигаются', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.kbInsertMediaRef === 'function');
+
+  const r = await page.evaluate(() => {
+    currentUser = { id: 'u1' };
+    currentProfile = { name: 'Тест', employee_id: 1, role: 'admin' };
+    openKbArticleModal(4);
+    const ta = document.getElementById('kb-article-content');
+    ta.value = '1. Свет включён.\n2. Столы протёрты.\n3. Менажки чистые.';
+    kbEditMedia = [
+      { type: 'video', url: 'u1', path: 'kb/1.mp4' },
+      { type: 'video', url: 'u2', path: 'kb/2.mp4' },
+      { type: 'image', url: 'u3', path: 'kb/3.jpg' },
+    ];
+    kbRenderEditMedia();
+    // курсор посреди второго пункта, потом фокус уходит на кнопку
+    ta.focus(); ta.setSelectionRange(22, 22); ta.blur();
+    kbInsertMediaRef(1);
+    ta.focus(); ta.setSelectionRange(ta.value.length - 3, ta.value.length - 3); ta.blur();
+    kbInsertMediaRef(2);
+    const inserted = ta.value;
+    kbRemoveMedia(0);   // первый ролик убрали: [видео 2] → [видео 1], [фото 3] → [фото 2]
+    return { inserted, after: ta.value, left: kbEditMedia.map((m) => m.url) };
+  });
+
+  expect(r.inserted).toBe('1. Свет включён.\n2. Столы протёрты. [видео 2]\n3. Менажки чистые. [фото 3]');
+  expect(r.after).toBe('1. Свет включён.\n2. Столы протёрты. [видео 1]\n3. Менажки чистые. [фото 2]');
+  expect(r.left).toEqual(['u2', 'u3']);
+});
