@@ -669,7 +669,7 @@ async function flushPendingCheckinVideo() {
       // Файл на месте, не хватало только ссылки
       await sb.from('attendance').update({ checkin_video: p.url }).eq('id', p.recordId);
       const { data: after } = await sb.from('attendance').select('checkin_video').eq('id', p.recordId).single();
-      if(after?.checkin_video) { await markCheckinFailureRecovered(p.recordId); forgetPendingVideo(); }
+      if(after?.checkin_video) forgetPendingVideo();
       return;
     }
     // Файла нет — значит в прошлый раз он не долетел. Раньше ролик на этом
@@ -680,7 +680,7 @@ async function flushPendingCheckinVideo() {
     let file;
     try { file = new File([kept.blob], kept.name, { type: kept.type }); }
     catch(e) { file = kept.blob; }
-    if(await attachCheckinVideo(p.recordId, file)) await markCheckinFailureRecovered(p.recordId);
+    await attachCheckinVideo(p.recordId, file);
   } catch(e) { /* нет связи — попробуем в следующий раз */ }
   finally { pendingFlushing = false; }
 }
@@ -743,7 +743,6 @@ async function attachCheckinVideo(recordId, videoFile) {
       setCheckInStatus(t('att.videoLater'), 'bad');
       return false;
     }
-    if(tries > 1) await markCheckinFailureRecovered(recordId);
     forgetPendingVideo();
     setCheckInStatus('');
     return true;
@@ -774,15 +773,9 @@ async function logCheckinFailure(info) {
   } catch(e) { /* журнал не должен мешать отметке */ }
 }
 
-// Ролик всё-таки долетел — закрываем записи. Иначе по журналу не отличить
-// «потеряли навсегда» от «ушло со второй попытки», а разница в этом и есть.
-async function markCheckinFailureRecovered(recordId) {
-  try {
-    await sb.from('checkin_video_failures')
-      .update({ recovered_at: new Date().toISOString() })
-      .eq('attendance_id', recordId).is('recovered_at', null);
-  } catch(e) { /* не смертельно */ }
-}
+// Что ролик всё-таки долетел, журнал отмечает сама база — триггером на
+// attendance (миграция 2026-11-01). С телефона это не получалось: журнал
+// сотруднику не виден, и UPDATE молча задевал ноль строк.
 
 async function sendResendVideo(recordId, file) {
   checkinVideoPending = true;
