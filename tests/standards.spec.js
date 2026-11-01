@@ -157,8 +157,12 @@ test('пункт стандарта открывает своё видео ил�
     await openKbArticle(7);
     const lines = [...document.querySelectorAll('#kb-content .kb-ref-line')];
     const opened = [];
-    window.viewReport = (url, type) => opened.push(type + ' ' + url);
-    lines.forEach((l) => l.click());
+    lines.forEach((l) => {
+      l.click();
+      const box = document.getElementById('kb-media-content');
+      const el = box.querySelector('video, img');
+      opened.push((el.tagName === 'VIDEO' ? 'video ' : 'image ') + el.getAttribute('src') + ' | ' + document.getElementById('kb-media-title').textContent);
+    });
     const text = document.getElementById('kb-content').innerText;
     const topMedia = [...document.querySelectorAll('#kb-content img, #kb-content video')].map((e) => e.getAttribute('src'));
     return { n: lines.length, first: lines[0] && lines[0].innerText, opened, hasRawTag: /\[(видео|фото)/.test(text), topMedia };
@@ -166,7 +170,11 @@ test('пункт стандарта открывает своё видео ил�
 
   expect(r.n, 'кликабельных пунктов должно быть два').toBe(2);
   expect(r.first, 'кликабелен не тот пункт').toContain('Столы протёрты');
-  expect(r.opened).toEqual(['video https://x/kb/stol.mp4', 'image https://x/kb/menazh.jpg']);
+  // В заголовке окна — сам пункт, а не «Отчёт сотрудника»
+  expect(r.opened).toEqual([
+    'video https://x/kb/stol.mp4 | 6. Столы протёрты с моющим средством.',
+    'image https://x/kb/menazh.jpg | 7. Менажные наборы чистые',
+  ]);
   expect(r.hasRawTag, 'метка «[видео 1]» видна сотруднику как текст').toBe(false);
   expect(r.topMedia, 'над текстом — только файл без метки').toEqual(['https://x/kb/obshee.jpg']);
 });

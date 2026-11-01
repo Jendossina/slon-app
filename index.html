@@ -1673,6 +1673,15 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </div>
 </div>
 
+<!-- Видео/фото стандарта: своё окно, общее «Отчёт сотрудника» тут не к месту -->
+<div class="modal-overlay" id="modal-kb-media">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-kb-media')">✕</button>
+    <div class="modal-title" id="kb-media-title" style="padding-right:28px;line-height:1.35"></div>
+    <div id="kb-media-content"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-view-report">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-view-report')">✕</button>

@@ -820,7 +820,12 @@ function showToast(msg) {
   setTimeout(()=>t.classList.remove('show'), 2500);
 }
 function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+// Видео в закрытом окне иначе продолжает играть — звук идёт из ниоткуда
+function closeModal(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('open');
+  el.querySelectorAll('video').forEach(v => { try { v.pause(); } catch(e) {} });
+}
 
 // ===== Почему ИИ не ответил =====
 // Коды приходят одинаковые от всех трёх функций (read-receipt, read-hookah,

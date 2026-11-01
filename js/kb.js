@@ -379,7 +379,7 @@ function kbMediaHtml(media) {
   return `<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">` + arr.map(m =>
     m.type === 'video'
       ? `<video src="${escapeHtml(m.url)}" controls playsinline preload="metadata" style="width:100%;border-radius:12px;background:#000"></video>`
-      : `<img src="${escapeHtml(m.url)}" loading="lazy" decoding="async" style="width:100%;border-radius:12px;cursor:pointer" onclick="viewReport('${escJsAttr(m.url)}','image')">`
+      : `<img src="${escapeHtml(m.url)}" loading="lazy" decoding="async" style="width:100%;border-radius:12px;cursor:pointer" onclick="kbShowMedia('${escJsAttr(m.url)}','image',kbCurrentArticle?.title)">`
   ).join('') + `</div>`;
 }
 
@@ -418,20 +418,33 @@ function kbStripRefs(text) {
 
 let kbCurrentArticle = null;
 
-function kbOpenMedia(i) {
+// Заголовок окна — сам пункт («6. Столы протёрты…»), а не общее «Отчёт
+// сотрудника»: окно просмотра отчётов здесь не подходит по смыслу.
+function kbOpenMedia(i, line) {
   const m = (kbCurrentArticle?.media || [])[i];
-  if(m) viewReport(m.url, m.type === 'video' ? 'video' : 'image');
+  if(!m) return;
+  const lines = String(kbCurrentArticle?.content || '').split('\n');
+  const title = (typeof line === 'number' ? kbStripRefs(lines[line] || '').trim() : '') || kbCurrentArticle?.title || '';
+  kbShowMedia(m.url, m.type, title);
+}
+
+function kbShowMedia(url, type, title) {
+  document.getElementById('kb-media-title').textContent = title || '';
+  document.getElementById('kb-media-content').innerHTML = type === 'video'
+    ? `<video src="${escapeHtml(url)}" controls autoplay playsinline style="width:100%;border-radius:12px;background:#000"></video>`
+    : `<img src="${escapeHtml(url)}" style="width:100%;border-radius:12px">`;
+  openModal('modal-kb-media');
 }
 
 function kbContentHtml(a) {
   const media = Array.isArray(a.media) ? a.media : [];
   const lines = String(a.content || '').split('\n');
-  const html = lines.map(line => {
+  const html = lines.map((line, li) => {
     const refs = kbMediaRefs(line).filter(i => media[i]);
     const text = escapeHtml(line.replace(KB_REF_RE, '').replace(/\s+$/, ''));
     if(!refs.length) return `<div style="min-height:1.7em">${text}</div>`;
-    const icons = refs.map(i => `<span onclick="event.stopPropagation();kbOpenMedia(${i})" style="display:inline-block;margin-left:6px;padding:0 8px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);font-size:14px;line-height:1.6">${media[i].type === 'video' ? '🎥' : '📷'}</span>`).join('');
-    return `<div class="kb-ref-line" onclick="kbOpenMedia(${refs[0]})" style="cursor:pointer;color:var(--gold-dark);text-decoration:underline;text-decoration-color:rgba(127,127,127,.4);text-underline-offset:3px">${text}${icons}</div>`;
+    const icons = refs.map(i => `<span onclick="event.stopPropagation();kbOpenMedia(${i}, ${li})" style="display:inline-block;margin-left:6px;padding:0 8px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);font-size:14px;line-height:1.6">${media[i].type === 'video' ? '🎥' : '📷'}</span>`).join('');
+    return `<div class="kb-ref-line" onclick="kbOpenMedia(${refs[0]}, ${li})" style="cursor:pointer;color:var(--gold-dark);text-decoration:underline;text-decoration-color:rgba(127,127,127,.4);text-underline-offset:3px">${text}${icons}</div>`;
   }).join('');
   return `<div style="font-size:15px;color:var(--text-primary);line-height:1.7;white-space:pre-wrap">${html}</div>`;
 }
