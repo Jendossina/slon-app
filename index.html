@@ -1544,7 +1544,17 @@ body.boss-readonly [data-edit-only] { display: none !important; }
     <div class="form-group"><label class="form-label" for="kb-article-content" data-i18n="kb.articleContentLabel">Текст</label>
       <textarea class="form-input" id="kb-article-content" placeholder="Содержание статьи..." style="min-height:200px;resize:vertical;font-family:inherit;line-height:1.6"></textarea>
     </div>
-    <button class="btn btn-primary" onclick="saveKbArticle()" data-i18n="common.save">Сохранить</button>
+    <div class="form-group"><label class="form-label" data-i18n="kb.mediaLabel">Видео и фото</label>
+      <div id="kb-article-media"></div>
+      <input type="file" id="kb-article-file" accept="video/*,image/*" multiple style="display:none" onchange="kbAddMedia(this)">
+      <button class="btn btn-secondary" type="button" onclick="document.getElementById('kb-article-file').click()" data-i18n="kb.addMedia">📎 Добавить видео или фото</button>
+    </div>
+    <div class="form-group"><label class="form-label" data-i18n="kb.deptsLabel">Кому видна</label>
+      <div id="kb-article-depts" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:6px" data-i18n="kb.deptsHint">Ничего не отмечено — видят все. Руководство видит всё.</div>
+    </div>
+    <div id="kb-article-progress" style="display:none;font-size:13px;color:var(--gold-dark);margin-bottom:8px;line-height:1.5"></div>
+    <button class="btn btn-primary" id="kb-article-save-btn" onclick="saveKbArticle()" data-i18n="common.save">Сохранить</button>
     <button class="btn btn-secondary" id="kb-article-delete-btn" onclick="deleteKbArticle()" style="display:none;margin-top:8px;background:#FCEBEB;color:#A32D2D" data-i18n="common.delete">Удалить статью</button>
   </div>
 </div>

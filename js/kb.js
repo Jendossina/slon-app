@@ -146,7 +146,7 @@ async function openKbBook(bookId) {
     } else {
       html += articles.map(a=>`
         <div class="card" style="cursor:pointer" onclick="openKbArticle(${a.id})">
-          <div style="font-size:15px;font-weight:600;color:var(--text-primary)">${escapeHtml(a.title)}</div>
+          <div style="font-size:15px;font-weight:600;color:var(--text-primary)">${kbMediaBadge(a)}${escapeHtml(a.title)}</div>${kbDeptsLine(a)}
           <div style="font-size:13px;color:var(--text-muted);margin-top:4px">${escapeHtml((a.content||'').slice(0,80))}${(a.content||'').length>80?'…':''}</div>
         </div>`).join('');
     }
@@ -173,7 +173,8 @@ async function openKbArticle(articleId) {
     let html = `<div style="margin-bottom:12px"><button onclick="openKbBook(${a.book_id})" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${t('kb.back')}</button>`;
     if(kbCanEdit()) html += ` <button onclick="openKbArticleModal(${a.book_id}, ${a.id})" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${t('kb.edit')}</button>`;
     html += `</div>`;
-    html += `<div class="card"><div style="font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:12px">${escapeHtml(a.title)}</div>
+    html += `<div class="card"><div style="font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:12px">${escapeHtml(a.title)}</div>${kbDeptsLine(a)}
+      ${kbMediaHtml(a.media)}
       <div style="font-size:15px;color:var(--text-primary);line-height:1.7;white-space:pre-wrap">${escapeHtml(a.content||'')}</div></div>`;
     content.innerHTML = html;
   } catch(e) { content.innerHTML = `<div class="card"><div class="empty"><div class="empty-text">${t('kb.loadErr')}</div></div></div>`; }
@@ -240,12 +241,17 @@ function openKbArticleModal(bookId, articleId) {
   document.getElementById('kb-article-book-id').value = bookId || '';
   document.getElementById('kb-article-id').value = articleId || '';
   const delBtn = document.getElementById('kb-article-delete-btn');
+  kbEditMedia = []; kbRemovedMedia = [];
+  kbRenderEditMedia(); kbRenderDepts([]);
+  kbSetProgress('');
   if(articleId) {
     document.getElementById('kb-article-modal-title').textContent = t('kb.editArticleTitle');
     delBtn.style.display = 'block';
     sb.from('kb_articles').select('*').eq('id', articleId).single().then(({data})=>{
       document.getElementById('kb-article-title').value = data?.title || '';
       document.getElementById('kb-article-content').value = data?.content || '';
+      kbEditMedia = Array.isArray(data?.media) ? data.media.slice() : [];
+      kbRenderEditMedia(); kbRenderDepts(data?.depts || []);
     });
   } else {
     document.getElementById('kb-article-modal-title').textContent = t('kb.newArticle');
@@ -256,23 +262,50 @@ function openKbArticleModal(bookId, articleId) {
   openModal('modal-kb-article');
 }
 
+// Одна отправка за раз: сжатие видео идёт минутами, и второе нажатие
+// положило бы второй комплект роликов.
+let kbSaveBusy = false;
+
 async function saveKbArticle() {
   if(!kbCanEdit()) return showToast(t('common.observerMode'));
+  if(kbSaveBusy) return;
   const id = document.getElementById('kb-article-id').value;
   const bookId = document.getElementById('kb-article-book-id').value;
   const title = document.getElementById('kb-article-title').value.trim();
   const contentText = document.getElementById('kb-article-content').value;
   if(!title) return showToast(t('feed.enterTitle'));
+  // Звук ролика забираем через AudioContext, а браузер даёт его завести только
+  // прямо в нажатии — до первого await, иначе пережатое видео выйдет немым.
+  const ac = kbEditMedia.some(m => m.file && kbIsVideo(m.file)) ? kbAudioContext() : null;
+  const saveBtn = document.getElementById('kb-article-save-btn');
+  kbSaveBusy = true;
+  if(saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.55'; }
   try {
+    const media = await kbUploadPendingMedia(ac);
+    if(!media) return;                                  // ошибку уже показали
+    const depts = kbCheckedDepts();
+    const row = { title, content: contentText, media, depts: depts.length ? depts : null };
+    let error;
     if(id) {
-      await sb.from('kb_articles').update({title, content: contentText, updated_at: new Date().toISOString()}).eq('id', id);
+      ({ error } = await sb.from('kb_articles').update(Object.assign(row, { updated_at: new Date().toISOString() })).eq('id', id));
     } else {
-      await sb.from('kb_articles').insert({book_id: parseInt(bookId), title, content: contentText});
+      ({ error } = await sb.from('kb_articles').insert(Object.assign(row, { book_id: parseInt(bookId) })));
     }
+    if(error) throw error;
+    // Убранные из статьи файлы — из хранилища тоже: видео стандартов уборка не трогает
+    const gone = kbRemovedMedia.map(m => m.path).filter(Boolean);
+    if(gone.length) sb.storage.from('task-reports').remove(gone).catch(() => {});
+    kbEditMedia = []; kbRemovedMedia = [];
     closeModal('modal-kb-article');
     showToast(t('sch.saved'));
     openKbBook(parseInt(bookId));
   } catch(e) { showToast(t('common.error')+e.message); }
+  finally {
+    kbSaveBusy = false;
+    kbSetProgress('');
+    if(saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = ''; }
+    if(ac) ac.close().catch(() => {});
+  }
 }
 
 async function deleteKbArticle() {
@@ -282,10 +315,249 @@ async function deleteKbArticle() {
   if(!id) return;
   if(!await confirmDialog(t('kb.delArticleConfirm'))) return;
   try {
+    // Видео и фото статьи уборка не трогает (kb/) — убираем их сами
+    const { data: old } = await sb.from('kb_articles').select('media').eq('id', id).single();
     await sb.from('kb_articles').delete().eq('id', id);
+    const gone = (Array.isArray(old?.media) ? old.media : []).map(m => m.path).filter(Boolean);
+    if(gone.length) sb.storage.from('task-reports').remove(gone).catch(() => {});
     closeModal('modal-kb-article');
     showToast(t('kb.articleDeleted'));
     openKbBook(parseInt(bookId));
   } catch(e) { showToast(t('common.error')+e.message); }
 }
 
+
+// ===== Видео и фото к статье (стандарты, 01.11.2026) =====
+// Стандарт — это «как протереть стол», «как выглядит менажный набор»: видео
+// и пара фото «как должно быть». Ролики живут у нас в хранилище под kb/ (их
+// не трогает уборка через 14 дней), поэтому перед загрузкой их пережимаем:
+// 960 px по длинной стороне и ~0,7 Мбит/с — около 5 МБ на минуту вместо
+// 20-30 у ролика из Telegram, а на экране телефона разницы не видно.
+const KB_VIDEO_SIDE = 960;
+const KB_VIDEO_BITRATE = 700000;
+const KB_AUDIO_BITRATE = 64000;
+// Больше 50 МБ хранилище на бесплатном тарифе не принимает одним файлом
+const KB_MAX_UPLOAD_MB = 50;
+// Отделы, которым можно адресовать стандарт
+const KB_DEPTS = ['Официанты', 'Бармены', 'Кальянные мастера', 'Повара', 'Менеджеры'];
+
+let kbEditMedia = [];     // что сейчас в статье: {type,url,path} или {type,file} — ещё не загружено
+let kbRemovedMedia = [];  // убранное при правке — удалить из хранилища после сохранения
+
+function kbIsVideo(f) { return !!(f && f.type && f.type.startsWith('video')); }
+
+function kbAudioContext() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC) return null;
+  try { const ac = new AC(); if(ac.resume) ac.resume().catch(() => {}); return ac; }
+  catch(e) { return null; }
+}
+
+function kbMediaBadge(a) {
+  const m = Array.isArray(a.media) ? a.media : [];
+  if(m.some(x => x.type === 'video')) return '🎥 ';
+  if(m.length) return '🖼 ';
+  return '';
+}
+
+// Кому адресован стандарт — видно только руководству: рядовой и так видит
+// лишь своё, ему эта строка ничего не скажет.
+function kbDeptsLine(a) {
+  if(!canSeeAdminPanel() && !canEditData()) return '';
+  const d = Array.isArray(a.depts) ? a.depts.filter(Boolean) : [];
+  if(!d.length) return '';
+  return `<div style="font-size:12px;color:var(--gold-dark);margin-top:3px">${escapeHtml(t('kb.forDepts', { list: d.join(', ') }))}</div>`;
+}
+
+function kbMediaHtml(media) {
+  const arr = Array.isArray(media) ? media : [];
+  if(!arr.length) return '';
+  return `<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">` + arr.map(m =>
+    m.type === 'video'
+      ? `<video src="${escapeHtml(m.url)}" controls playsinline preload="metadata" style="width:100%;border-radius:12px;background:#000"></video>`
+      : `<img src="${escapeHtml(m.url)}" loading="lazy" decoding="async" style="width:100%;border-radius:12px;cursor:pointer" onclick="viewReport('${escJsAttr(m.url)}','image')">`
+  ).join('') + `</div>`;
+}
+
+function kbAddMedia(input) {
+  const files = Array.from(input.files || []).filter(f => f.type && (f.type.startsWith('video') || f.type.startsWith('image')));
+  input.value = '';
+  files.forEach(f => kbEditMedia.push({ type: kbIsVideo(f) ? 'video' : 'image', file: f }));
+  kbRenderEditMedia();
+}
+
+function kbRemoveMedia(i) {
+  const [m] = kbEditMedia.splice(i, 1);
+  if(m && !m.file) kbRemovedMedia.push(m);
+  kbRenderEditMedia();
+}
+
+function kbRenderEditMedia() {
+  const box = document.getElementById('kb-article-media');
+  if(!box) return;
+  box.innerHTML = kbEditMedia.map((m, i) => {
+    const name = m.file ? (m.file.name || '') : (m.path || '').split('/').pop();
+    const size = m.file ? ` · ${(m.file.size / 1048576).toFixed(1)} МБ · ${t('kb.mediaNew')}` : '';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:6px;border:1px solid var(--border);border-radius:10px;font-size:13px">
+      <span>${m.type === 'video' ? '🎥' : '🖼'}</span>
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary)">${escapeHtml(name)}<span style="color:var(--text-muted)">${size}</span></span>
+      <button type="button" onclick="kbRemoveMedia(${i})" style="background:none;border:none;color:#A32D2D;font-size:12px;font-weight:600;cursor:pointer">${t('kb.mediaRemove')}</button>
+    </div>`;
+  }).join('');
+}
+
+function kbRenderDepts(selected) {
+  const box = document.getElementById('kb-article-depts');
+  if(!box) return;
+  const sel = new Set(selected || []);
+  box.innerHTML = KB_DEPTS.map(d => `<label style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:20px;font-size:13px;cursor:pointer;color:var(--text-primary)">
+      <input type="checkbox" value="${escapeHtml(d)}" ${sel.has(d) ? 'checked' : ''}> ${DEPT_ICONS[d] || ''} ${escapeHtml(d)}</label>`).join('');
+}
+
+function kbCheckedDepts() {
+  return Array.from(document.querySelectorAll('#kb-article-depts input:checked')).map(x => x.value);
+}
+
+function kbSetProgress(msg) {
+  const el = document.getElementById('kb-article-progress');
+  if(!el) return;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+// Сжимает и загружает новое; уже загруженное оставляет как есть. Возвращает
+// итоговый список для записи в статью или null, если что-то не вышло.
+async function kbUploadPendingMedia(ac) {
+  const total = kbEditMedia.filter(m => m.file).length;
+  const out = [];
+  let n = 0;
+  for(const m of kbEditMedia) {
+    if(!m.file) { out.push({ type: m.type, url: m.url, path: m.path }); continue; }
+    n++;
+    let file = m.file;
+    if(m.type === 'video') {
+      kbSetProgress(t('kb.shrinking', { i: n, n: total, p: 0 }));
+      file = await shrinkTrainingVideo(file, ac, p => kbSetProgress(p >= 0
+        ? t('kb.shrinking', { i: n, n: total, p })
+        : t('kb.shrinkingSec', { i: n, n: total, s: -p })));
+      if(file.size > KB_MAX_UPLOAD_MB * 1048576) {
+        showToast(t('kb.tooBig', { name: m.file.name || '', mb: Math.round(file.size / 1048576) }));
+        return null;
+      }
+    } else {
+      file = await compressImage(file, 1600, 0.8);
+    }
+    kbSetProgress(t('kb.uploading', { i: n, n: total }));
+    const ext = m.type === 'video' ? ((file.type || '').includes('webm') ? 'webm' : 'mp4') : 'jpg';
+    const path = `kb/${Date.now()}-${n}.${ext}`;
+    const { error } = await sb.storage.from('task-reports')
+      .upload(path, file, { contentType: file.type || undefined, cacheControl: '31536000' });
+    if(error) { showToast(t('kb.uploadErr') + error.message); return null; }
+    const url = sb.storage.from('task-reports').getPublicUrl(path).data.publicUrl;
+    // Загруженное запоминаем на месте: если дальше что-то упадёт, повторное
+    // сохранение не будет слать этот файл заново
+    delete m.file; m.url = url; m.path = path;
+    out.push({ type: m.type, url, path });
+  }
+  return out;
+}
+
+// Для mp4 просим кодек вместе со звуком: без явного аудиокодека браузер
+// пишет ролик немым. H.264 — чтобы играло и на айфонах (см. pickRecorderMime).
+function pickTrainingMime() {
+  const types = [
+    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+    'video/mp4;codecs=avc1,mp4a.40.2',
+    'video/mp4',
+    'video/webm;codecs=vp8,opus',
+    'video/webm',
+  ];
+  for(const ty of types) { if(MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(ty)) return ty; }
+  return '';
+}
+
+// Пережимает ролик прямо в браузере: проигрывает его в невидимый холст и
+// записывает заново, поэтому идёт столько, сколько длится видео. Не вышло
+// (старый браузер, кодек, звук не захватился) — возвращает оригинал: проверку
+// размера делает вызывающий.
+async function shrinkTrainingVideo(file, ac, onProgress) {
+  if(!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) return file;
+  const url = URL.createObjectURL(file);
+  const video = document.createElement('video');
+  try {
+    video.src = url; video.playsInline = true; video.preload = 'auto';
+    await new Promise((ok, fail) => {
+      video.onloadedmetadata = ok;
+      video.onerror = () => fail(new Error('metadata'));
+      setTimeout(() => fail(new Error('timeout')), 15000);
+    });
+    const w = video.videoWidth || KB_VIDEO_SIDE, h = video.videoHeight || KB_VIDEO_SIDE;
+    const dur = video.duration;
+    // Уже лёгкий ролик пережимать незачем: только потеряем качество и время
+    if(isFinite(dur) && dur > 0 && file.size * 8 / dur <= KB_VIDEO_BITRATE * 1.5 && Math.max(w, h) <= KB_VIDEO_SIDE * 1.2) return file;
+
+    const scale = Math.min(1, KB_VIDEO_SIDE / Math.max(w, h));
+    const canvas = document.createElement('canvas');
+    // чётные стороны: H.264 нечётные не любит
+    canvas.width = Math.max(2, Math.round(w * scale / 2) * 2);
+    canvas.height = Math.max(2, Math.round(h * scale / 2) * 2);
+    const ctx = canvas.getContext('2d');
+    const stream = canvas.captureStream(30);
+    // Звук — через AudioContext: в динамик он не идёт (выход никуда не
+    // подключён), только в запись. Без него голос в обучалке пропал бы.
+    if(!ac) return file;
+    try {
+      const src = ac.createMediaElementSource(video);
+      const dest = ac.createMediaStreamDestination();
+      src.connect(dest);
+      dest.stream.getAudioTracks().forEach(tr => stream.addTrack(tr));
+    } catch(e) { return file; }
+
+    const mime = pickTrainingMime();
+    const opts = { videoBitsPerSecond: KB_VIDEO_BITRATE, audioBitsPerSecond: KB_AUDIO_BITRATE };
+    if(mime) opts.mimeType = mime;
+    const rec = new MediaRecorder(stream, opts);
+    const chunks = [];
+    rec.ondataavailable = ev => { if(ev.data && ev.data.size) chunks.push(ev.data); };
+    const stopped = new Promise(ok => { rec.onstop = ok; });
+    rec.start(1000);
+    try { await video.play(); }
+    catch(e) { rec.stop(); await stopped; return file; }
+
+    // Ждём конца ролика. Если кадры перестали идти (экран погас, вкладку
+    // свернули) дольше 20 секунд — бросаем и отдаём оригинал.
+    const ok = await new Promise(done => {
+      let lastT = -1, lastMove = Date.now(), lastP = -1;
+      const tick = () => {
+        try { ctx.drawImage(video, 0, 0, canvas.width, canvas.height); } catch(e) {}
+        if(video.ended) return done(true);
+        if(video.currentTime !== lastT) { lastT = video.currentTime; lastMove = Date.now(); }
+        else if(Date.now() - lastMove > 20000) return done(false);
+        // Длительность бывает неизвестна (webm из записи экрана) — тогда
+        // показываем пройденные секунды вместо процентов
+        if(onProgress) {
+          const known = isFinite(dur) && dur > 0;
+          const p = known ? Math.min(99, Math.floor(video.currentTime / dur * 100)) : -Math.floor(video.currentTime);
+          if(p !== lastP) { lastP = p; onProgress(p); }
+        }
+        requestAnimationFrame(tick);
+      };
+      tick();
+    });
+    rec.stop();
+    await stopped;
+    if(!ok) return file;
+    const type = (chunks[0] && chunks[0].type) || mime || 'video/webm';
+    const blob = new Blob(chunks, { type });
+    if(!blob.size || blob.size >= file.size) return file;
+    const name = (file.name || 'video').replace(/\.[^.]+$/, '') + (type.includes('mp4') ? '.mp4' : '.webm');
+    try { return new File([blob], name, { type }); }
+    catch(e) { blob.name = name; return blob; }
+  } catch(e) {
+    console.error('shrinkTrainingVideo failed', e);
+    return file;
+  } finally {
+    try { video.pause(); } catch(e) {}
+    URL.revokeObjectURL(url);
+  }
+}
