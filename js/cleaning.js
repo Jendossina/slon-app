@@ -322,9 +322,8 @@ function previewCleaningMedia(input) {
   input.value = '';
   const preview = document.getElementById('cleaning-media-preview');
   if(!cleaningMediaFiles.length) { preview.innerHTML = ''; return; }
-  preview.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px">` + cleaningMediaFiles.map(f =>
-    `<img src="${URL.createObjectURL(f)}" style="width:90px;height:90px;border-radius:10px;object-fit:cover">`).join('') +
-    `</div><div style="font-size:12px;color:var(--text-muted);margin-top:8px">${t('cl.photoChosen', { n: cleaningMediaFiles.length })}</div>`;
+  preview.innerHTML = `<div style="font-size:12px;color:var(--text-muted);margin-top:8px">${t('cl.photoChosen', { n: cleaningMediaFiles.length })}</div>`;
+  renderMediaThumbs(preview, cleaningMediaFiles);   // маленькие превью — см. core.js
 }
 
 // Одна отправка за раз — ровно та же история, что в чек-листах: пока идут

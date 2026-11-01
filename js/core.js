@@ -556,16 +556,66 @@ async function compressImage(file, maxSide = 1280, quality = 0.7) {
   // камеры в Android WebView приходит файлом, который читается один раз, и
   // после провалившейся тяжёлой попытки читать уже нечего — вторая попытка
   // падала следом, сколько бы её ни улучшали.
-  for(const light of [true, false]) {
+  //
+  // Лёгкий путь пробуем дважды: в пачке у того же бармена (01.11.2026) снимок
+  // проваливался за полсекунды, а следующий через десяток секунд сжимался —
+  // память освобождается не сразу, и пауза даёт ей вернуться.
+  const tries = [[true, 0], [true, 1500], [false, 400]];
+  for(const [light, wait] of tries) {
+    if(wait) await new Promise(r => setTimeout(r, wait));
     try {
       const out = await compressImageOnce(file, maxSide, quality, light);
       if(out) return out.size < file.size ? out : file;
     } catch(e) {
       console.warn('compressImage failed' + (light ? ', retrying' : ''), e);
     }
-    if(light) await new Promise(r => setTimeout(r, 400));
   }
   return file;
+}
+
+// Превью выбранных снимков — маленькими картинками, а не самими файлами.
+// <img> с оригиналом раскодирует все 12 мегапикселей, даже если показан
+// квадратиком 90 px: десять превью держали в памяти сотни мегабайт, и на
+// сжатие её уже не оставалось. Так у бармена с vivo Y35 (01.11.2026) из
+// пачки в десять снимков сжимались два-три, остальные уходили по 3 МБ.
+const mediaThumbs = new WeakMap();
+
+async function mediaThumbUrl(file) {
+  if(mediaThumbs.has(file)) return mediaThumbs.get(file);
+  let url = null;
+  if(file.type && file.type.startsWith('image/')) {
+    try {
+      const small = await compressImageOnce(file, 180, 0.7, true);
+      if(small) url = URL.createObjectURL(small);
+    } catch(e) { /* без превью — не страшно, покажем значок */ }
+  } else {
+    url = URL.createObjectURL(file);   // видео: браузер берёт один кадр
+  }
+  mediaThumbs.set(file, url);
+  return url;
+}
+
+// Рисует квадратики сразу, картинки дописывает по одной — по очереди, чтобы
+// не раскодировать все снимки разом.
+async function renderMediaThumbs(container, files) {
+  const token = (container._thumbToken || 0) + 1;
+  container._thumbToken = token;
+  const box = 'width:90px;height:90px;border-radius:10px;object-fit:cover;background:rgba(127,127,127,.15)';
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
+  const cells = files.map(f => {
+    const el = document.createElement(f.type && f.type.startsWith('video') ? 'video' : 'img');
+    el.style.cssText = box;
+    wrap.appendChild(el);
+    return el;
+  });
+  container.prepend(wrap);
+  for(let i = 0; i < files.length; i++) {
+    const url = await mediaThumbUrl(files[i]);
+    if(container._thumbToken !== token) return;   // список уже перерисовали
+    if(url) cells[i].src = url;
+    else cells[i].alt = '🖼';
+  }
 }
 
 // Одна попытка сжатия. null — браузер не смог (обычно не хватило памяти).

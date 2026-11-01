@@ -318,16 +318,11 @@ function clearChecklistMedia() {
 function renderChecklistMediaPreview() {
   const preview = document.getElementById('cl-media-preview');
   if(!clMediaFiles.length) { preview.innerHTML = ''; return; }
-  preview.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px">` + clMediaFiles.map(f => {
-    const url = URL.createObjectURL(f);
-    return f.type.startsWith('video')
-      ? `<video src="${url}" style="width:90px;height:90px;border-radius:10px;object-fit:cover"></video>`
-      : `<img src="${url}" style="width:90px;height:90px;border-radius:10px;object-fit:cover">`;
-  }).join('') + `</div>`
-    + `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-muted);margin-top:8px">
+  preview.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-muted);margin-top:8px">
          <span>${t('cl.photoChosen',{n:clMediaFiles.length})}</span>
          <button onclick="clearChecklistMedia()" style="background:none;border:none;color:var(--gold-dark);font-size:12px;font-weight:600;cursor:pointer;padding:2px 4px">${t('cl.photoClear')}</button>
        </div>`;
+  renderMediaThumbs(preview, clMediaFiles);
 }
 
 // Просмотр всех фото/видео, прикреплённых к пункту

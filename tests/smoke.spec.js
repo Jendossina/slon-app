@@ -525,6 +525,53 @@ test('фото сжимается, даже когда полное раскод
   expect(r.name, 'имя файла потеряло символы').toBe('IMG_20260921.jpg');
 });
 
+// Превью выбранных снимков раньше было самим оригиналом в <img>: десять
+// 12-мегапиксельных превью съедали память, и сжатие посреди пачки проваливалось
+// (vivo Y35, 01.11.2026). Превью обязано быть маленькой картинкой; и первый
+// провал лёгкого пути не должен сразу отдавать оригинал.
+test('превью снимка маленькое, а сжатие переживает разовый провал', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.renderMediaThumbs === 'function');
+
+  const r = await page.evaluate(async () => {
+    const c = document.createElement('canvas');
+    c.width = 3060; c.height = 4080;
+    const cx = c.getContext('2d');
+    cx.fillStyle = '#3366cc'; cx.fillRect(0, 0, 3060, 4080);
+    const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.95));
+    const file = new File([blob], 'IMG_1.jpg', { type: 'image/jpeg' });
+
+    const box = document.createElement('div');
+    document.body.appendChild(box);
+    await window.renderMediaThumbs(box, [file]);
+    const img = box.querySelector('img');
+    await img.decode();
+    const thumbSide = Math.max(img.naturalWidth, img.naturalHeight);
+    box.remove();
+
+    // Первая лёгкая попытка падает, как от нехватки памяти; полное раскодирование тоже
+    const realBitmap = window.createImageBitmap;
+    let calls = 0;
+    window.createImageBitmap = (src, opts) => {
+      if (src !== file) return realBitmap(src, opts);
+      calls++;
+      if (calls === 1 || !(opts && opts.resizeWidth)) throw new DOMException('нет памяти', 'InvalidStateError');
+      return realBitmap(src, opts);
+    };
+    const realReader = window.FileReader;
+    window.FileReader = class {
+      readAsDataURL() { setTimeout(() => this.onerror && this.onerror(new Error('нет памяти')), 0); }
+    };
+    let out;
+    try { out = await window.compressImage(file, 1024, 0.62); }
+    finally { window.createImageBitmap = realBitmap; window.FileReader = realReader; }
+    return { thumbSide, original: file.size, size: out.size };
+  });
+
+  expect(r.thumbSide, 'превью — полноразмерный оригинал').toBeLessThanOrEqual(180);
+  expect(r.size, 'после разового провала ушёл оригинал').toBeLessThan(r.original / 2);
+});
+
 // Математика разворота — то, чем приложение доворачивает фото в браузерах,
 // которые не применяют EXIF сами (их в этом наборе тестов не воспроизвести).
 test('applyOrientationTransform разворачивает верно (зеркало и поворот)', async ({ page }) => {
