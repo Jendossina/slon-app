@@ -210,3 +210,47 @@ test('метка встаёт в конец пункта, а при удален
   expect(r.after).toBe('1. Свет включён.\n2. Столы протёрты. [видео 1]\n3. Менажки чистые. [фото 2]');
   expect(r.left).toEqual(['u2', 'u3']);
 });
+
+// Несколько фото на пункт и пояснение «как делать» строками с тире под ним:
+// в списке пояснение скрыто, в окне пункта — все файлы и пояснение.
+test('пункт с несколькими фото и пояснением', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.kbOpenItem === 'function');
+  const r = await page.evaluate(() => {
+    kbCurrentArticle = {
+      title: 'Открытие зала',
+      content: '1. Свет включён.\n7. Менажные наборы чистые [фото 1] [фото 2]\n- Соль и перец заполнены на 2/3\n- Салфетки сложены уголком [фото 3]\n8. Кнопки вызова работают\n- Нажать каждую и проверить часы',
+      media: [{ type: 'image', url: 'a.jpg' }, { type: 'image', url: 'b.jpg' }, { type: 'image', url: 'c.jpg' }],
+    };
+    const box = document.createElement('div');
+    box.innerHTML = kbContentHtml(kbCurrentArticle);
+    document.body.appendChild(box);
+    const listText = box.innerText;
+    const lines = [...box.querySelectorAll('.kb-ref-line')].map((l) => l.innerText);
+    box.querySelectorAll('.kb-ref-line')[0].click();
+    const content = document.getElementById('kb-media-content');
+    const shown = [...content.querySelectorAll('img')].map((i) => i.getAttribute('src'));
+    const detail = content.innerText;
+    const title = document.getElementById('kb-media-title').textContent;
+    box.querySelectorAll('.kb-ref-line')[1].click();
+    const onlyDetail = { imgs: content.querySelectorAll('img, video').length, text: content.innerText };
+    box.remove();
+
+    // Обычная статья без меток: тире — это список, его не прячем
+    const plain = document.createElement('div');
+    plain.innerHTML = kbContentHtml({ content: 'Состав:\n- лёд\n- лайм', media: [] });
+    return { listText, lines, shown, detail, title, onlyDetail, plainText: plain.innerText, plainClickable: plain.querySelectorAll('.kb-ref-line').length };
+  });
+
+  expect(r.listText, 'пояснение видно в списке — стандарт перестаёт быть коротким').not.toContain('Соль и перец');
+  expect(r.lines.length, 'кликабельны пункты 7 и 8').toBe(2);
+  expect(r.lines[0], 'у пункта с тремя фото значок с числом').toContain('📷 3');
+  expect(r.shown).toEqual(['a.jpg', 'b.jpg', 'c.jpg']);
+  expect(r.title).toBe('7. Менажные наборы чистые');
+  expect(r.detail).toContain('Соль и перец заполнены на 2/3');
+  expect(r.detail).toContain('Салфетки сложены уголком');
+  expect(r.onlyDetail.imgs, 'у пункта 8 нет файлов').toBe(0);
+  expect(r.onlyDetail.text).toContain('Нажать каждую');
+  expect(r.plainText, 'в обычной статье список с тире пропал').toContain('- лёд');
+  expect(r.plainClickable).toBe(0);
+});

@@ -418,14 +418,57 @@ function kbStripRefs(text) {
 
 let kbCurrentArticle = null;
 
+// ===== Пункт с подробностями =====
+// Пункт стандарта — строка текста. К нему можно приложить сколько угодно
+// фото и видео (метки «[фото N]» в той же строке) и пояснение «как делать»:
+// строки с тире сразу под пунктом. В списке пояснение скрыто, чтобы стандарт
+// читался как короткий чек-лист; тап по пункту открывает окно, где все его
+// файлы подряд и пояснение под ними.
+//
+// Правило «строки с тире — пояснение» включается только в статьях, где есть
+// хоть одна метка: в Food/Bar Book тире — обычные списки, их прятать нельзя.
+const KB_DETAIL_RE = /^\s*[-–—•]\s?/;
+
+function kbParseItems(a) {
+  const media = Array.isArray(a.media) ? a.media : [];
+  const lines = String(a.content || '').split('\n');
+  const enabled = kbMediaRefs(a.content).some(i => media[i]);
+  const items = [];
+  for(let li = 0; li < lines.length; li++) {
+    const line = lines[li];
+    const item = { li, text: line.replace(KB_REF_RE, '').replace(/\s+$/, ''), refs: kbMediaRefs(line).filter(i => media[i]), detail: [] };
+    if(enabled && !KB_DETAIL_RE.test(line) && line.trim()) {
+      while(li + 1 < lines.length && KB_DETAIL_RE.test(lines[li + 1])) {
+        li++;
+        item.refs.push(...kbMediaRefs(lines[li]).filter(i => media[i]));
+        item.detail.push(lines[li].replace(KB_REF_RE, '').replace(KB_DETAIL_RE, '').trim());
+      }
+    }
+    items.push(item);
+  }
+  return items;
+}
+
 // Заголовок окна — сам пункт («6. Столы протёрты…»), а не общее «Отчёт
 // сотрудника»: окно просмотра отчётов здесь не подходит по смыслу.
-function kbOpenMedia(i, line) {
-  const m = (kbCurrentArticle?.media || [])[i];
-  if(!m) return;
-  const lines = String(kbCurrentArticle?.content || '').split('\n');
-  const title = (typeof line === 'number' ? kbStripRefs(lines[line] || '').trim() : '') || kbCurrentArticle?.title || '';
-  kbShowMedia(m.url, m.type, title);
+function kbOpenItem(li) {
+  const a = kbCurrentArticle;
+  if(!a) return;
+  const item = kbParseItems(a).find(x => x.li === li);
+  if(!item) return;
+  const media = a.media || [];
+  const refs = [...new Set(item.refs)];
+  // Один ролик — сразу играет; несколько — пусть человек выбирает сам
+  const autoplay = refs.length === 1 ? ' autoplay' : '';
+  const files = refs.map(i => media[i].type === 'video'
+    ? `<video src="${escapeHtml(media[i].url)}" controls${autoplay} playsinline preload="metadata" style="width:100%;border-radius:12px;background:#000"></video>`
+    : `<img src="${escapeHtml(media[i].url)}" loading="lazy" style="width:100%;border-radius:12px">`).join('');
+  const detail = item.detail.filter(Boolean).map(d => `<div style="display:flex;gap:8px"><span style="color:var(--gold-dark)">•</span><span>${escapeHtml(d)}</span></div>`).join('');
+  document.getElementById('kb-media-title').textContent = kbStripRefs(item.text).trim() || a.title || '';
+  document.getElementById('kb-media-content').innerHTML =
+    `<div style="display:flex;flex-direction:column;gap:10px">${files}</div>` +
+    (detail ? `<div style="margin-top:${files ? 14 : 0}px;font-size:15px;line-height:1.6;color:var(--text-primary);display:flex;flex-direction:column;gap:6px">${detail}</div>` : '');
+  openModal('modal-kb-media');
 }
 
 function kbShowMedia(url, type, title) {
@@ -438,13 +481,16 @@ function kbShowMedia(url, type, title) {
 
 function kbContentHtml(a) {
   const media = Array.isArray(a.media) ? a.media : [];
-  const lines = String(a.content || '').split('\n');
-  const html = lines.map((line, li) => {
-    const refs = kbMediaRefs(line).filter(i => media[i]);
-    const text = escapeHtml(line.replace(KB_REF_RE, '').replace(/\s+$/, ''));
-    if(!refs.length) return `<div style="min-height:1.7em">${text}</div>`;
-    const icons = refs.map(i => `<span onclick="event.stopPropagation();kbOpenMedia(${i}, ${li})" style="display:inline-block;margin-left:6px;padding:0 8px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);font-size:14px;line-height:1.6">${media[i].type === 'video' ? '🎥' : '📷'}</span>`).join('');
-    return `<div class="kb-ref-line" onclick="kbOpenMedia(${refs[0]}, ${li})" style="cursor:pointer;color:var(--gold-dark);text-decoration:underline;text-decoration-color:rgba(127,127,127,.4);text-underline-offset:3px">${text}${icons}</div>`;
+  const html = kbParseItems(a).map(item => {
+    const text = escapeHtml(item.text);
+    const refs = [...new Set(item.refs)];
+    if(!refs.length && !item.detail.length) return `<div style="min-height:1.7em">${text}</div>`;
+    // Значок один на пункт: что внутри и сколько. 🎥 — есть видео, 📷 — только
+    // фото, 📝 — только пояснение.
+    const videos = refs.filter(i => media[i].type === 'video').length;
+    const icon = refs.length ? (videos ? '🎥' : '📷') + (refs.length > 1 ? ' ' + refs.length : '') : '📝';
+    const badge = `<span style="display:inline-block;margin-left:6px;padding:0 8px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border);font-size:13px;line-height:1.6;color:var(--text-primary)">${icon}${refs.length && item.detail.length ? ' 📝' : ''}</span>`;
+    return `<div class="kb-ref-line" onclick="kbOpenItem(${item.li})" style="cursor:pointer;color:var(--gold-dark);text-decoration:underline;text-decoration-color:rgba(127,127,127,.4);text-underline-offset:3px">${text}${badge}</div>`;
   }).join('');
   return `<div style="font-size:15px;color:var(--text-primary);line-height:1.7;white-space:pre-wrap">${html}</div>`;
 }
