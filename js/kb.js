@@ -142,17 +142,87 @@ async function openKbBook(bookId) {
     if(kbCanEditBooks()) html += ` <button onclick="openKbBookModal(${book.id})" style="background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">${t('kb.editBook')}</button>`;
     html += `</div>`;
 
+    kbBookArticles = articles || [];
     if(!articles || articles.length===0) {
       html += `<div class="card"><div class="empty"><div class="empty-icon">📄</div><div class="empty-text">${t('kb.noArticles')}${kbCanEdit(book)?t('kb.noArticlesHint'):''}</div></div></div>`;
     } else {
-      html += articles.map(a=>`
-        <div class="card" style="cursor:pointer" onclick="openKbArticle(${a.id})">
-          <div style="font-size:15px;font-weight:600;color:var(--text-primary)">${kbMediaBadge(a)}${escapeHtml(a.title)}</div>${kbDeptsLine(a)}
-          <div style="font-size:13px;color:var(--text-muted);margin-top:4px">${escapeHtml(kbStripRefs(a.content).slice(0,80))}${kbStripRefs(a.content).length>80?'…':''}</div>
-        </div>`).join('');
+      html += `<div id="kb-dept-tabs"></div><div id="kb-book-list"></div>`;
     }
     content.innerHTML = html;
+    if(articles && articles.length) kbRenderBookList();
   } catch(e) { content.innerHTML = `<div class="card"><div class="empty"><div class="empty-text">${t('kb.loadErr')}</div></div></div>`; }
+}
+
+// ===== Вкладки цехов внутри книги =====
+// В «Стандартах» статьи адресованы цехам, и одним списком их стало много:
+// зал, бар, кальянная, кухня, менеджеры вперемешку. Вкладки появляются в
+// книге, где хоть у одной статьи проставлены отделы; в остальных книгах
+// список как был. Статья для двух цехов видна в обеих вкладках.
+const KB_DEPT_TABS = [
+  { dept: 'Официанты', key: 'kb.tabHall' },
+  { dept: 'Бармены', key: 'kb.tabBar' },
+  { dept: 'Кальянные мастера', key: 'kb.tabHookah' },
+  { dept: 'Повара', key: 'kb.tabKitchen' },
+  { dept: 'Менеджеры', key: 'kb.tabManagers' },
+];
+const KB_TAB_COMMON = '*';           // статьи без отдела — видны всем
+let kbBookArticles = [];
+const kbDeptTabByBook = {};          // выбранная вкладка, чтобы «Назад» из статьи вернул туда же
+
+function kbArticleDepts(a) { return Array.isArray(a.depts) ? a.depts.filter(Boolean) : []; }
+
+function kbTabArticles(tab) {
+  return kbBookArticles.filter(a => {
+    const d = kbArticleDepts(a);
+    return tab === KB_TAB_COMMON ? !d.length : d.includes(tab);
+  });
+}
+
+function kbArticleCard(a) {
+  const body = kbStripRefs(a.content);
+  return `<div class="card" style="cursor:pointer" onclick="openKbArticle(${a.id})">
+      <div style="font-size:15px;font-weight:600;color:var(--text-primary)">${kbMediaBadge(a)}${escapeHtml(a.title)}</div>${kbDeptsLine(a)}
+      <div style="font-size:13px;color:var(--text-muted);margin-top:4px">${escapeHtml(body.slice(0,80))}${body.length>80?'…':''}</div>
+    </div>`;
+}
+
+function kbRenderBookList() {
+  const tabsBox = document.getElementById('kb-dept-tabs');
+  const list = document.getElementById('kb-book-list');
+  if(!tabsBox || !list) return;
+  const withTabs = kbBookArticles.some(a => kbArticleDepts(a).length);
+  if(!withTabs) { tabsBox.innerHTML = ''; list.innerHTML = kbBookArticles.map(kbArticleCard).join(''); return; }
+
+  // Руководство видит все цеха, даже пустые — чтобы было видно, куда добавлять.
+  // Сотруднику база и так отдаёт только его стандарты: показываем непустые.
+  const lead = canEditData() || canSeeAdminPanel();
+  let tabs = KB_DEPT_TABS.map(x => ({ id: x.dept, label: t(x.key), icon: DEPT_ICONS[x.dept] || '', n: kbTabArticles(x.dept).length }));
+  const common = kbTabArticles(KB_TAB_COMMON).length;
+  if(common) tabs.push({ id: KB_TAB_COMMON, label: t('kb.tabCommon'), icon: '📌', n: common });
+  if(!lead) tabs = tabs.filter(x => x.n);
+
+  const bookId = kbCurrentBook?.id;
+  let cur = kbDeptTabByBook[bookId];
+  if(!tabs.some(x => x.id === cur)) {
+    const mine = currentEmployee?.department;
+    cur = (tabs.find(x => x.id === mine && x.n) || tabs.find(x => x.n) || tabs[0] || {}).id;
+  }
+  kbDeptTabByBook[bookId] = cur;
+
+  tabsBox.innerHTML = tabs.length > 1 ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">` +
+    tabs.map(x => {
+      const on = x.id === cur;
+      return `<button type="button" data-tab="${escapeHtml(x.id)}" onclick="kbSelectDeptTab(this.dataset.tab)" style="flex:0 0 auto;border-radius:20px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;border:1px solid ${on ? 'var(--gold-dark)' : 'var(--border)'};background:${on ? 'var(--gold-dark)' : 'var(--surface-2)'};color:${on ? '#fff' : 'var(--text-primary)'};opacity:${x.n || on ? 1 : 0.55}">${x.icon} ${escapeHtml(x.label)}${x.n ? ` · ${x.n}` : ''}</button>`;
+    }).join('') + `</div>` : '';
+
+  const items = cur ? kbTabArticles(cur) : kbBookArticles;
+  list.innerHTML = items.length ? items.map(kbArticleCard).join('')
+    : `<div class="card"><div class="empty"><div class="empty-icon">📄</div><div class="empty-text">${t('kb.tabEmpty')}</div></div></div>`;
+}
+
+function kbSelectDeptTab(tab) {
+  if(kbCurrentBook) kbDeptTabByBook[kbCurrentBook.id] = tab;
+  kbRenderBookList();
 }
 
 async function openKbArticle(articleId) {
@@ -262,6 +332,9 @@ function openKbArticleModal(bookId, articleId) {
     document.getElementById('kb-article-title').value = '';
     document.getElementById('kb-article-content').value = '';
     delBtn.style.display = 'none';
+    // Добавляют из вкладки «Бар» — значит, стандарт для бара: отмечаем сразу
+    const tab = kbDeptTabByBook[bookId];
+    if(tab && tab !== KB_TAB_COMMON && kbBookArticles.some(a => kbArticleDepts(a).length)) kbRenderDepts([tab]);
   }
   openModal('modal-kb-article');
 }

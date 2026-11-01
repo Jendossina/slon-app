@@ -271,3 +271,58 @@ test('строка пояснения с двоеточием — подзаго
   expect(r).toContain('• Вилки 15');
   expect(r.some((x) => x.startsWith('•') && x.includes('Комплектация')), 'подзаголовок показан пунктом').toBe(false);
 });
+
+// Вкладки цехов в «Стандартах»: руководство видит все, сотрудник — свои,
+// статья для двух цехов — в обеих; новая статья из вкладки получает её цех.
+test('стандарты разложены по вкладкам цехов', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.kbRenderBookList === 'function');
+  const r = await page.evaluate(() => {
+    const box = document.createElement('div');
+    box.innerHTML = '<div id="kb-dept-tabs"></div><div id="kb-book-list"></div>';
+    document.body.appendChild(box);
+    const arts = [
+      { id: 1, title: 'Открытие зала', content: '', depts: ['Официанты', 'Менеджеры'], media: [] },
+      { id: 2, title: 'Открытие бара', content: '', depts: ['Бармены'], media: [] },
+      { id: 3, title: 'Кухня утро', content: '', depts: ['Повара'], media: [] },
+    ];
+    const tabs = () => [...document.querySelectorAll('#kb-dept-tabs button')].map((b) => b.innerText.trim());
+    const titles = () => [...document.querySelectorAll('#kb-book-list .card')].map((c) => c.innerText.split('\n')[0].trim());
+
+    // Управляющий
+    currentProfile = { role: 'admin', employee_id: 1 };
+    currentEmployee = { department: 'Менеджеры' };
+    kbCurrentBook = { id: 4 }; kbBookArticles = arts;
+    delete kbDeptTabByBook[4];
+    kbRenderBookList();
+    const adminTabs = tabs(), adminDefault = titles();
+    kbSelectDeptTab('Бармены');
+    const bar = titles();
+    kbSelectDeptTab('Официанты');
+    const hall = titles();
+    openKbArticleModal(4);
+    const preselected = kbCheckedDepts();
+    closeModal('modal-kb-article');
+
+    // Бармен: база отдала ему только его статьи
+    currentProfile = { role: 'employee', employee_id: 2 };
+    currentEmployee = { department: 'Бармены' };
+    kbBookArticles = [arts[1]];
+    delete kbDeptTabByBook[4];
+    kbRenderBookList();
+    const barmanTabs = tabs(), barmanList = titles();
+    box.remove();
+    return { adminTabs, adminDefault, bar, hall, preselected, barmanTabs, barmanList };
+  });
+
+  expect(r.adminTabs.length, 'у руководства пять вкладок цехов').toBe(5);
+  expect(r.adminTabs[0]).toContain('Зал');
+  expect(r.adminTabs[1]).toContain('Бар');
+  expect(r.adminDefault, 'управляющий в отделе «Менеджеры» — открывается его вкладка').toEqual(['Открытие зала']);
+  expect(r.bar).toEqual(['Открытие бара']);
+  expect(r.hall, 'статья для зала и менеджеров есть и во вкладке «Зал»').toEqual(['Открытие зала']);
+  expect(r.preselected, 'новая статья из вкладки «Зал» сразу для официантов').toEqual(['Официанты']);
+  expect(r.barmanTabs, 'у бармена одна вкладка — переключать нечего, полосы нет').toEqual([]);
+  expect(r.barmanList).toEqual(['Открытие бара']);
+});
