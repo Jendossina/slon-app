@@ -378,7 +378,9 @@ async function uploadChecklistMedia() {
       // чтобы разглядеть, вымыт ли стол, а весит он вдвое меньше прежнего 1280.
       const fileToUpload = isVideo ? file : await compressImage(file, 1024, 0.62);
       const ext = (fileToUpload.type.startsWith('image') ? 'jpg' : (file.name.split('.').pop() || 'bin'));
-      prepared.push({ file: fileToUpload, isVideo, path: `checklist-${templateId}-${Date.now()}-${i}.${ext}` });
+      // Не сжалось — причина едет вместе со снимком (поле raw), см. compressImage
+      const raw = !isVideo && fileToUpload === file ? compressImage.lastFail : '';
+      prepared.push({ file: fileToUpload, isVideo, raw, path: `checklist-${templateId}-${Date.now()}-${i}.${ext}` });
     }
 
     setBar(total > 1 ? t('cl.uploadingN', { n: total }) : t('common.uploadingFile'));
@@ -392,10 +394,10 @@ async function uploadChecklistMedia() {
     const failed = results.find(r => r.error);
     if(failed) { showToast(t('common.uploadErr') + failed.error.message); hideBar(); return; }
 
-    const uploaded = results.map(r => ({
+    const uploaded = results.map(r => Object.assign({
       url: sb.storage.from('task-reports').getPublicUrl(r.path).data.publicUrl,
       type: r.isVideo ? 'video' : 'image',
-    }));
+    }, r.raw ? { raw: r.raw } : {}));
 
     // Сначала дописываем отложенные галочки. Иначе они терялись: ниже идёт запись
     // строки и перезагрузка экрана, а отметки ждут своей очереди ещё полсекунды.

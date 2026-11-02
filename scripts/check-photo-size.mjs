@@ -66,11 +66,21 @@ try {
             group by 1, 2 order by 3 desc`),
     query(`select sum((metadata->>'size')::bigint)/1048576 mb from storage.objects`),
   ]);
+  // С v149 телефон, у которого снимок не сжался, кладёт причину в поле raw
+  // рядом со ссылкой — по ней видно, что именно отказало на его устройстве.
+  // У cleaning_items даты нет, но raw там появляется только с v149.
+  const reasons = rows.length ? await query(`
+    select m->>'raw' raw, count(*) n from (
+      select jsonb_array_elements(media) m from public.checklist_logs where date >= '${since}'
+      union all
+      select jsonb_array_elements(media) from public.cleaning_items
+    ) x where m ? 'raw' group by 1 order by 2 desc limit 5`).catch(() => []) : [];
   const used = `Хранилище: ${Math.round(total.mb)} МБ из 1024.`;
   problem = rows.length > 0;
   msg = rows.length
     ? `Фото тяжелее 1 МБ с ${since} всё ещё приходят:\n` +
       rows.map((r) => `• сотрудник №${r.employee_id} ${r.name || ''}: ${r.n} шт., ${Math.round(r.mb)} МБ, последнее ${new Date(r.last_at).toLocaleDateString('ru-RU')}`).join('\n') +
+      (reasons.length ? '\n\nПочему не сжалось:\n' + reasons.map((r) => `• ${r.n} × ${r.raw}`).join('\n') : '') +
       `\n\n${used}\nСжатие не помогло — напишите Claude.`
     : `С ${since} ни одного несжатого фото — исправление сработало.\n${used}`;
 } catch (e) {

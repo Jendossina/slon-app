@@ -552,24 +552,54 @@ test('превью снимка маленькое, а сжатие пережи
     // Первая лёгкая попытка падает, как от нехватки памяти; полное раскодирование тоже
     const realBitmap = window.createImageBitmap;
     let calls = 0;
+    // compressImage работает с копией файла в памяти — узнаём её по размеру
+    const ours = (src) => src instanceof Blob && src.size === file.size;
     window.createImageBitmap = (src, opts) => {
-      if (src !== file) return realBitmap(src, opts);
+      if (!ours(src)) return realBitmap(src, opts);
       calls++;
       if (calls === 1 || !(opts && opts.resizeWidth)) throw new DOMException('нет памяти', 'InvalidStateError');
       return realBitmap(src, opts);
     };
-    const realReader = window.FileReader;
-    window.FileReader = class {
-      readAsDataURL() { setTimeout(() => this.onerror && this.onerror(new Error('нет памяти')), 0); }
-    };
     let out;
     try { out = await window.compressImage(file, 1024, 0.62); }
-    finally { window.createImageBitmap = realBitmap; window.FileReader = realReader; }
-    return { thumbSide, original: file.size, size: out.size };
+    finally { window.createImageBitmap = realBitmap; }
+    return { thumbSide, original: file.size, size: out.size, calls, fail: window.compressImage.lastFail };
   });
 
   expect(r.thumbSide, 'превью — полноразмерный оригинал').toBeLessThanOrEqual(180);
+  expect(r.calls, 'подмена не сработала — тест ничего не проверил').toBeGreaterThanOrEqual(2);
   expect(r.size, 'после разового провала ушёл оригинал').toBeLessThan(r.original / 2);
+  expect(r.fail, 'сжатие удалось, а причина отказа записана').toBe('');
+});
+
+// 02.11.2026 у того же бармена провалились все попытки на всех снимках, и
+// гадать, почему, было не по чему. Теперь причина отказа едет в базу рядом со
+// ссылкой на снимок (поле raw).
+test('несжавшийся снимок уходит с причиной отказа в поле raw', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.compressImage === 'function');
+
+  const r = await page.evaluate(async () => {
+    const c = document.createElement('canvas');
+    c.width = 2000; c.height = 1500;
+    c.getContext('2d').fillRect(0, 0, 2000, 1500);
+    const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.95));
+    const file = new File([blob], 'IMG_2.jpg', { type: 'image/jpeg' });
+
+    const realBitmap = window.createImageBitmap;
+    const realToBlob = HTMLCanvasElement.prototype.toBlob;
+    window.createImageBitmap = () => { throw new DOMException('нет памяти', 'InvalidStateError'); };
+    HTMLCanvasElement.prototype.toBlob = function (cb) { setTimeout(() => cb(null), 0); };
+    let out;
+    try { out = await window.compressImage(file, 1024, 0.62); }
+    finally { window.createImageBitmap = realBitmap; HTMLCanvasElement.prototype.toBlob = realToBlob; }
+    return { same: out === file, fail: window.compressImage.lastFail };
+  });
+
+  expect(r.same, 'при отказе должен уходить сам оригинал').toBe(true);
+  expect(r.fail).toContain('bmp:InvalidStateError');
+  expect(r.fail).toContain('toBlob:null');
+  expect(r.fail).toContain('image/jpeg');
 });
 
 // Математика разворота — то, чем приложение доворачивает фото в браузерах,

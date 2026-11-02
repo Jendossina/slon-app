@@ -345,19 +345,20 @@ async function uploadCleaningMedia() {
     for(let i = 0; i < cleaningMediaFiles.length; i++) {
       bar.textContent = t('cl.preparing', { i: i + 1, n: cleaningMediaFiles.length });
       const f = await compressImage(cleaningMediaFiles[i], 1024, 0.62);
-      prepared.push({ file: f, path: `cleaning-${cleaningPhotoItemId}-${Date.now()}-${i}.jpg` });
+      const raw = f === cleaningMediaFiles[i] ? compressImage.lastFail : '';
+      prepared.push({ file: f, raw, path: `cleaning-${cleaningPhotoItemId}-${Date.now()}-${i}.jpg` });
     }
     bar.textContent = t('cl.uploadingN', { n: prepared.length });
     const results = await Promise.all(prepared.map(async p => {
       const { error } = await sb.storage.from('task-reports')
         .upload(p.path, p.file, { contentType: 'image/jpeg', cacheControl: '31536000' });
-      return { path: p.path, error };
+      return { path: p.path, raw: p.raw, error };
     }));
     const bad = results.find(r => r.error);
     if(bad) { bar.style.display = 'none'; return showToast(t('common.uploadErr') + bad.error.message); }
 
     // Как в чек-листах: шлём только свои снимки, склеивает база
-    const fresh = results.map(r => ({ url: sb.storage.from('task-reports').getPublicUrl(r.path).data.publicUrl, type: 'image' }));
+    const fresh = results.map(r => Object.assign({ url: sb.storage.from('task-reports').getPublicUrl(r.path).data.publicUrl, type: 'image' }, r.raw ? { raw: r.raw } : {}));
     const { error } = await sb.rpc('cleaning_media_append', { p_id: cleaningPhotoItemId, p_media: fresh });
     bar.style.display = 'none';
     if(error) return showToast(t('common.error') + error.message);

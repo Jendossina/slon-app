@@ -524,18 +524,19 @@ async function loadOrientedImage(file) {
     try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); }
     catch(e) { /* старый браузер или неподдерживаемый формат — идём запасным путём */ }
   }
-  const dataUrl = await new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(r.result);
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
-  return await new Promise((res, rej) => {
-    const i = new Image();
-    i.onload = () => res(i);
-    i.onerror = rej;
-    i.src = dataUrl;
-  });
+  // Ссылка на blob, а не data:-строка: base64 трёхмегабайтного снимка — это
+  // ещё четыре мегабайта строки в памяти поверх самого снимка.
+  const url = URL.createObjectURL(file);
+  try {
+    return await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = url;
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 // Сжатие изображения перед загрузкой (экономит место в облаке и ускоряет отправку).
@@ -560,17 +561,39 @@ async function compressImage(file, maxSide = 1280, quality = 0.7) {
   // Лёгкий путь пробуем дважды: в пачке у того же бармена (01.11.2026) снимок
   // проваливался за полсекунды, а следующий через десяток секунд сжимался —
   // память освобождается не сразу, и пауза даёт ей вернуться.
+  //
+  // 02.11.2026 у него же провалились все три попытки на всех десяти снимках —
+  // при том что сам файл потом прекрасно уходил на сервер. Поэтому файл
+  // сначала целиком читаем в память: снимок из камеры в WebView — это ссылка
+  // на чужой content://, и раскодировщик читает её не так, как отправка.
+  // А что именно сломалось, запоминаем в compressImage.lastFail: вызывающий
+  // кладёт это рядом со ссылкой на снимок, и причину видно в базе.
+  compressImage.lastFail = '';
+  const fails = [];
+  let src = file;
+  try {
+    src = new File([await file.arrayBuffer()], file.name || 'photo.jpg', { type: file.type });
+  } catch(e) { fails.push('read:' + compressFailName(e)); }
   const tries = [[true, 0], [true, 1500], [false, 400]];
   for(const [light, wait] of tries) {
     if(wait) await new Promise(r => setTimeout(r, wait));
     try {
-      const out = await compressImageOnce(file, maxSide, quality, light);
+      const out = await compressImageOnce(src, maxSide, quality, light, fails);
       if(out) return out.size < file.size ? out : file;
+      fails.push((light ? 'L' : 'H') + ':null');
     } catch(e) {
+      fails.push((light ? 'L' : 'H') + ':' + compressFailName(e));
       console.warn('compressImage failed' + (light ? ', retrying' : ''), e);
     }
   }
+  compressImage.lastFail = (fails.join(' ') + ' ' + file.size + 'b ' + (file.type || '?')).slice(0, 300);
   return file;
+}
+
+function compressFailName(e) {
+  if(!e) return '?';
+  if(e instanceof Event) return 'event-' + e.type;   // onerror у <img> отдаёт событие, не ошибку
+  return ((e.name || 'Error') + (e.message ? '-' + e.message : '')).slice(0, 80);
 }
 
 // Превью выбранных снимков — маленькими картинками, а не самими файлами.
@@ -620,13 +643,13 @@ async function renderMediaThumbs(container, files) {
 
 // Одна попытка сжатия. null — браузер не смог (обычно не хватило памяти).
 // light — раскодировать сразу уменьшенным: памяти нужно в десятки раз меньше.
-async function compressImageOnce(file, maxSide, quality, light) {
+async function compressImageOnce(file, maxSide, quality, light, fails) {
   let src = null;
   if(light && typeof createImageBitmap === 'function') {
     // Сторону заранее не знаем, поэтому уменьшаем по ширине; вертикальный кадр
     // выйдет чуть выше maxSide и дожмётся на холсте ниже.
     try { src = await createImageBitmap(file, { imageOrientation: 'from-image', resizeWidth: maxSide, resizeQuality: 'medium' }); }
-    catch(e) { src = null; }
+    catch(e) { src = null; if(fails) fails.push('bmp:' + compressFailName(e)); }
   }
   if(!src) src = await loadOrientedImage(file);
   const canvas = document.createElement('canvas');
@@ -644,11 +667,11 @@ async function compressImageOnce(file, maxSide, quality, light) {
     canvas.width = swap ? height : width;
     canvas.height = swap ? width : height;
     const ctx = canvas.getContext('2d');
-    if(!ctx) return null;
+    if(!ctx) { if(fails) fails.push('ctx:null'); return null; }
     if(o > 1) applyOrientationTransform(ctx, o, width, height);
     ctx.drawImage(src, 0, 0, width, height);
     const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
-    if(!blob) return null;
+    if(!blob) { if(fails) fails.push('toBlob:null ' + canvas.width + 'x' + canvas.height); return null; }
     const newName = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
     return new File([blob], newName, { type: 'image/jpeg' });
   } finally {
