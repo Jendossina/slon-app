@@ -51,7 +51,11 @@ async function loadKnowledgeBase() {
     const counts = {};
     (allArticles||[]).forEach(a=>{ counts[a.book_id]=(counts[a.book_id]||0)+1; });
 
-    content.innerHTML = books.map(b=>`
+    // Пустую книгу сотруднику не показываем: это либо заготовка, либо книга,
+    // все статьи которой ему не положены (например, «Пятиминутки» —
+    // только для управляющих). Редактору видно всё, чтобы было куда писать.
+    const shown = kbCanEditBooks() ? books : books.filter(b => counts[b.id]);
+    content.innerHTML = shown.map(b=>`
       <div class="card" style="cursor:pointer;display:flex;align-items:center;gap:14px" onclick="openKbBook(${b.id})">
         <div style="font-size:32px">${b.icon||'📖'}</div>
         <div style="flex:1">
@@ -60,6 +64,7 @@ async function loadKnowledgeBase() {
         </div>
         <div style="font-size:20px;color:var(--text-muted)">›</div>
       </div>`).join('');
+    if(kbOpenAfterLoad) { const id = kbOpenAfterLoad; kbOpenAfterLoad = null; openKbArticle(id); }
   } catch(e) { content.innerHTML = `<div class="card"><div class="empty"><div class="empty-text">${t('kb.errNotSetup')}</div></div></div>`; }
 }
 
@@ -166,11 +171,15 @@ const KB_DEPT_TABS = [
   { dept: 'Менеджеры', key: 'kb.tabManagers' },
 ];
 const KB_TAB_COMMON = '*';           // статьи без отдела — видны всем
+// Не цех, а замок: такую статью видят только управляющие и владелец — это
+// держит политика kb_articles_read в базе (миграция 2026-11-02_kb_fivemin).
+const KB_ADMINS_ONLY = 'Управляющие';
 let kbBookArticles = [];
 const kbDeptTabByBook = {};          // выбранная вкладка, чтобы «Назад» из статьи вернул туда же
 
 // Цех по-человечески — как на вкладке: «Зал», а не «Официанты»
 function kbDeptLabel(d) {
+  if(d === KB_ADMINS_ONLY) return t('kb.adminsOnly');
   const tab = KB_DEPT_TABS.find(x => x.dept === d);
   return tab ? t(tab.key) : d;
 }
@@ -196,7 +205,9 @@ function kbRenderBookList() {
   const tabsBox = document.getElementById('kb-dept-tabs');
   const list = document.getElementById('kb-book-list');
   if(!tabsBox || !list) return;
-  const withTabs = kbBookArticles.some(a => kbArticleDepts(a).length);
+  // Вкладки — только по цехам. Отметка «Управляющие» про видимость, а не про
+  // цех: книга, где она одна, остаётся простым списком.
+  const withTabs = kbBookArticles.some(a => kbArticleDepts(a).some(d => KB_DEPT_TABS.some(x => x.dept === d)));
   if(!withTabs) { tabsBox.innerHTML = ''; list.innerHTML = kbBookArticles.map(kbArticleCard).join(''); return; }
 
   // Руководство видит все цеха, даже пустые — чтобы было видно, куда добавлять.
@@ -229,6 +240,59 @@ function kbRenderBookList() {
 function kbSelectDeptTab(tab) {
   if(kbCurrentBook) kbDeptTabByBook[kbCurrentBook.id] = tab;
   kbRenderBookList();
+}
+
+// ===== Пятиминутка: тема дня на главном экране =====
+// Темы берутся из статьи «Пятиминутки» — её нумерованные строки, по кругу,
+// одна в день. Отсчёт с 02.11.2026 (тема 1). Статью база отдаёт только
+// управляющим и владельцу, поэтому остальным карточка не показывается сама.
+const FIVEMIN_START = '2026-11-02';
+let kbOpenAfterLoad = null;
+
+function fiveMinTopics(content) {
+  const out = [];
+  let section = '';
+  String(content || '').split('\n').forEach(line => {
+    const m = line.match(/^\s*(\d+)\.\s+(.+)$/);
+    if(m) out.push({ n: +m[1], text: m[2].trim(), section });
+    else if(/^\s*НЕДЕЛЯ/i.test(line)) section = line.trim();
+  });
+  return out;
+}
+
+function fiveMinIndex(dayStr, count) {
+  const days = Math.round((new Date(dayStr + 'T00:00:00') - new Date(FIVEMIN_START + 'T00:00:00')) / 86400000);
+  return ((days % count) + count) % count;
+}
+
+async function renderFiveMinCard() {
+  const el = document.getElementById('home-fivemin-card');
+  if(!el) return;
+  const role = currentRole();
+  if(role !== 'admin' && role !== 'boss') { el.innerHTML = ''; return; }
+  try {
+    const { data } = await sb.from('kb_articles').select('id,title,content').ilike('title', 'Пятиминутк%').limit(1).maybeSingle();
+    const topics = data ? fiveMinTopics(data.content) : [];
+    if(!topics.length) { el.innerHTML = ''; return; }
+    const i = fiveMinIndex(businessToday(), topics.length);
+    const tp = topics[i];
+    const [head, ...rest] = tp.text.split(' — ');
+    el.innerHTML = `<div class="card" style="margin-bottom:12px;cursor:pointer" onclick="openKbArticleFromHome(${data.id})">
+      <div class="card-title">🗣️ ${t('kb.fiveMinTitle')} · ${i + 1}/${topics.length}</div>
+      ${tp.section ? `<div style="font-size:11px;color:var(--gold-dark);margin-bottom:4px">${escapeHtml(tp.section)}</div>` : ''}
+      <div style="font-size:16px;font-weight:700;color:var(--text-primary)">${escapeHtml(head)}</div>
+      ${rest.length ? `<div style="font-size:13px;color:var(--text-muted);margin-top:4px">${escapeHtml(rest.join(' — '))}</div>` : ''}
+      <div style="font-size:12px;color:var(--text-muted);margin-top:8px">${t('kb.fiveMinHint')}</div>
+    </div>`;
+  } catch(e) { el.innerHTML = ''; }
+}
+
+// С главного экрана — сразу в статью. Просто открыть её мало: переход на
+// экран базы знаний сам грузит список книг и затёр бы статью, поэтому статья
+// открывается после списка.
+function openKbArticleFromHome(id) {
+  kbOpenAfterLoad = id;
+  showScreen('knowledge');
 }
 
 async function openKbArticle(articleId) {
@@ -422,7 +486,7 @@ const KB_AUDIO_BITRATE = 64000;
 // Больше 50 МБ хранилище на бесплатном тарифе не принимает одним файлом
 const KB_MAX_UPLOAD_MB = 50;
 // Отделы, которым можно адресовать стандарт
-const KB_DEPTS = ['Официанты', 'Бармены', 'Кальянные мастера', 'Повара', 'Менеджеры'];
+const KB_DEPTS = ['Официанты', 'Бармены', 'Кальянные мастера', 'Повара', 'Менеджеры', 'Управляющие'];
 
 let kbEditMedia = [];     // что сейчас в статье: {type,url,path} или {type,file} — ещё не загружено
 let kbRemovedMedia = [];  // убранное при правке — удалить из хранилища после сохранения

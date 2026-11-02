@@ -326,3 +326,50 @@ test('стандарты разложены по вкладкам цехов', a
   expect(r.barmanTabs, 'у бармена одна вкладка — переключать нечего, полосы нет').toEqual([]);
   expect(r.barmanList).toEqual(['Открытие бара']);
 });
+
+// Пятиминутки (02.11.2026): тема дня на главной — из статьи, по кругу;
+// карточка только у управляющих и владельца.
+test('пятиминутка: тема дня из статьи, по кругу и только руководству', async ({ page }) => {
+  const article = { id: 99, title: 'Пятиминутки: темы на 28 дней',
+    content: 'Вступление\n• пункт\n\nНЕДЕЛЯ 1. ГОСТЬ\n1. Встреча гостя — первые 10 секунд.\n2. Подача меню — что сказать.\n\nНЕДЕЛЯ 2. ПРОДАЖИ\n3. Рекомендации — 3 позиции.\n' };
+  let asked = 0;
+  await page.route('**/rest/v1/**', (route) => {
+    const u = decodeURIComponent(route.request().url());
+    if (u.includes('/kb_articles') && u.includes('ilike')) { asked++; return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(article) }); }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.renderFiveMinCard === 'function');
+
+  const r = await page.evaluate(async () => {
+    const topics = fiveMinTopics('НЕДЕЛЯ 1. А\n1. Один — x\n2. Два\nНЕДЕЛЯ 2. Б\n3. Три');
+    const idx = ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-01'].map((d) => fiveMinIndex(d, 3));
+    currentProfile = { name: 'Тест', role: 'admin' };
+    await renderFiveMinCard();
+    const adminHtml = document.getElementById('home-fivemin-card').textContent;
+    currentProfile = { name: 'Тест', role: 'manager' };
+    await renderFiveMinCard();
+    const managerHtml = document.getElementById('home-fivemin-card').textContent;
+    return { topics, idx, adminHtml, managerHtml };
+  });
+  expect(r.topics.map((x) => x.section)).toEqual(['НЕДЕЛЯ 1. А', 'НЕДЕЛЯ 1. А', 'НЕДЕЛЯ 2. Б']);
+  expect(r.idx, '02.11 — первая тема, дальше по кругу').toEqual([0, 1, 2, 0, 2]);
+  expect(r.adminHtml).toContain('/3');
+  expect(r.adminHtml).toMatch(/Встреча гостя|Подача меню|Рекомендации/);
+  expect(r.managerHtml, 'менеджеру карточка не положена').toBe('');
+  expect(asked, 'менеджер не должен даже спрашивать статью').toBe(1);
+});
+
+test('статья «только управляющие» не теряет отметку при правке', async ({ page }) => {
+  await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.kbRenderDepts === 'function');
+  const r = await page.evaluate(() => {
+    currentProfile = { name: 'Тест', role: 'admin' };
+    kbRenderDepts(['Управляющие']);
+    const label = document.querySelector('#kb-article-depts input[value="Управляющие"]').parentElement.textContent;
+    return { checked: kbCheckedDepts(), label };
+  });
+  expect(r.checked).toEqual(['Управляющие']);
+  expect(r.label).toContain('Только управляющие');
+});
