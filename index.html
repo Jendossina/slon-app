@@ -872,7 +872,7 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   <div class="screen" id="screen-directory">
     <div class="header">
       <div class="header-row">
-        <div><h1 data-i18n="dir.title">📇 Справочник</h1><p data-i18n="dir.subtitle">Поставщики, контакты, доступы</p></div>
+        <div><h1 data-i18n="dir.title">📇 Справочник</h1><p data-i18n="dir.subtitle">Поставщики, контакты, доступы, оборудование</p></div>
         <button id="dir-add-btn" onclick="openDirectoryModal()" style="display:none;background:var(--gold-dark);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="note.addBtn">+ Добавить</button>
       </div>
     </div>
@@ -1184,12 +1184,18 @@ body.boss-readonly [data-edit-only] { display: none !important; }
         <option value="supplier" data-i18n="dir.optSupplier">📦 Поставщик</option>
         <option value="contact" data-i18n="dir.optContact">📞 Контакт</option>
         <option value="access" data-i18n="dir.optAccess">🔑 Доступ</option>
+        <option value="equipment" data-i18n="dir.optEquipment">🛠️ Оборудование</option>
       </select>
     </div>
     <div class="form-group"><label class="form-label" for="dir-title" id="dir-title-label" data-i18n="dir.name">Название</label><input class="form-input" id="dir-title" placeholder=""></div>
     <div class="form-group"><label class="form-label" for="dir-field1" id="dir-field1-label" data-i18n="dir.phone">Телефон</label><input class="form-input" id="dir-field1" placeholder=""></div>
     <div class="form-group"><label class="form-label" for="dir-field2" id="dir-field2-label" data-i18n="dir.whatSupplies">Что поставляет</label><input class="form-input" id="dir-field2" placeholder=""></div>
     <div class="form-group"><label class="form-label" for="dir-note" data-i18n="dir.comment">Комментарий</label><input class="form-input" id="dir-note" placeholder="необязательно"></div>
+    <div class="form-group" id="dir-photo-group" style="display:none"><label class="form-label" data-i18n="dish.photo">Фото</label>
+      <div style="display:flex;align-items:center;gap:10px"><div id="dir-photo-preview"></div>
+        <button type="button" onclick="pickDirPhoto()" style="background:var(--surface-2);color:var(--text-primary);border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer" data-i18n="dish.photo">Фото</button></div>
+      <input type="file" id="dir-photo-input" accept="image/*" style="display:none" onchange="onDirPhotoPicked(this)">
+    </div>
     <button class="btn btn-primary" onclick="saveDirectory()" data-i18n="common.save">Сохранить</button>
     <button class="btn btn-secondary" id="dir-delete-btn" onclick="deleteDirectory()" style="display:none;margin-top:8px;background:#FCEBEB;color:#A32D2D" data-i18n="common.delete">Удалить</button>
   </div>

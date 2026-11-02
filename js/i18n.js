@@ -290,7 +290,7 @@ const I18N = {
     'rev.newReview': 'Новый отзыв', 'rev.guestName': 'Имя гостя (необязательно)', 'rev.reviewText': 'Текст отзыва', 'rev.aiHint': 'ИИ сам определит категорию и тональность', 'rev.save': 'Сохранить отзыв',
     'rev.editTitle': 'Категория и тональность', 'rev.category': 'Категория', 'rev.sentiment': 'Тональность',
     // Справочник
-    'dir.title': '📇 Справочник', 'dir.subtitle': 'Поставщики, контакты, доступы',
+    'dir.title': '📇 Справочник', 'dir.subtitle': 'Поставщики, контакты, доступы, оборудование', 'dir.equipment': '🛠️ Оборудование', 'dir.optEquipment': '🛠️ Оборудование', 'dir.qty': 'Количество', 'dir.where': 'Где стоит (зона)',
     'dir.suppliers': '📦 Поставщики', 'dir.contacts': '📞 Контакты', 'dir.access': '🔑 Доступы',
     'dir.empty': 'Пусто', 'dir.addHint': '.<br>Нажми «+ Добавить».', 'dir.login': 'Логин', 'dir.phone': 'Телефон', 'dir.password': 'Пароль', 'dir.supplies': 'Поставляет', 'dir.call': 'позвонить',
     'dir.errNotSetup': 'Ошибка. Возможно, справочник ещё не настроен в Supabase.',
@@ -935,7 +935,7 @@ const I18N = {
     'rev.newReview': 'Янги фикр', 'rev.guestName': 'Меҳмон исми (ихтиёрий)', 'rev.reviewText': 'Фикр матни', 'rev.aiHint': 'ИИ категория ва тональликни ўзи аниқлайди', 'rev.save': 'Фикрни сақлаш',
     'rev.editTitle': 'Категория ва тональлик', 'rev.category': 'Категория', 'rev.sentiment': 'Тональлик',
     // Справочник
-    'dir.title': '📇 Маълумотнома', 'dir.subtitle': 'Таъминотчилар, контактлар, кириш маълумотлари',
+    'dir.title': '📇 Маълумотнома', 'dir.subtitle': 'Таъминотчилар, контактлар, кириш маълумотлари, жиҳозлар', 'dir.equipment': '🛠️ Жиҳозлар', 'dir.optEquipment': '🛠️ Жиҳоз', 'dir.qty': 'Сони', 'dir.where': 'Қаерда (зона)',
     'dir.suppliers': '📦 Таъминотчилар', 'dir.contacts': '📞 Контактлар', 'dir.access': '🔑 Кириш маълумотлари',
     'dir.empty': 'Бўш', 'dir.addHint': '.<br>«+ Қўшиш» ни босинг.', 'dir.login': 'Логин', 'dir.phone': 'Телефон', 'dir.password': 'Парол', 'dir.supplies': 'Етказади', 'dir.call': 'қўнғироқ қилиш',
     'dir.errNotSetup': 'Хато. Эҳтимол, маълумотнома ҳали Supabase да созланмаган.',
