@@ -9,7 +9,8 @@ function dashActiveFilials() {
 }
 
 function dashPeriodLabel() {
-  return dashPeriod==='today' ? t('dash.plToday') : dashPeriod==='week' ? t('dash.plWeek') : t('dash.plMonth');
+  return dashPeriod==='today' ? t('dash.plToday') : dashPeriod==='week' ? t('dash.plWeek')
+       : dashPeriod==='lastmonth' ? t('dash.plLastMonth') : t('dash.plMonth');
 }
 
 // Текущий период
@@ -18,6 +19,9 @@ function dashDateRange() {
   let from;
   if(dashPeriod==='today') from = new Date(now.getFullYear(),now.getMonth(),now.getDate());
   else if(dashPeriod==='week') { from = new Date(now); from.setDate(now.getDate()-6); }
+  else if(dashPeriod==='lastmonth') {
+    return { from: ymdLocal(new Date(now.getFullYear(), now.getMonth()-1, 1)), to: ymdLocal(new Date(now.getFullYear(), now.getMonth(), 0)) };
+  }
   else from = new Date(now.getFullYear(), now.getMonth(), 1);
   return { from: ymdLocal(from), to: ymdLocal(now) };
 }
@@ -33,6 +37,8 @@ function dashPrevRange() {
     const to = new Date(now); to.setDate(now.getDate()-7);
     const from = new Date(now); from.setDate(now.getDate()-13);
     return { from: ymdLocal(from), to: ymdLocal(to) };
+  } else if(dashPeriod==='lastmonth') {
+    return { from: ymdLocal(new Date(now.getFullYear(), now.getMonth()-2, 1)), to: ymdLocal(new Date(now.getFullYear(), now.getMonth()-1, 0)) };
   } else {
     // Прошлый месяц до того же числа (честное сравнение с неполным текущим)
     const day = now.getDate();
@@ -60,7 +66,7 @@ function dashDelta(cur, prev, inverse) {
 function renderDashPeriods() {
   const sw = document.getElementById('dash-period-switcher');
   if(!sw) return;
-  const periods = [{id:'today',label:t('dash.periodToday')},{id:'week',label:t('dash.periodWeek')},{id:'month',label:t('dash.periodMonth')}];
+  const periods = [{id:'today',label:t('dash.periodToday')},{id:'week',label:t('dash.periodWeek')},{id:'month',label:t('dash.periodMonth')},{id:'lastmonth',label:t('dash.periodLastMonth')}];
   sw.innerHTML = periods.map(p=>`<button onclick="setDashPeriod('${p.id}')" style="flex:1;padding:9px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:${p.id===dashPeriod?'var(--gold-dark)':'var(--surface-2)'};color:${p.id===dashPeriod?'#fff':'var(--text-primary)'}">${p.label}</button>`).join('');
 }
 
@@ -256,7 +262,11 @@ function dashTabList() {
   const visible = (typeof FINANCE_ENABLED !== 'undefined' && !FINANCE_ENABLED)
     ? all.filter(x => x.id !== 'overview')
     : all;
-  return isBoss() ? [visible[0], hookah] : visible;
+  // «Касса» — выручка, гости, средний чек и ФОТ: только управляющим и владельцу
+  // (владелец, 03.11.2026). Менеджеры кассу вносят, но сводку не видят.
+  const money = { id:'money', label:t('dash.tab.money') };
+  const withMoney = (isAdmin() || isBoss()) ? [money].concat(visible) : visible;
+  return isBoss() ? [money, visible[0], hookah] : withMoney;
 }
 
 function renderDashTabs() {
@@ -290,6 +300,7 @@ async function loadDashboardTab() {
   if(dashTab === 'people')     return loadDashPeople();
   if(dashTab === 'positions')  return loadDashPositions();
   if(dashTab === 'hookah')     return loadDashHookah();
+  if(dashTab === 'money')      return loadDashMoney();
   return loadDashOverview();
 }
 
@@ -364,6 +375,99 @@ function dashFold(title, right, body, open) {
     <summary><div class="dsh-fold-h"><b>${title}</b>${right || ''}</div></summary>
     <div class="dsh-fold-body">${body}</div>
   </details>`;
+}
+
+// ---- Касса: выручка, гости, средний чек, ФОТ ----
+// Выручка — из кассы, которую менеджер вносит за кассовый день (finances,
+// категория «Выручка»), гости — из неё же. Средний чек = выручка ÷ гости, но
+// только по дням, где гости указаны, иначе день без гостей занижает чек.
+// ФОТ — та же ведомость, что в «Команде» (calcPayroll), по каждому филиалу.
+async function loadDashMoney() {
+  const content = document.getElementById('dashboard-content');
+  content.innerHTML = `<div class="loading">${t('dash.collecting')}</div>`;
+  const fils = dashActiveFilials();
+  const fids = fils.map(f => f.id);
+  const { from, to } = dashDateRange();
+  const prev = dashPrevRange();
+  const money = n => formatNum(Math.round(n || 0));
+  try {
+    const kassaQ = (a, b) => sb.from('finances').select('date,filial,amount,breakdown').in('filial', fids)
+      .eq('type', 'income').eq('category', 'Выручка').gte('date', a).lte('date', b).order('date');
+    const [cur, old, ...fots] = await Promise.all([
+      kassaQ(from, to), kassaQ(prev.from, prev.to),
+      ...fids.map(f => calcPayroll(f, from, to, null).catch(() => ({ grandTotal: 0, failed: true }))),
+    ]);
+    const rows = cur.data || [];
+    const sum = (list) => {
+      const r = { revenue: 0, guests: 0, revWithGuests: 0, days: list.length };
+      list.forEach(x => {
+        const g = Number(x.breakdown?.guests) || 0;
+        r.revenue += Number(x.amount) || 0;
+        if(g > 0) { r.guests += g; r.revWithGuests += Number(x.amount) || 0; }
+      });
+      r.avg = r.guests ? r.revWithGuests / r.guests : null;
+      return r;
+    };
+    const tot = sum(rows), pTot = sum(old.data || []);
+    const fotBy = {}; fids.forEach((f, i) => { fotBy[f] = fots[i] || { grandTotal: 0 }; });
+    const fot = fids.reduce((s, f) => s + (fotBy[f].grandTotal || 0), 0);
+    const share = tot.revenue > 0 ? Math.round(fot / tot.revenue * 100) : null;
+    // Для гостевого бизнеса ФОТ обычно 25–35% выручки
+    const shareColor = share === null ? 'var(--text-muted)' : share > 45 ? 'var(--bad)' : share > 30 ? 'var(--warn)' : 'var(--ok)';
+
+    // Дни без кассы: от начала периода до вчерашнего кассового дня — сегодняшнюю
+    // вносят только после закрытия смены
+    const lastDay = [to, ymdLocal(new Date(new Date(businessToday() + 'T00:00:00').getTime() - 86400000))].sort()[0];
+    const have = new Set(rows.map(r => r.filial + '_' + r.date));
+    const missing = [];
+    for(let d = new Date(from + 'T00:00:00'); ymdLocal(d) <= lastDay; d.setDate(d.getDate() + 1)) {
+      fils.forEach(f => { if(!have.has(f.id + '_' + ymdLocal(d))) missing.push({ f, d: ymdLocal(d) }); });
+    }
+    const fmtD = s => fmtLocale(new Date(s + 'T00:00:00'), { day:'numeric', month:'short' });
+
+    let html = dashHead(t('dash.tab.money'))
+      + dashKpis([
+          { val: money(tot.revenue) + dashDelta(tot.revenue, pTot.revenue), label: t('dash.m.revenue') },
+          { val: tot.avg !== null ? money(tot.avg) + dashDelta(tot.avg, pTot.avg || 0) : '—', label: t('dash.m.avg') },
+          { val: tot.guests ? String(tot.guests) : '—', label: t('dash.m.guests') },
+          { val: money(fot), label: t('dash.m.fot') },
+          { val: share !== null ? share + '%' : '—', label: t('dash.m.fotShare'), color: shareColor },
+        ])
+      + `<div class="dsh-note">${t('dash.m.note')}</div>`;
+
+    if(missing.length) {
+      html += dashSection(t('dash.m.missing'), `<div class="dsh-chips">${missing.map(x => dashChip((fils.length > 1 ? x.f.name + ' · ' : '') + fmtD(x.d), 'bad')).join('')}</div>`,
+        { count: missing.length, color: 'var(--bad)', hint: t('dash.m.missingHint') });
+    }
+
+    if(fils.length > 1) {
+      html += dashSection(t('dash.m.byFilial'), fils.map(f => {
+        const s = sum(rows.filter(r => r.filial === f.id));
+        const fF = fotBy[f.id].grandTotal || 0;
+        const sh = s.revenue > 0 ? Math.round(fF / s.revenue * 100) : null;
+        return dashLine({
+          name: escapeHtml(f.name), val: money(s.revenue),
+          meta: t('dash.m.filialMeta', { g: s.guests || '—', a: s.avg !== null ? money(s.avg) : '—', f: money(fF), s: sh !== null ? sh + '%' : '—' }),
+        });
+      }).join(''));
+    }
+
+    if(rows.length) {
+      const dayRows = rows.slice().reverse().map(r => {
+        const g = Number(r.breakdown?.guests) || 0;
+        const fname = fils.length > 1 ? (fils.find(f => f.id === r.filial)?.name || r.filial) + ' · ' : '';
+        return dashLine({
+          name: fname + fmtD(r.date), val: money(r.amount),
+          meta: g ? t('dash.m.dayMeta', { g, a: money(r.amount / g) }) : t('dash.m.dayNoGuests'),
+          color: g ? undefined : 'var(--warn)',
+        });
+      }).join('');
+      html += dashSection(t('dash.m.byDay'), dashFold(t('dash.m.byDayFold', { n: rows.length }), '', dayRows, dashPeriod === 'week' || dashPeriod === 'today'), { count: rows.length });
+    } else {
+      html += dashEmpty(t('dash.m.noKassa'));
+    }
+    content.innerHTML = html;
+  } catch(e) { content.innerHTML = dashEmpty(t('dash.loadErr') + (e?.message || e)); }
 }
 
 function dashEmpty(text) { return `<div class="card"><div class="empty"><div class="empty-text">${text}</div></div></div>`; }

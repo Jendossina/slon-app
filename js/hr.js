@@ -68,30 +68,23 @@ async function loadHR() {
 function payrollVisible() { return canSeeSalaryRole() || isDeptLead(); }
 function payrollDeptFilter(dept) { return canSeeSalaryRole() ? true : myLeadDept() === dept; }
 
-// Зарплатная ведомость за текущий месяц (admin/manager)
-async function openPayroll() {
-  if(!payrollVisible()) return;
-  openModal('modal-payroll');
-  const body = document.getElementById('payroll-body');
-  body.innerHTML = `<div class="loading">${t('hr.calculating')}</div>`;
-  try {
-    const now = new Date();
-    const firstStr = ymdLocal(new Date(now.getFullYear(), now.getMonth(), 1));
-    const lastStr = ymdLocal(new Date(now.getFullYear(), now.getMonth()+1, 0));
-    document.getElementById('payroll-title').textContent = t('hr.monthLedgerTitle',{month:fmtLocale(now, {month:'long',year:'numeric'}),f:getFilialName(currentFilial)});
-
-    // Сотрудники этого филиала + график за месяц (для точного расчёта по каждой смене)
+// Ведомость филиала за период: кому сколько за отработанные смены, минус
+// штрафы, плюс проценты официантов и правки руками. Одна функция на месячную
+// ведомость и на ФОТ в дашборде — чтобы цифры сходились до сума.
+// deptFilter(dept) → показывать ли отдел (старшему цеха — только свой).
+async function calcPayroll(filial, firstStr, lastStr, deptFilter) {
+    // Сотрудники этого филиала + график за период (для точного расчёта по каждой смене)
     const [{ data: allEmps }, { data: att }, { data: sched }, { data: prems }] = await Promise.all([
       sb.from('employees_view').select('*').order('name'),
-      sb.from('attendance').select('employee_id,date,check_in_time,penalty').eq('filial', currentFilial).gte('date', firstStr).lte('date', lastStr),
-      sb.from('schedules').select('employee_id,date,shift_start,is_day_off').eq('filial', currentFilial).gte('date', firstStr).lte('date', lastStr),
+      sb.from('attendance').select('employee_id,date,check_in_time,penalty').eq('filial', filial).gte('date', firstStr).lte('date', lastStr),
+      sb.from('schedules').select('employee_id,date,shift_start,is_day_off').eq('filial', filial).gte('date', firstStr).lte('date', lastStr),
       // Правки руками (доплаты и вычеты). Их выдавали и раньше, но месячная
       // ведомость их не запрашивала вовсе: выданные деньги в расчёт месяца не
       // попадали, и итог не сходился с дневными ведомостями.
-      sb.from('premiums').select('id,employee_id,amount,note,date,created_by_name').eq('filial', currentFilial).gte('date', firstStr).lte('date', lastStr).order('date'),
+      sb.from('premiums').select('id,employee_id,amount,note,date,created_by_name').eq('filial', filial).gte('date', firstStr).lte('date', lastStr).order('date'),
     ]);
-    const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(currentFilial))
-                              .filter(e => payrollDeptFilter(e.department));
+    const emps = (allEmps||[]).filter(e => (e.filials&&e.filials.length?e.filials:['istikbol','chekhov']).includes(filial))
+                              .filter(e => !deptFilter || deptFilter(e.department));
     const empDept = {}; (allEmps||[]).forEach(e=>{ empDept[e.id]=e.department; });
 
     // Отработанные дни (по явке) и штрафы за месяц
@@ -116,9 +109,9 @@ async function openPayroll() {
     const adjByEmp = {};
     (prems||[]).forEach(p => { (adjByEmp[p.employee_id] = adjByEmp[p.employee_id] || []).push(p); });
 
-    // Проценты официантов за месяц (неделя относится к месяцу своего понедельника)
+    // Проценты официантов за период (неделя относится к периоду своего понедельника)
     const bonusByEmp = typeof loadWaiterBonusForMonth === 'function'
-      ? await loadWaiterBonusForMonth(firstStr, lastStr) : {};
+      ? await loadWaiterBonusForMonth(firstStr, lastStr, filial) : {};
 
     let grandTotal = 0;
     const rows = emps.map(e=>{
@@ -137,6 +130,21 @@ async function openPayroll() {
       grandTotal += total;
       return { id:e.id, name:e.name, rate:salary, shifts:w.dates.length, earned, penalty:w.penalty, bonus, adj, adjSum, total };
     }).filter(r=>r.shifts>0 || r.rate>0 || r.adj.length>0);
+    return { rows, grandTotal };
+}
+
+// Зарплатная ведомость за текущий месяц (admin/manager)
+async function openPayroll() {
+  if(!payrollVisible()) return;
+  openModal('modal-payroll');
+  const body = document.getElementById('payroll-body');
+  body.innerHTML = `<div class="loading">${t('hr.calculating')}</div>`;
+  try {
+    const now = new Date();
+    const firstStr = ymdLocal(new Date(now.getFullYear(), now.getMonth(), 1));
+    const lastStr = ymdLocal(new Date(now.getFullYear(), now.getMonth()+1, 0));
+    document.getElementById('payroll-title').textContent = t('hr.monthLedgerTitle',{month:fmtLocale(now, {month:'long',year:'numeric'}),f:getFilialName(currentFilial)});
+    const { rows, grandTotal } = await calcPayroll(currentFilial, firstStr, lastStr, payrollDeptFilter);
 
     if(rows.length===0) { body.innerHTML = `<div class="empty"><div class="empty-text">${t('hr.noMonthData')}</div></div>`; return; }
 

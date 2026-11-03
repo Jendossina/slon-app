@@ -391,14 +391,15 @@ async function deleteWaiterPoint(id) {
 
 // Проценты официантов за месяц — для зарплатной ведомости (js/hr.js).
 // Неделя относится к тому месяцу, в котором её понедельник.
-async function loadWaiterBonusForMonth(firstStr, lastStr) {
+async function loadWaiterBonusForMonth(firstStr, lastStr, filial) {
+  const fil = filial || currentFilial;   // дашборд считает оба филиала, не только открытый
   const out = {}; // employee_id -> { percentSum, amount, weeks }
   try {
     const weekFrom = weekStartOf(firstStr), weekTo = weekStartOf(lastStr);
     const [statsR, pointsR, attR, quizR] = await Promise.all([
-      sb.from('waiter_week_stats').select('*').eq('filial', currentFilial).gte('week_start', firstStr).lte('week_start', lastStr),
-      sb.from('waiter_points').select('employee_id,date,category,points').eq('filial', currentFilial).gte('date', weekFrom).lte('date', weekEndOf(weekTo)),
-      sb.from('attendance').select('employee_id,date,is_late,late_excused').eq('filial', currentFilial).gte('date', weekFrom).lte('date', weekEndOf(weekTo)),
+      sb.from('waiter_week_stats').select('*').eq('filial', fil).gte('week_start', firstStr).lte('week_start', lastStr),
+      sb.from('waiter_points').select('employee_id,date,category,points').eq('filial', fil).gte('date', weekFrom).lte('date', weekEndOf(weekTo)),
+      sb.from('attendance').select('employee_id,date,is_late,late_excused').eq('filial', fil).gte('date', weekFrom).lte('date', weekEndOf(weekTo)),
       sb.from('quiz_attempts').select('employee_id,week_start,score,passed,finished_at,q_total').gte('week_start', weekFrom).lte('week_start', weekTo).eq('superseded', false).eq('practice', false),
     ]);
     const quizByWeek = {}; (quizR.data||[]).forEach(q => { quizByWeek[q.employee_id+'_'+q.week_start] = q; });

@@ -191,9 +191,9 @@ test('кальяны: кто вносит отчёт и кто видит сво
   expect(res.admin.tabs).toContain('hookah');
   // «Обзор» был витриной выручки и ушёл вместе с финансами (FINANCE_ENABLED)
   expect(res.admin.tabs).not.toContain('overview');
-  // владелец — обзор и кальяны
-  // владелец — сводка по явке и кальяны: денежного «Обзора» больше нет
-  expect(res.boss.tabs).toEqual(['attendance', 'hookah']);
+  // владелец — касса (выручка, средний чек, ФОТ), сводка по явке и кальяны
+  expect(res.boss.tabs).toEqual(['money', 'attendance', 'hookah']);
+  expect(res.admin.tabs[0]).toBe('money');
 });
 
 // Полоска «доступна новая версия». Главное правило: она предлагает, а не
@@ -3387,7 +3387,7 @@ test('финансы убраны из меню и с дашборда, оста
   expect(r.menu, 'раздела «Финансы» в меню нет').not.toContain('Финансы');
   expect(r.menu, 'остальное меню на месте').toContain('Админ');
   expect(r.tabs, 'вкладки «Обзор» нет').not.toContain('overview');
-  expect(r.tabs, 'остальные вкладки остались').toEqual(['attendance', 'tasks', 'checklists', 'people', 'positions', 'hookah']);
+  expect(r.tabs, 'остальные вкладки остались, «Касса» — первой').toEqual(['money', 'attendance', 'tasks', 'checklists', 'people', 'positions', 'hookah']);
   expect(r.salary, 'зарплаты это не затронуло').toBe(true);
 });
 

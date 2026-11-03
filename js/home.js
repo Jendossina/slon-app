@@ -13,6 +13,7 @@ async function loadHome() {
   if(typeof renderStopListCard === 'function') renderStopListCard();
   if(typeof renderHookahCard === 'function') renderHookahCard();
   if(typeof renderFiveMinCard === 'function') renderFiveMinCard();
+  if(typeof renderKassaCard === 'function') renderKassaCard();
   try {
     const todayStr = today();
     const shiftDay = businessToday(); // смена 12:00–03:00 = один кассовый день (ночью = вчера)

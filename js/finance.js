@@ -166,6 +166,39 @@ function updateAvgCheck() {
 
 let kassaEditDate = null; // день, для которого редактируется касса
 
+// ===== Карточка «Касса» на главной (менеджер и управляющий) =====
+// Раздел «Финансы» скрыт (FINANCE_ENABLED), но кассу за день вносить надо:
+// из неё дашборд считает выручку, средний чек и долю ФОТ. Карточка показывает
+// сегодняшний кассовый день и дни прошлой недели, за которые кассы нет.
+async function renderKassaCard() {
+  const el = document.getElementById('home-kassa-card');
+  if(!el) return;
+  if(!canEditData()) { el.innerHTML = ''; return; }
+  try {
+    const day = businessToday();
+    const from = new Date(day + 'T00:00:00'); from.setDate(from.getDate() - 7);
+    const { data } = await sb.from('finances').select('date,amount,breakdown').eq('filial', currentFilial)
+      .eq('type', 'income').eq('category', 'Выручка').gte('date', ymdLocal(from)).lte('date', day);
+    const byDate = {}; (data || []).forEach(r => { byDate[r.date] = r; });
+    const missed = [];
+    for(let d = new Date(from); ymdLocal(d) < day; d.setDate(d.getDate() + 1)) {
+      if(!byDate[ymdLocal(d)]) missed.push(ymdLocal(d));
+    }
+    const cur = byDate[day];
+    const g = cur && Number(cur.breakdown?.guests) || 0;
+    const fmtD = s => fmtLocale(new Date(s + 'T00:00:00'), { day:'numeric', month:'short' });
+    el.innerHTML = `<div class="card" style="margin-bottom:12px">
+      <div class="card-title">💰 ${t('fin.cardTitle', { d: fmtD(day) })}</div>
+      ${cur ? `<div style="font-size:20px;font-weight:700" class="finance-positive">${formatNum(cur.amount)}</div>
+               <div style="font-size:12px;color:var(--text-muted)">${g ? t('fin.cardGuests', { g, a: formatNum(Math.round(cur.amount / g)) }) : t('fin.cardNoGuests')}</div>`
+            : `<div style="font-size:12px;color:var(--text-muted)">${t('fin.cardHint')}</div>`}
+      ${missed.length ? `<div style="font-size:12px;color:#A32D2D;margin-top:8px">${t('fin.cardMissed')}
+          ${missed.map(d => `<button onclick="openKassaModal('${d}')" style="margin:4px 4px 0 0;background:#FCEBEB;color:#A32D2D;border:none;border-radius:8px;padding:5px 9px;font-size:12px;font-weight:600;cursor:pointer">${fmtD(d)}</button>`).join('')}</div>` : ''}
+      <button class="btn ${cur ? 'btn-secondary' : 'btn-primary'}" onclick="openKassaModal('${day}')" style="margin-top:10px">${cur ? t('fin.cardEdit') : t('fin.cardAdd')}</button>
+    </div>`;
+  } catch(e) { el.innerHTML = ''; }
+}
+
 // Локальную дату НЕ называем `t` — это имя занято функцией перевода t(),
 // и её затенение здесь уже ломало кнопку «Внести кассу» (t is not a function).
 async function openKassaModal(date) {
@@ -258,6 +291,8 @@ async function saveKassa() {
   const raw = document.getElementById('kassa-amount').value;
   const amount = parseFloat(raw);
   if(!raw || isNaN(amount) || amount<0) return showToast(t('fin.enterRevenue'));
+  // Без гостей не посчитать средний чек на дашборде (владелец, 03.11.2026)
+  if(!(_kv('kassa-guests') > 0)) return showToast(t('fin.enterGuests'));
   // собираем строки разбивки
   const lines = [];
   document.querySelectorAll('#kassa-lines > div').forEach(row => {
@@ -287,7 +322,8 @@ async function saveKassa() {
     closeModal('modal-kassa');
     showToast(t('fin.kassaSaved'));
     if(kassaEditDate) financeSelectedDate = kassaEditDate; // экран прыгает на день сохранённой кассы
-    loadFinance();
+    if(FINANCE_ENABLED) loadFinance();
+    if(typeof renderKassaCard === 'function') renderKassaCard();
   } catch(e) { showToast(t('common.error')+e.message); }
 }
 
