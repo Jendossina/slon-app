@@ -573,7 +573,18 @@ async function compressImage(file, maxSide = 1280, quality = 0.7) {
   let src = file;
   try {
     src = new File([await file.arrayBuffer()], file.name || 'photo.jpg', { type: file.type });
-  } catch(e) { fails.push('read:' + compressFailName(e)); }
+  } catch(e) {
+    fails.push('read:' + compressFailName(e));
+    // 06.11.2026, прочитав raw: у него отказывает именно чтение файла
+    // (NotReadableError), а за ним и все попытки раскодировать — они читают
+    // тот же файл тем же путём. Отказ привязан к снимку: 30.10 одни и те же
+    // восемь снимков ушли оригиналами дважды. Но отправка файла проходит —
+    // сеть читает его иначе. Поэтому прогоняем снимок через сервер туда и
+    // обратно (photo-echo) и сжимаем уже то, что вернулось.
+    const back = await echoFileThroughServer(file);
+    if(back.file) { src = back.file; fails.push('echo:ok'); }
+    else fails.push('echo:' + back.err);
+  }
   const tries = [[true, 0], [true, 1500], [false, 400]];
   for(const [light, wait] of tries) {
     if(wait) await new Promise(r => setTimeout(r, wait));
@@ -588,6 +599,33 @@ async function compressImage(file, maxSide = 1280, quality = 0.7) {
   }
   compressImage.lastFail = (fails.join(' ') + ' ' + file.size + 'b ' + (file.type || '?')).slice(0, 300);
   return file;
+}
+
+// Отправить снимок на photo-echo и получить его назад байтами в памяти.
+// Именно FormData, как у загрузки в хранилище: так браузер кладёт файл в
+// запрос сетевым путём, который у этого телефона работает. { file } или { err }.
+async function echoFileThroughServer(file) {
+  try {
+    const { data } = await sb.auth.getSession();
+    const token = data?.session?.access_token;
+    if(!token) return { err: 'nosession' };
+    const form = new FormData();
+    form.append('file', file, file.name || 'photo.jpg');
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 60000);   // 3 МБ по мобильному туда и обратно
+    try {
+      const res = await fetch(SUPABASE_URL + '/functions/v1/photo-echo', {
+        method: 'POST',
+        headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + token },
+        body: form,
+        signal: ctrl.signal,
+      });
+      if(!res.ok) return { err: 'http' + res.status };
+      const blob = await res.blob();
+      if(!blob.size) return { err: 'empty' };
+      return { file: new File([blob], file.name || 'photo.jpg', { type: file.type }) };
+    } finally { clearTimeout(timer); }
+  } catch(e) { return { err: compressFailName(e).slice(0, 40) }; }
 }
 
 function compressFailName(e) {

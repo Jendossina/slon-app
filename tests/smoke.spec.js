@@ -525,6 +525,58 @@ test('фото сжимается, даже когда полное раскод
   expect(r.name, 'имя файла потеряло символы').toBe('IMG_20260921.jpg');
 });
 
+// vivo Y35, 06.11.2026: по полю raw видно, что часть снимков телефон не даёт
+// прочитать вовсе (NotReadableError) — ни arrayBuffer, ни createImageBitmap,
+// ни <img>. Отправка файла при этом проходит, поэтому снимок гоняем через
+// photo-echo и сжимаем вернувшиеся байты.
+test('нечитаемый снимок сжимается через сервер', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.compressImage === 'function');
+
+  const r = await page.evaluate(async () => {
+    const c = document.createElement('canvas');
+    c.width = 3060; c.height = 4080;
+    const cx = c.getContext('2d');
+    cx.fillStyle = '#33aa66'; cx.fillRect(0, 0, 3060, 4080);
+    const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.95));
+    const file = new File([blob], 'IMG_20261103.jpg', { type: 'image/jpeg' });
+    const unreadable = () => new DOMException('The requested file could not be read', 'NotReadableError');
+    file.arrayBuffer = () => Promise.reject(unreadable());
+
+    const realBitmap = window.createImageBitmap;
+    const realObjUrl = URL.createObjectURL;
+    const realFetch = window.fetch;
+    const realSession = sb.auth.getSession;
+    let echoed = 0;
+    window.createImageBitmap = (src, opts) => { if (src === file) throw new DOMException('x', 'InvalidStateError'); return realBitmap(src, opts); };
+    URL.createObjectURL = (o) => o === file ? 'blob:http://localhost/not-readable' : realObjUrl(o);
+    sb.auth.getSession = async () => ({ data: { session: { access_token: 'test' } } });
+    window.fetch = async (url, init) => {
+      if (!String(url).endsWith('/functions/v1/photo-echo')) return realFetch(url, init);
+      echoed++;
+      const sent = init.body.get('file');
+      if (!(sent instanceof File) || sent.size !== file.size || sent.name !== file.name) return new Response('wrong file', { status: 400 });
+      return new Response(await Blob.prototype.arrayBuffer.call(sent), { headers: { 'Content-Type': 'application/octet-stream' } });
+    };
+
+    let out, fail;
+    try { out = await window.compressImage(file, 1024, 0.62); fail = window.compressImage.lastFail; }
+    finally {
+      window.createImageBitmap = realBitmap; URL.createObjectURL = realObjUrl;
+      window.fetch = realFetch; sb.auth.getSession = realSession;
+    }
+    const bmp = await realBitmap(out);
+    const side = Math.max(bmp.width, bmp.height);
+    bmp.close();
+    return { original: file.size, size: out.size, side, echoed, fail, name: out.name };
+  });
+
+  expect(r.echoed, 'снимок не отправлялся на photo-echo').toBe(1);
+  expect(r.size, `ушёл оригинал (${r.fail})`).toBeLessThan(r.original / 2);
+  expect(r.side).toBeLessThanOrEqual(1024);
+  expect(r.name).toBe('IMG_20261103.jpg');
+});
+
 // Превью выбранных снимков раньше было самим оригиналом в <img>: десять
 // 12-мегапиксельных превью съедали память, и сжатие посреди пачки проваливалось
 // (vivo Y35, 01.11.2026). Превью обязано быть маленькой картинкой; и первый
