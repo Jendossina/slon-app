@@ -177,8 +177,14 @@ async function renderKassaCard() {
   try {
     const day = businessToday();
     const from = new Date(day + 'T00:00:00'); from.setDate(from.getDate() - 7);
-    const { data } = await sb.from('finances').select('date,amount,breakdown').eq('filial', currentFilial)
-      .eq('type', 'income').eq('category', 'Выручка').gte('date', ymdLocal(from)).lte('date', day);
+    const [{ data }, { data: exps }] = await Promise.all([
+      sb.from('finances').select('date,amount,breakdown').eq('filial', currentFilial)
+        .eq('type', 'income').eq('category', 'Выручка').gte('date', ymdLocal(from)).lte('date', day),
+      sb.from('finances').select('id,amount,category,description').eq('filial', currentFilial)
+        .eq('type', 'expense').eq('date', day).order('id'),
+    ]);
+    const expList = exps || [];
+    const expSum = expList.reduce((s, x) => s + Number(x.amount || 0), 0);
     const byDate = {}; (data || []).forEach(r => { byDate[r.date] = r; });
     const missed = [];
     for(let d = new Date(from); ymdLocal(d) < day; d.setDate(d.getDate() + 1)) {
@@ -194,7 +200,16 @@ async function renderKassaCard() {
             : `<div style="font-size:12px;color:var(--text-muted)">${t('fin.cardHint')}</div>`}
       ${missed.length ? `<div style="font-size:12px;color:#A32D2D;margin-top:8px">${t('fin.cardMissed')}
           ${missed.map(d => `<button onclick="openKassaModal('${d}')" style="margin:4px 4px 0 0;background:#FCEBEB;color:#A32D2D;border:none;border-radius:8px;padding:5px 9px;font-size:12px;font-weight:600;cursor:pointer">${fmtD(d)}</button>`).join('')}</div>` : ''}
-      <button class="btn ${cur ? 'btn-secondary' : 'btn-primary'}" onclick="openKassaModal('${day}')" style="margin-top:10px">${cur ? t('fin.cardEdit') : t('fin.cardAdd')}</button>
+      <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary)"><span>${t('fin.cardExpenses')}</span><b class="finance-negative">${expSum ? '−' + formatNum(expSum) : '0'}</b></div>
+        ${expList.map(x => `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-muted);padding:3px 0">
+            <span>${escapeHtml(x.category || '')}${x.description ? ' · ' + escapeHtml(x.description) : ''}</span>
+            <span style="display:flex;align-items:center;gap:6px">−${formatNum(x.amount)}<button onclick="deleteFinance(${x.id})" aria-label="Удалить" style="background:none;border:none;color:var(--text-muted);font-size:14px;cursor:pointer;padding:0 2px">✕</button></span></div>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn ${cur ? 'btn-secondary' : 'btn-primary'}" onclick="openKassaModal('${day}')" style="flex:1;margin:0">${cur ? t('fin.cardEdit') : t('fin.cardAdd')}</button>
+        <button class="btn btn-secondary" onclick="openExpenseModal('${day}')" style="flex:1;margin:0">${t('fin.cardExpenseBtn')}</button>
+      </div>
     </div>`;
   } catch(e) { el.innerHTML = ''; }
 }
@@ -293,6 +308,8 @@ async function saveKassa() {
   if(!raw || isNaN(amount) || amount<0) return showToast(t('fin.enterRevenue'));
   // Без гостей не посчитать средний чек на дашборде (владелец, 03.11.2026)
   if(!(_kv('kassa-guests') > 0)) return showToast(t('fin.enterGuests'));
+  // Фото Z-отчёта обязательно (владелец, 12.11.2026): по нему сверяют цифры
+  if(!document.getElementById('kassa-photo-url').value) return showToast(t('fin.photoRequired'));
   // собираем строки разбивки
   const lines = [];
   document.querySelectorAll('#kassa-lines > div').forEach(row => {
@@ -331,7 +348,9 @@ let expenseDate = null; // день, к которому добавляется 
 
 function openExpenseModal(date) {
   expenseDate = date || businessToday();
-  document.getElementById('exp-date-display').textContent = '📅 ' + expenseDate + ' · ' + getFilialName(currentFilial);
+  // Дату можно поменять — расходы за пропущенные дни вносят задним числом
+  document.getElementById('exp-date').value = expenseDate;
+  document.getElementById('exp-date-display').textContent = getFilialName(currentFilial);
   document.getElementById('exp-amount').value = '';
   document.getElementById('exp-desc').value = '';
   openModal('modal-expense');
@@ -341,12 +360,14 @@ async function saveExpense() {
   if(!canEditData()) return showToast(t('common.observerMode'));
   const amount = parseFloat(document.getElementById('exp-amount').value);
   if(isNaN(amount) || amount<=0) return showToast(t('fin.enterAmount'));
+  const date = document.getElementById('exp-date').value || expenseDate || businessToday();
   try {
-    const { error: err } = await sb.from('finances').insert({ type:'expense', amount, category:document.getElementById('exp-category').value, description:document.getElementById('exp-desc').value, date: expenseDate || businessToday(), filial: currentFilial });
+    const { error: err } = await sb.from('finances').insert({ type:'expense', amount, category:document.getElementById('exp-category').value, description:document.getElementById('exp-desc').value, date, filial: currentFilial });
     if(err) return showToast(t('common.error')+err.message);
     closeModal('modal-expense');
     showToast(t('fin.expenseAdded'));
-    loadFinance();
+    if(FINANCE_ENABLED) loadFinance();
+    if(typeof renderKassaCard === 'function') renderKassaCard();
   } catch(e) { showToast(t('common.error')+e.message); }
 }
 
@@ -357,7 +378,8 @@ async function deleteFinance(id) {
     const { error: err } = await sb.from('finances').delete().eq('id', id);
     if(err) return showToast(t('common.error')+err.message);
     showToast(t('sch.deleted'));
-    loadFinance();
+    if(FINANCE_ENABLED) loadFinance();
+    if(typeof renderKassaCard === 'function') renderKassaCard();
   } catch(e) { showToast(t('common.error')+e.message); }
 }
 

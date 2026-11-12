@@ -393,8 +393,10 @@ async function loadDashMoney() {
   try {
     const kassaQ = (a, b) => sb.from('finances').select('date,filial,amount,breakdown').in('filial', fids)
       .eq('type', 'income').eq('category', 'Выручка').gte('date', a).lte('date', b).order('date');
-    const [cur, old, ...fots] = await Promise.all([
-      kassaQ(from, to), kassaQ(prev.from, prev.to),
+    const expQ = sb.from('finances').select('date,filial,amount,category').in('filial', fids)
+      .eq('type', 'expense').gte('date', from).lte('date', to);
+    const [cur, old, expR, ...fots] = await Promise.all([
+      kassaQ(from, to), kassaQ(prev.from, prev.to), expQ,
       ...fids.map(f => calcPayroll(f, from, to, null).catch(() => ({ grandTotal: 0, failed: true }))),
     ]);
     const rows = cur.data || [];
@@ -412,6 +414,9 @@ async function loadDashMoney() {
     const fotBy = {}; fids.forEach((f, i) => { fotBy[f] = fots[i] || { grandTotal: 0 }; });
     const fot = fids.reduce((s, f) => s + (fotBy[f].grandTotal || 0), 0);
     const share = tot.revenue > 0 ? Math.round(fot / tot.revenue * 100) : null;
+    const exps = expR.data || [];
+    const expTotal = exps.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    const expByCat = {}; exps.forEach(x => { const c = x.category || '—'; expByCat[c] = (expByCat[c] || 0) + (Number(x.amount) || 0); });
     // Для гостевого бизнеса ФОТ обычно 25–35% выручки
     const shareColor = share === null ? 'var(--text-muted)' : share > 45 ? 'var(--bad)' : share > 30 ? 'var(--warn)' : 'var(--ok)';
 
@@ -432,12 +437,18 @@ async function loadDashMoney() {
           { val: tot.guests ? String(tot.guests) : '—', label: t('dash.m.guests') },
           { val: money(fot), label: t('dash.m.fot') },
           { val: share !== null ? share + '%' : '—', label: t('dash.m.fotShare'), color: shareColor },
+          { val: expTotal ? money(expTotal) : '0', label: t('dash.m.expenses') },
         ])
       + `<div class="dsh-note">${t('dash.m.note')}</div>`;
 
     if(missing.length) {
       html += dashSection(t('dash.m.missing'), `<div class="dsh-chips">${missing.map(x => dashChip((fils.length > 1 ? x.f.name + ' · ' : '') + fmtD(x.d), 'bad')).join('')}</div>`,
         { count: missing.length, color: 'var(--bad)', hint: t('dash.m.missingHint') });
+    }
+
+    if(exps.length) {
+      html += dashSection(t('dash.m.expByCat'), Object.entries(expByCat).sort((a, b) => b[1] - a[1])
+        .map(([c, v]) => dashLine({ name: escapeHtml(c), val: money(v) })).join(''), { count: exps.length });
     }
 
     if(fils.length > 1) {
