@@ -188,8 +188,10 @@ async function myDepartment() {
   return data?.department || null;
 }
 
-// Может ли текущий пользователь править график этого отдела
-function canEditScheduleDept(dept) { return canLeadDept(dept); }
+// Может ли текущий пользователь править график этого отдела.
+// С 12.11.2026 график ведут только менеджеры и управляющий: старшие цехов
+// его больше не правят (в базе то же правило — can_write_schedules).
+function canEditScheduleDept(dept) { return canEditData(); }
 
 // Единый вид секции цеха для списков сотрудников (HR и админ-панель)
 const DEPT_ICONS = { 'Менеджеры':'📋', 'Официанты':'🍽️', 'Бармены':'🍹', 'Кальянные мастера':'💨', 'Повара':'👨‍🍳', 'Без отдела':'👥' };

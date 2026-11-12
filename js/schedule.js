@@ -128,7 +128,7 @@ async function loadSchedule() {
     if(dept) currentDept = dept;
   }
 
-  // Права считаем на ТЕКУЩИЙ отдел: старший цеха правит только свой
+  // Править график могут только менеджеры и управляющий
   const canEdit = canEditScheduleDept(currentDept);
   if(fabBtn) fabBtn.style.display = canEdit ? 'block' : 'none';
   if(fabWeekBtn) fabWeekBtn.style.display = canEdit ? 'block' : 'none';
