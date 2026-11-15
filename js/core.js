@@ -189,9 +189,15 @@ async function myDepartment() {
 }
 
 // Может ли текущий пользователь править график этого отдела.
-// С 12.11.2026 график ведут только менеджеры и управляющий: старшие цехов
-// его больше не правят (в базе то же правило — can_write_schedules).
-function canEditScheduleDept(dept) { return canEditData(); }
+// С 12.11.2026 график ведут менеджеры и управляющий. Из старших цехов право
+// оставлено поимённо (владелец, 15.11.2026) — только на свой цех. Тот же
+// список в базе: таблица schedule_editors, функция can_write_schedule_of.
+const SCHEDULE_EDITORS = { 44: 'Бармены', 154: 'Повара' };   // Доос Никита, Макаев Дамир
+function canEditScheduleDept(dept) {
+  if(canEditData()) return true;
+  const id = currentEmployee?.id || currentProfile?.employee_id;
+  return !!dept && SCHEDULE_EDITORS[id] === dept;
+}
 
 // Единый вид секции цеха для списков сотрудников (HR и админ-панель)
 const DEPT_ICONS = { 'Менеджеры':'📋', 'Официанты':'🍽️', 'Бармены':'🍹', 'Кальянные мастера':'💨', 'Повара':'👨‍🍳', 'Без отдела':'👥' };

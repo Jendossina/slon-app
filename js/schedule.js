@@ -128,7 +128,7 @@ async function loadSchedule() {
     if(dept) currentDept = dept;
   }
 
-  // Править график могут только менеджеры и управляющий
+  // Править график: менеджеры, управляющий и поимённо назначенные старшие (свой цех)
   const canEdit = canEditScheduleDept(currentDept);
   if(fabBtn) fabBtn.style.display = canEdit ? 'block' : 'none';
   if(fabWeekBtn) fabWeekBtn.style.display = canEdit ? 'block' : 'none';
