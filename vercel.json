@@ -59,6 +59,10 @@
     {
       "source": "/tv",
       "destination": "/tv.html"
+    },
+    {
+      "source": "/afisha",
+      "destination": "/afisha.html"
     }
   ]
 }

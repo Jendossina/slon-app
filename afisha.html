@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Футбол в SLON</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Golos+Text:wght@400;500;600&display=swap">
+<style>
+/* Layout: афиша по вечерам — слева крупная дата, справа строки матчей; наверху «главные вечера» */
+:root {
+  --bg: #eef1ec;
+  --paper: #ffffff;
+  --ink: #17221b;
+  --muted: #5d6b62;
+  --line: #d5ddd6;
+  --pitch: #1d6b45;
+  --pitch-soft: #e1efe6;
+  --hot: #b5481e;
+  --hot-soft: #f8e6dc;
+  --night: #3b3f7a;
+  --night-soft: #e7e8f6;
+  --f-display: "Oswald", "Arial Narrow", Impact, sans-serif;
+  --f-body: "Golos Text", "Segoe UI", Roboto, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1612; --paper: #17201a; --ink: #e8eee9; --muted: #98a69c; --line: #2a362e;
+  --pitch: #5cc48c; --pitch-soft: #1c3226; --hot: #f08a5d; --hot-soft: #3a2219;
+  --night: #a9adf0; --night-soft: #23254a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1612; --paper: #17201a; --ink: #e8eee9; --muted: #98a69c; --line: #2a362e;
+  --pitch: #5cc48c; --pitch-soft: #1c3226; --hot: #f08a5d; --hot-soft: #3a2219;
+  --night: #a9adf0; --night-soft: #23254a; color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 48px }
+.wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px }
+h1, h2, .day-num, .time, .hit-time { font-family: var(--f-display); letter-spacing: .01em }
+h1 { font-size: clamp(34px, 7vw, 52px); line-height: 1; margin: 0; text-transform: uppercase; text-wrap: balance }
+h1 span { color: var(--pitch) }
+.lead { color: var(--muted); margin: 8px 0 0; max-width: 62ch }
+h2 { font-size: 20px; text-transform: uppercase; margin: 0 0 12px; letter-spacing: .04em }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px }
+.filters button { font: 500 14px var(--f-body); border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+  padding: 7px 13px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px }
+.filters button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink) }
+.filters button:focus-visible, .hit:focus-visible { outline: 2px solid var(--pitch); outline-offset: 2px }
+.dot { width: 9px; height: 9px; border-radius: 50% }
+
+.hits { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px }
+.hit { background: var(--hot-soft); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0 }
+.hit-when { font-size: 13px; color: var(--hot); font-weight: 600; text-transform: uppercase; letter-spacing: .05em }
+.hit-time { font-size: 30px; line-height: 1; color: var(--hot) }
+.hit-match { font-weight: 600; font-size: 16px }
+.hit-why { font-size: 13px; color: var(--muted) }
+
+.day { display: grid; grid-template-columns: 92px 1fr; gap: 0 18px; padding-top: 18px; border-top: 1px solid var(--line) }
+.day-head { display: flex; flex-direction: column }
+.day-num { font-size: 40px; line-height: .95 }
+.day-wd { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .06em }
+.rows { display: flex; flex-direction: column; min-width: 0 }
+.row { display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px dashed var(--line) }
+.row:last-child { border-bottom: 0 }
+.time { font-size: 21px; font-variant-numeric: tabular-nums }
+.time small { display: block; font-family: var(--f-body); font-size: 11px; color: var(--night); text-transform: uppercase; letter-spacing: .05em; margin-top: -2px }
+.match { min-width: 0; font-weight: 500 }
+.match.top { font-weight: 700 }
+.tag-top { display: inline-block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+  background: var(--hot); color: var(--paper); border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px }
+.comp { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; background: var(--pitch-soft); color: var(--ink) }
+.note { font-size: 13px; color: var(--muted); max-width: 70ch }
+.empty { color: var(--muted); padding: 20px 0 }
+
+@media (max-width: 560px) {
+  .day { grid-template-columns: 1fr; gap: 8px }
+  .day-head { flex-direction: row; align-items: baseline; gap: 10px }
+  .day-num { font-size: 30px }
+  .row { grid-template-columns: 54px 1fr; }
+  .row .comp { grid-column: 2; justify-self: start; margin-top: -4px }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Футбол в <span>SLON</span></h1>
+    <p class="lead">20 главных матчей для экранов с 16 ноября по 9 декабря. Время ташкентское. Матчи после полуночи стоят в том вечере, когда гости приходят их смотреть.</p>
+  </header>
+
+  <section>
+    <h2>Главные вечера: под полный зал и брони</h2>
+    <div class="hits" id="hits"></div>
+  </section>
+
+  <section>
+    <h2>20 главных матчей</h2>
+    <div class="filters" id="filters" role="group" aria-label="Турнир"></div>
+  </section>
+
+  <section id="days"></section>
+
+  <p class="note">Расписание иногда сдвигают, поэтому накануне сверяйте время. Пометка «ночь» значит, что матч начинается после полуночи. Здесь только самые сильные пары за период.</p>
+</div>
+
+<script>
+const COMPS = {
+  ucl: { name: 'Лига чемпионов', color: '#2b4ea2' },
+  unl: { name: 'Лига наций', color: '#7a3fa0' },
+  epl: { name: 'Англия', color: '#8a1f53' },
+  laliga: { name: 'Испания', color: '#c8361e' },
+  seriea: { name: 'Италия', color: '#1b7a8c' },
+  bl: { name: 'Германия', color: '#c0262b' },
+};
+// [дата вечера, время, матч, турнир]
+const M = [
+  ['2026-11-16','00:45','Германия — Нидерланды','unl'],
+  ['2026-11-17','00:45','Дания — Норвегия','unl'],
+  ['2026-11-17','00:45','Уэльс — Португалия','unl'],
+  ['2026-11-21','22:30','Ньюкасл — Арсенал','epl'],
+  ['2026-11-21','22:30','Севилья — Бетис','laliga'],
+  ['2026-11-22','21:30','Ливерпуль — Манчестер Юнайтед','epl'],
+  ['2026-11-22','00:45','Аталанта — Интер','seriea'],
+  ['2026-11-24','01:00','Манчестер Сити — Наполи','ucl'],
+  ['2026-11-24','01:00','Арсенал — Боруссия Дортмунд','ucl'],
+  ['2026-11-25','01:00','ПСЖ — Рома','ucl'],
+  ['2026-11-25','01:00','Лилль — Бавария','ucl'],
+  ['2026-11-25','01:00','Спортинг — Манчестер Юнайтед','ucl'],
+  ['2026-11-29','17:00','Эвертон — Ливерпуль','epl'],
+  ['2026-11-29','21:30','Арсенал — Манчестер Сити','epl'],
+  ['2026-11-29','23:30','Боруссия Дортмунд — Байер','bl'],
+  ['2026-12-05','17:30','Челси — Ливерпуль','epl'],
+  ['2026-12-06','21:30','Тоттенхэм — Арсенал','epl'],
+  ['2026-12-08','01:00','Барселона — Манчестер Сити','ucl'],
+  ['2026-12-09','01:00','Арсенал — Реал Мадрид','ucl'],
+  ['2026-12-09','01:00','Боруссия Дортмунд — Интер','ucl'],
+];
+const HITS = [
+  ['2026-11-22','21:30','Ливерпуль — Манчестер Юнайтед','Главное дерби Англии, время идеальное'],
+  ['2026-11-29','21:30','Арсенал — Манчестер Сити','Лидер АПЛ против третьего места'],
+  ['2026-12-05','17:30','Челси — Ливерпуль','Субботний дневной топ, зал с обеда'],
+  ['2026-11-25','01:00','ПСЖ — Рома · Лилль — Бавария','Лига чемпионов, сильный вечер'],
+  ['2026-12-09','01:00','Арсенал — Реал Мадрид','Самая громкая пара Лиги чемпионов'],
+];
+const WD = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+const MON = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const dt = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const isNight = t => +t.slice(0,2) < 6;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sortKey = t => (isNight(t) ? 24 + +t.slice(0,2) : +t.slice(0,2)) * 60 + +t.slice(3);
+
+document.getElementById('hits').innerHTML = HITS.map(([d,t,m,why]) => {
+  const x = dt(d);
+  return `<article class="hit"><div class="hit-when">${WD[x.getDay()].slice(0,2)}, ${x.getDate()} ${MON[x.getMonth()]}${isNight(t)?' · ночь':''}</div>
+    <div class="hit-time">${t}</div><div class="hit-match">${esc(m)}</div><div class="hit-why">${esc(why)}</div></article>`;
+}).join('');
+
+let filter = 'all';
+try { filter = localStorage.getItem('slon-fb-filter') || 'all'; } catch (e) {}
+if (filter !== 'all' && !COMPS[filter]) filter = 'all';
+
+function renderFilters() {
+  const btn = (id, label, color) => `<button type="button" data-f="${id}" aria-pressed="${filter===id}">${color?`<span class="dot" style="background:${color}"></span>`:''}${label}</button>`;
+  document.getElementById('filters').innerHTML = btn('all','Все') +
+    Object.entries(COMPS).map(([id,c]) => btn(id, c.name, c.color)).join('');
+}
+function renderDays() {
+  const list = M.filter(r => filter === 'all' || r[3] === filter);
+  const byDay = {};
+  list.forEach(r => (byDay[r[0]] = byDay[r[0]] || []).push(r));
+  const days = Object.keys(byDay).sort();
+  document.getElementById('days').innerHTML = days.length ? days.map(d => {
+    const x = dt(d);
+    const rows = byDay[d].sort((a,b) => sortKey(a[1]) - sortKey(b[1])).map(([,t,m,c,top]) =>
+      `<div class="row"><div class="time">${t}${isNight(t)?'<small>ночь</small>':''}</div>
+        <div class="match${top?' top':''}">${esc(m)}${top?'<span class="tag-top">топ</span>':''}</div>
+        <span class="comp"><span class="dot" style="background:${COMPS[c].color}"></span>${COMPS[c].name}</span></div>`).join('');
+    return `<div class="day"><div class="day-head"><div class="day-num">${x.getDate()} ${MON[x.getMonth()].slice(0,3)}</div><div class="day-wd">${WD[x.getDay()]}</div></div><div class="rows">${rows}</div></div>`;
+  }).join('') : '<div class="empty">В этом турнире матчей за период нет.</div>';
+}
+document.getElementById('filters').addEventListener('click', e => {
+  const b = e.target.closest('button[data-f]'); if (!b) return;
+  filter = b.dataset.f;
+  try { localStorage.setItem('slon-fb-filter', filter); } catch (e) {}
+  renderFilters(); renderDays();
+});
+renderFilters(); renderDays();
+</script>
+
+</body>
+</html>

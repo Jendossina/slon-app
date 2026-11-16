@@ -20,7 +20,7 @@
 // Отсюда правило: поменял любой файл оболочки — подними CACHE_VERSION.
 // За этим следит CI (scripts/check-sw-version.mjs), забыть не даст.
 
-const CACHE_VERSION = 'slon-shell-v158';
+const CACHE_VERSION = 'slon-shell-v159';
 
 const SHELL_FILES = [
   '/',
@@ -130,6 +130,8 @@ self.addEventListener('fetch', (event) => {
   // должна: ниже любой переход отдаёт index.html из кеша, и вместо витрины
   // в зале появился бы экран входа.
   if (url.pathname.indexOf('/tv') === 0) return;
+  // Футбольная афиша (/afisha) — отдельная открытая страница, не оболочка
+  if (url.pathname.indexOf('/afisha') === 0) return;
 
   const isNavigation = req.mode === 'navigate';
 
