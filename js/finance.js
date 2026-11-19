@@ -151,6 +151,7 @@ function recalcKassa() {
   let sum = 0;
   document.querySelectorAll('.kassa-line-amount').forEach(i=>{ const v=parseFloat(i.value); if(!isNaN(v)) sum+=v; });
   document.getElementById('kassa-amount').value = sum || '';
+  kassaCheckSums();
   updateAvgCheck();
   return sum;
 }
@@ -228,8 +229,56 @@ async function openKassaModal(date) {
 // Смена даты прямо в модалке — подгружаем кассу за выбранное число (или чистим форму)
 function onKassaDateChange(v) { loadKassaForDate(v || businessToday()); }
 
+// Что ещё считали с чеков, кроме выручки: изъятия (уходят расходами дня),
+// списания и «оплачено как скидка» — для справки в разбивке кассы.
+let kassaZ = { expenses: [], writeoffs: [], discounts: [] };
+
+function renderKassaZ() {
+  const el = document.getElementById('kassa-zexp');
+  if(!el) return;
+  const sum = a => a.reduce((s,x)=>s+(Number(x.amount)||0), 0);
+  let html = '';
+  if(kassaZ.expenses.length) {
+    html += `<div class="form-label" style="margin:10px 0 4px">${t('fin.zExpenses')} · ${formatNum(sum(kassaZ.expenses))}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">${t('fin.zExpHint')}</div>`;
+    html += kassaZ.expenses.map((x,i)=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1;min-width:0">${escapeHtml(x.label)}${x.who?` · <span style="color:var(--text-muted)">${escapeHtml(x.who)}</span>`:''}
+          <div style="font-size:11px;color:var(--text-muted)">${escapeHtml(x.category||'Прочее')}</div></div>
+        <div style="white-space:nowrap">${formatNum(x.amount)}</div>
+        <button type="button" onclick="kassaZRemove(${i})" style="background:none;border:none;color:var(--text-muted);font-size:15px;cursor:pointer;padding:2px 6px">✕</button>
+      </div>`).join('');
+  }
+  const info = [];
+  const wo = kassaZ.writeoffs.filter(x=>Number(x.amount));
+  if(wo.length) info.push(`${t('fin.writeoffs')}: ${wo.map(x=>`${escapeHtml(x.label)} ${formatNum(x.amount)}`).join(', ')}`);
+  const dc = kassaZ.discounts.filter(x=>Number(x.amount));
+  if(dc.length) info.push(`${t('fin.discounts')}: ${dc.map(x=>`${escapeHtml(x.label)} ${formatNum(x.amount)}`).join(', ')}`);
+  if(info.length) html += `<div style="font-size:12px;color:var(--text-muted);margin-top:8px;line-height:1.6">${info.join('<br>')}</div>`;
+  el.innerHTML = html;
+  kassaCheckSums();
+}
+function kassaZRemove(i) { kassaZ.expenses.splice(i,1); renderKassaZ(); }
+
+// Сверка: типы оплат должны дать итог, расходы — сумму изъятий. Не сходится —
+// значит, ИИ ошибся в цифре или чек обрезан: пусть человек сверит глазами.
+function kassaCheckSums() {
+  const el = document.getElementById('kassa-sumcheck');
+  if(!el) return;
+  const warn = [];
+  let lines = 0, any = false;
+  document.querySelectorAll('.kassa-line-amount').forEach(i=>{ const v=parseFloat(i.value); if(!isNaN(v)) { lines+=v; any=true; } });
+  const total = _kv('kassa-amount');
+  if(any && total && Math.round(lines) !== Math.round(total)) warn.push(t('fin.mismatchLines',{a:formatNum(lines),b:formatNum(total)}));
+  const wd = _kv('kassa-withdrawals');
+  const ex = kassaZ.expenses.reduce((s,x)=>s+(Number(x.amount)||0), 0);
+  if(kassaZ.expenses.length && wd && Math.round(ex) !== Math.round(wd)) warn.push(t('fin.mismatchExp',{a:formatNum(ex),b:formatNum(wd)}));
+  el.innerHTML = warn.map(w=>`<div>${w}</div>`).join('');
+}
+
 async function loadKassaForDate(t) {
   kassaEditDate = t;
+  kassaZ = { expenses: [], writeoffs: [], discounts: [] };
+  renderKassaZ();
   ['kassa-existing-id','kassa-amount','kassa-deposits','kassa-withdrawals','kassa-expected','kassa-guests','kassa-photo-url'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
   kassaClearLines();
   updateAvgCheck();
@@ -247,6 +296,8 @@ async function loadKassaForDate(t) {
       set('kassa-deposits', b.deposits); set('kassa-withdrawals', b.withdrawals); set('kassa-expected', b.cash_expected);
       set('kassa-guests', b.guests);
       updateAvgCheck();
+      kassaZ = { expenses: b.expenses || [], writeoffs: b.writeoffs || [], discounts: b.discounts || [] };
+      renderKassaZ();
       if(existing.photo_url) {
         document.getElementById('kassa-photo-url').value = existing.photo_url;
         document.getElementById('kassa-photo-preview').innerHTML = `<img src="${escapeHtml(existing.photo_url)}" style="max-width:100%;border-radius:10px;max-height:160px;object-fit:cover" onclick="viewReport('${escJsAttr(existing.photo_url)}','image')">`;
@@ -290,12 +341,25 @@ function scanReceipt() {
       // в первом случае чек надо переснять, во втором переснимать бесполезно.
       if(!result.ok || !result.data) { status.textContent = aiErrorText(result.code, 'fin.scanFail'); return; }
       const d = result.data;
+      // Кассовый день — день открытия смены с чека. Менеджер вносит ночью или
+      // утром, и дату в окне легко забыть переключить.
+      let dateNote = '';
+      if(d.shift_date && /^\d{4}-\d{2}-\d{2}$/.test(d.shift_date) && d.shift_date !== kassaEditDate) {
+        const di = document.getElementById('kassa-date'); if(di) di.value = d.shift_date;
+        await loadKassaForDate(d.shift_date);
+        document.getElementById('kassa-photo-url').value = photoUrl;
+        document.getElementById('kassa-photo-preview').innerHTML = `<img src="${escapeHtml(photoUrl)}" style="max-width:100%;border-radius:10px;max-height:160px;object-fit:cover">`;
+        dateNote = ' ' + t('fin.dateFromReceipt',{d:d.shift_date.split('-').reverse().join('.')});
+      }
       kassaClearLines();
       (d.lines || []).forEach(l => { if(l && l.label) kassaAddLine(l.label, l.amount); });
       const set = (id,v)=>{ const el=document.getElementById(id); if(el && v!=null) el.value=v; };
       set('kassa-deposits', d.deposits); set('kassa-withdrawals', d.withdrawals); set('kassa-expected', d.cash_expected);
       document.getElementById('kassa-amount').value = (d.total!=null ? d.total : recalcKassa());
-      status.textContent = t('fin.scanDone');
+      kassaZ = { expenses: d.expenses || [], writeoffs: d.writeoffs || [], discounts: d.discounts || [] };
+      renderKassaZ();
+      updateAvgCheck();
+      status.textContent = t('fin.scanDone') + dateNote;
     } catch(err) { status.textContent = t('common.error')+err.message; }
   };
   input.click();
@@ -320,7 +384,8 @@ async function saveKassa() {
   const breakdown = {
     lines,
     deposits: _kv('kassa-deposits'), withdrawals: _kv('kassa-withdrawals'), cash_expected: _kv('kassa-expected'),
-    guests: _kv('kassa-guests') || null
+    guests: _kv('kassa-guests') || null,
+    expenses: kassaZ.expenses, writeoffs: kassaZ.writeoffs, discounts: kassaZ.discounts
   };
   const photo_url = document.getElementById('kassa-photo-url').value || null;
   const description = lines.length
@@ -336,6 +401,23 @@ async function saveKassa() {
       ({ error: err } = await sb.from('finances').insert({ type:'income', category:'Выручка', date: kassaEditDate || businessToday(), filial: currentFilial, ...row }));
     }
     if(err) return showToast(t('common.error')+err.message);
+    // Изъятия с чека → расходы дня. Прежние строки «с чека» за этот день
+    // заменяем целиком: пересохранение кассы не должно их удваивать.
+    // Расходы, внесённые руками кнопкой «➖ Расход», не трогаем.
+    const day = kassaEditDate || businessToday();
+    const { error: delErr } = await sb.from('finances').delete()
+      .eq('type','expense').eq('filial', currentFilial).eq('date', day).eq('breakdown->>source','z');
+    if(delErr) return showToast(t('common.error')+delErr.message);
+    if(kassaZ.expenses.length) {
+      const rows = kassaZ.expenses.map(x => ({
+        type:'expense', date: day, filial: currentFilial, amount: Number(x.amount)||0,
+        category: x.category || 'Прочее',
+        description: x.who ? `${x.label} — ${x.who}` : x.label,
+        breakdown: { source:'z', label: x.label, who: x.who || '' }
+      }));
+      const { error: insErr } = await sb.from('finances').insert(rows);
+      if(insErr) return showToast(t('common.error')+insErr.message);
+    }
     closeModal('modal-kassa');
     showToast(t('fin.kassaSaved'));
     if(kassaEditDate) financeSelectedDate = kassaEditDate; // экран прыгает на день сохранённой кассы
