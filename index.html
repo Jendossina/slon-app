@@ -1848,6 +1848,23 @@ body.boss-readonly [data-edit-only] { display: none !important; }
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-filial-geo">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-filial-geo')">✕</button>
+    <div class="modal-title" data-i18n="hr.geoTitle">📍 Гео-отметка прихода</div>
+    <div style="font-size:12px;color:var(--gold-dark);margin-bottom:8px" id="fg-filial-display">—</div>
+    <div class="card" style="background:var(--surface-2);margin-bottom:12px;font-size:13px;color:var(--text-secondary)" id="fg-status">—</div>
+    <button class="btn btn-primary" onclick="captureFilialGeoPoint()" style="margin-bottom:14px" data-i18n="hr.geoSetHere">📍 Поставить точку здесь</button>
+    <div class="form-group"><label class="form-label" for="fg-radius" data-i18n="hr.geoRadiusLabel">Радиус, в котором можно отмечаться (м)</label>
+      <input class="form-input" id="fg-radius" type="number" value="150" min="30" step="10">
+    </div>
+    <input type="hidden" id="fg-lat"><input type="hidden" id="fg-lng">
+    <button class="btn btn-primary" onclick="saveFilialGeo()" data-i18n="common.save">Сохранить</button>
+    <button class="btn" onclick="removeFilialGeo()" style="margin-top:10px;background:#FCEBEB;color:#A32D2D" data-i18n="hr.geoRemove">Убрать гео-проверку</button>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:12px;line-height:1.5" data-i18n="hr.geoHint">Задаётся один раз, стоя внутри филиала. После этого сотрудники смогут отметить приход только рядом с этой точкой (в пределах радиуса).</div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-edit-employee">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-edit-employee')">✕</button>

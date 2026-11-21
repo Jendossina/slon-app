@@ -804,6 +804,11 @@ async function checkIn() {
     const { data: myShifts } = await sb.from('schedules').select('*').eq('date', todayStr).eq('employee_id', currentProfile.employee_id);
     const myShift = pickDayShift(myShifts);
 
+    // Гео-проверка ДО записи прихода: если у филиала задана точка — нужно быть рядом
+    setCheckInStatus(t('att.checkGeo'));
+    const geoCheck = await verifyCheckinLocation(myShift?.filial || currentFilial);
+    if(!geoCheck.ok) { setCheckInStatus(geoCheck.message, 'bad'); showToast(geoCheck.message); return null; }
+
     setCheckInStatus(t('att.savingMark'));
     // Время прихода, опоздание и штраф проставляет триггер в базе по часам
     // сервера: часы телефона можно перевести назад, и раньше это давало отметку
