@@ -211,7 +211,7 @@ async function loadScheduleGrid() {
     const schedMap = {};
     (schedR.data||[]).forEach(s => { schedMap[s.date+'_'+s.employee_id] = s; });
 
-    const dayNames = getLang()==='uz' ? ['Ду','Се','Чо','Па','Жу','Ша','Як'] : ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+    const dayNames = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
     const isAdmin = canEditScheduleDept(dept);
 
     let html = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
@@ -393,9 +393,7 @@ async function renderWeekFillDays() {
     d.setDate(d.getDate()+i);
     weekFillDates.push(d);
   }
-  const dayNames = getLang()==='uz'
-    ? ['Душанба','Сешанба','Чоршанба','Пайшанба','Жума','Шанба','Якшанба']
-    : ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
+  const dayNames = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
 
   // Load existing schedule for this employee this week
   const dateStrs = weekFillDates.map(fmtDate);

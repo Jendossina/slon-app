@@ -212,48 +212,9 @@ function deptSection(dept, count, innerHtml) {
   </div>`;
 }
 
-// ===== Геолокация отметки прихода =====
-// Снимали 06.08.2026 (на части андроидов местоположение не определялось), вернули
-// 21.11.2026 по решению владельца. Проверка включается на филиал отдельно: пока
-// управляющий не поставил точку в «Сотрудниках», отметка там идёт без гео.
-// Расстояние между двумя точками в метрах (формула гаверсинуса)
-function haversineMeters(lat1, lng1, lat2, lng2) {
-  const R = 6371000, toRad = x => x * Math.PI / 180;
-  const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
-  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
-  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
-}
-// Текущая позиция телефона (Promise): высокая точность + таймаут
-function getGpsPosition() {
-  return new Promise((resolve, reject) => {
-    if(!navigator.geolocation) { reject(new Error('no-geo')); return; }
-    navigator.geolocation.getCurrentPosition(
-      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
-      err => reject(err),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
-  });
-}
-// Сохранённая точка филиала (или null, если гео-проверка не настроена)
-async function loadFilialGeo(filial) {
-  try { const { data } = await sb.from('filial_geo').select('*').eq('filial', filial).maybeSingle(); return data || null; }
-  catch(e) { return null; }
-}
-// Проверка, что сотрудник рядом с филиалом. → { ok, message? }
-async function verifyCheckinLocation(filial) {
-  const point = await loadFilialGeo(filial);
-  if(!point) return { ok: true }; // точка не задана — гео-проверки нет
-  let pos;
-  try { pos = await getGpsPosition(); }
-  catch(e) { return { ok: false, message: t('att.geoNeed') }; }
-  const dist = Math.round(haversineMeters(pos.lat, pos.lng, point.lat, point.lng));
-  // Допуск = радиус + погрешность GPS (до 60 м), чтобы не блокировать из-за «гуляющего» сигнала
-  const allowed = (point.radius_m||150) + Math.min(pos.accuracy||0, 60);
-  if(dist > allowed) {
-    return { ok: false, message: t('att.geoFar', { d: dist, f: getFilialName(filial), r: point.radius_m||150 }) };
-  }
-  return { ok: true };
-}
+// Гео-проверка отметки прихода убрана: на части Android-телефонов геолокация
+// не работает даже в других приложениях, и такие сотрудники не могли отметиться.
+// Место подтверждает обязательное видео с камеры.
 
 // ===== Общий пикер сотрудников по цехам (для задач и чек-листов) =====
 // Активные (невыполненные) задачи по сотруднику: имя → кол-во, по текущему филиалу

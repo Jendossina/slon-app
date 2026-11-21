@@ -39,11 +39,9 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Отметка прихода проверяет, что сотрудник на месте: navigator.geolocation
-         работает внутри нашего WebView, поэтому разрешение нужно самому приложению.
-         Снимали 06.08.2026, вернули 21.11.2026. -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Разрешения на геолокацию убраны вместе с гео-проверкой прихода:
+         на части телефонов местоположение не определялось вовсе, и сотрудник
+         не мог отметиться. Место подтверждает видео с камеры. -->
 
     <!-- Видео прихода снимается ВНУТРИ приложения (getUserMedia + MediaRecorder),
          чтобы ролик не оставался в галерее телефона и приложение не сворачивалось

@@ -78,9 +78,7 @@ async function loadCalendar() {
   const addBtn = document.getElementById('cal-add-btn');
   if(addBtn) addBtn.style.display = canEditData() ? 'block' : 'none';
   document.getElementById('cal-subtitle').textContent = getFilialName(currentFilial);
-  const monthNames = getLang()==='uz'
-    ? ['Январ','Феврал','Март','Апрел','Май','Июн','Июл','Август','Сентябр','Октябр','Ноябр','Декабр']
-    : ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const monthNames = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
   document.getElementById('cal-month-label').textContent = monthNames[calMonth] + ' ' + calYear;
 
   const content = document.getElementById('calendar-content');

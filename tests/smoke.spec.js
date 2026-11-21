@@ -3493,34 +3493,22 @@ test('нижняя панель остаётся внизу, а прокручи
 
 
 // В меню «Ещё» один пункт висел как «more.cleaning»: строки для него не было
-// ни в русском словаре, ни в узбекском, а t() возвращает сам ключ, когда
-// перевода нет. Заметно это только глазами, поэтому — тест на оба языка.
+// в словаре, а t() возвращает сам ключ, когда перевода нет. Заметно это только
+// глазами, поэтому — тест.
 test('в меню «Ещё» нет непереведённых ключей', async ({ page }) => {
   await page.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
-
-  // Язык переключается только перезагрузкой (setLang вызывает location.reload),
-  // поэтому каждый язык проверяем отдельным заходом, а не вызовом из страницы.
-  const labelsFor = async (lang) => {
-    await page.goto('/');
-    await page.evaluate((l) => { try { localStorage.setItem('slon-lang', l); } catch (e) {} }, lang);
-    await page.reload();
-    await page.waitForFunction(() => typeof window.openMoreMenu === 'function');
-    return page.evaluate(() => {
-      currentUser = { id: 'u1' };
-      currentProfile = { role: 'admin', name: 'Тест', employee_id: 9 };
-      currentEmployee = { department: null, role: null };
-      currentFilial = 'chekhov';
-      openMoreMenu();
-      return Array.from(document.querySelectorAll('#more-menu-items .more-menu-item'))
-        // Иконка-эмодзи приклеена к тексту без пробела — срезаем всё, что не буква
-        .map((b) => b.textContent.replace(/^[^\p{L}]+/u, '').trim());
-    });
-  };
-
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.openMoreMenu === 'function');
+  const labels = await page.evaluate(() => {
+    currentUser = { id: 'u1' };
+    currentProfile = { role: 'admin', name: 'Тест', employee_id: 9 };
+    currentEmployee = { department: null, role: null };
+    currentFilial = 'chekhov';
+    openMoreMenu();
+    return Array.from(document.querySelectorAll('#more-menu-items .more-menu-item'))
+      // Иконка-эмодзи приклеена к тексту без пробела — срезаем всё, что не буква
+      .map((b) => b.textContent.replace(/^[^\p{L}]+/u, '').trim());
+  });
   const isKey = (s) => /^[a-z][a-zA-Z]*\.[a-zA-Z]+$/.test(s);
-  const ru = (await labelsFor('ru')).filter(isKey);
-  const uz = (await labelsFor('uz')).filter(isKey);
-
-  expect(ru, 'в русском меню показывается ключ вместо перевода').toEqual([]);
-  expect(uz, 'в узбекском меню показывается ключ вместо перевода').toEqual([]);
+  expect(labels.filter(isKey), 'в меню показывается ключ вместо перевода').toEqual([]);
 });
