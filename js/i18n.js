@@ -257,7 +257,7 @@ const I18N = {
     'dir.suppliers': '📦 Поставщики', 'dir.contacts': '📞 Контакты', 'dir.access': '🔑 Доступы',
     'dir.empty': 'Пусто', 'dir.addHint': '.<br>Нажми «+ Добавить».', 'dir.login': 'Логин', 'dir.phone': 'Телефон', 'dir.password': 'Пароль', 'dir.supplies': 'Поставляет', 'dir.call': 'позвонить',
     'dir.errNotSetup': 'Ошибка. Возможно, справочник ещё не настроен в Supabase.',
-    'dir.name': 'Название', 'dir.whatSupplies': 'Что поставляет', 'dir.nameOrg': 'Имя / организация', 'dir.whoIs': 'Кто это (роль)', 'dir.service': 'Сервис (iiko, Wi-Fi…)',
+    'dir.name': 'Название', 'dir.whatSupplies': 'Что поставляет', 'dir.nameOrg': 'Имя / организация', 'dir.whoIs': 'Что делает / кто это', 'dir.section': 'Раздел', 'dir.noSection': 'Без раздела', 'dir.service': 'Сервис (iiko, Wi-Fi…)',
     'dir.noRights': 'Нет прав', 'dir.category': 'Категория', 'dir.comment': 'Комментарий', 'dir.optSupplier': '📦 Поставщик', 'dir.optContact': '📞 Контакт', 'dir.optAccess': '🔑 Доступ',
     // Склад (общее для Посуды и Хозчасти)
     'inv.enterName': 'Введите название', 'inv.enterQty': 'Введите количество', 'inv.show': 'Показать', 'inv.from': 'С', 'inv.to': 'По',

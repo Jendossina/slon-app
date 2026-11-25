@@ -58,6 +58,7 @@ async function renderDirectoryList() {
       return;
     }
     if(dirCategory === 'equipment') { content.innerHTML = renderDirEquipment(entries); return; }
+    if(dirCategory === 'contact') { content.innerHTML = renderDirContacts(entries); return; }
     content.innerHTML = entries.map(e=>{
       const f1label = dirCategory==='access' ? t('dir.login') : t('dir.phone');
       const f2label = dirCategory==='access' ? t('dir.password') : (dirCategory==='supplier'?t('dir.supplies'):'');
@@ -66,7 +67,7 @@ async function renderDirectoryList() {
           <div style="flex:1">
             <div style="font-size:15px;font-weight:600;color:var(--text-primary)">${escapeHtml(e.title)}</div>
             ${e.field1?`<div style="font-size:13px;color:var(--text-secondary);margin-top:4px">${f1label}: <span style="color:var(--text-primary)">${escapeHtml(e.field1)}</span>${dirCategory!=='access'&&e.field1?` · <a href="tel:${escapeHtml(e.field1)}" style="color:var(--gold-dark)">${t('dir.call')}</a>`:''}</div>`:''}
-            ${e.field2?`<div style="font-size:13px;color:var(--text-secondary);margin-top:2px">${f2label}: <span style="color:var(--text-primary)">${escapeHtml(e.field2)}</span></div>`:''}
+            ${e.field2?`<div style="font-size:13px;color:var(--text-secondary);margin-top:2px">${f2label?f2label+': ':''}<span style="color:var(--text-primary)">${escapeHtml(e.field2)}</span></div>`:''}
             ${e.note?`<div style="font-size:12px;color:var(--text-muted);margin-top:4px">${escapeHtml(e.note)}</div>`:''}
           </div>
           ${dirCanEdit()?`<button onclick="openDirectoryModal(${e.id})" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer">✏️</button>`:''}
@@ -74,6 +75,25 @@ async function renderDirectoryList() {
       </div>`;
     }).join('');
   } catch(e) { content.innerHTML=`<div class="card"><div class="empty"><div class="empty-text">${t('dir.errNotSetup')}</div></div></div>`; }
+}
+
+// Контакты — по разделам (section): «Ремонт» и т.п.; без раздела — в конце
+function renderDirContacts(entries) {
+  const groups = {};
+  entries.forEach(e=>{ const z = e.section || ''; (groups[z] = groups[z] || []).push(e); });
+  const names = Object.keys(groups).sort((a,b)=> (a==='')-(b==='') || a.localeCompare(b,'ru'));
+  return names.map(z=>`<div class="section-label" style="margin:14px 4px 6px">${escapeHtml(z || t('dir.noSection'))} · ${groups[z].length}</div>` +
+    groups[z].map(e=>`<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:start;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:600;color:var(--text-primary)">${escapeHtml(e.title)}</div>
+          ${e.field2?`<div style="font-size:13px;color:var(--text-primary);margin-top:2px">${escapeHtml(e.field2)}</div>`:''}
+          ${e.note?`<div style="font-size:12px;color:var(--text-muted);margin-top:2px">${escapeHtml(e.note)}</div>`:''}
+          ${e.field1?`<div style="font-size:13px;color:var(--text-secondary);margin-top:4px">${escapeHtml(e.field1)} · <a href="tel:${escapeHtml(e.field1.replace(/[^+\d]/g,''))}" style="color:var(--gold-dark)">${t('dir.call')}</a></div>`:''}
+        </div>
+        ${dirCanEdit()?`<button onclick="openDirectoryModal(${e.id})" style="background:#f0e6d2;color:#8a6a2f;border:none;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;flex:0 0 auto">✏️</button>`:''}
+      </div>
+    </div>`).join('')).join('');
 }
 
 // Оборудование — по зонам (field2), с фото и количеством
@@ -130,6 +150,13 @@ function updateDirFields() {
   else if(cat==='contact') { titleL.textContent=t('dir.nameOrg'); f1L.textContent=t('dir.phone'); f2L.textContent=t('dir.whoIs'); f2group.style.display=''; }
   else if(cat==='access') { titleL.textContent=t('dir.service'); f1L.textContent=t('dir.login'); f2L.textContent=t('dir.password'); f2group.style.display=''; }
   else if(cat==='equipment') { titleL.textContent=t('dir.name'); f1L.textContent=t('dir.qty'); f2L.textContent=t('dir.where'); f2group.style.display=''; }
+  const sec = document.getElementById('dir-section-group');
+  if(sec) {
+    sec.style.display = cat==='contact' ? '' : 'none';
+    const dl = document.getElementById('dir-section-list');
+    const names = [...new Set(['Ремонт', ...dirEntries.map(e=>e.section).filter(Boolean)])];
+    if(dl) dl.innerHTML = names.map(n=>`<option value="${escapeHtml(n)}">`).join('');
+  }
   const ph = document.getElementById('dir-photo-group');
   if(ph) ph.style.display = cat==='equipment' ? '' : 'none';
 }
@@ -148,6 +175,7 @@ function openDirectoryModal(id) {
       document.getElementById('dir-field1').value = data.field1||'';
       document.getElementById('dir-field2').value = data.field2||'';
       document.getElementById('dir-note').value = data.note||'';
+      document.getElementById('dir-section').value = data.section||'';
       dirPhotoUrl = data.photo_url || null;
       renderDirPhotoField();
     });
@@ -155,7 +183,7 @@ function openDirectoryModal(id) {
     document.getElementById('dir-modal-title').textContent = t('note.new');
     document.getElementById('dir-category').value = dirCategory;
     updateDirFields();
-    ['dir-title','dir-field1','dir-field2','dir-note'].forEach(f=>document.getElementById(f).value='');
+    ['dir-title','dir-field1','dir-field2','dir-note','dir-section'].forEach(f=>document.getElementById(f).value='');
     dirPhotoUrl = null;
     renderDirPhotoField();
     delBtn.style.display = 'none';
@@ -174,6 +202,7 @@ async function saveDirectory() {
   if(!title) return showToast(t('inv.enterName'));
   try {
     const row = { category, title, field1, field2, note };
+    if(category === 'contact') row.section = document.getElementById('dir-section').value.trim() || null;
     if(category === 'equipment') row.photo_url = dirPhotoUrl;
     let res;
     if(id) res = await sb.from('directory_entries').update(row).eq('id',id);

@@ -50,3 +50,44 @@ test('оборудование: список своего филиала с фо
   expect(inserted.category).toBe('equipment');
   expect(inserted).toHaveProperty('photo_url', null);
 });
+
+// Контакты → разделы (25.11.2026): «Ремонт» из таблицы владельца, звонок по чистому номеру.
+test('контакты: разделы с заголовком, раздел сохраняется', async ({ page }) => {
+  const rows = [
+    { id: 11, category: 'contact', section: 'Ремонт', title: 'Cryogenium_uz', field1: '+998 90 130-28-87', field2: 'Газовые баллоны для пива', note: 'Дмитрий, техник' },
+    { id: 12, category: 'contact', section: null, title: 'Бухгалтер', field1: '+998 90 000-00-00', field2: '', note: '' },
+  ];
+  let inserted = null;
+  await page.route('**/rest/v1/**', async (route) => {
+    const req = route.request();
+    if (req.url().includes('/directory_entries')) {
+      if (req.method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
+      if (req.method() === 'POST') inserted = JSON.parse(req.postData() || '{}');
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => typeof window.loadDirectory === 'function');
+  await page.evaluate(() => {
+    currentUser = { id: 'u1' };
+    currentProfile = { name: 'Тест', employee_id: 1, role: 'admin' };
+    currentFilial = 'chekhov';
+    document.getElementById('screen-directory').classList.add('active');
+    switchDirCat('contact');
+  });
+  const c = page.locator('#directory-content');
+  await expect(c).toContainText('Ремонт · 1');
+  await expect(c).toContainText('Без раздела · 1');
+  await expect(c).toContainText('Газовые баллоны для пива');
+  await expect(c.locator('a[href="tel:+998901302887"]')).toHaveCount(1);
+
+  await page.evaluate(async () => {
+    openDirectoryModal();
+    document.getElementById('dir-title').value = 'Лифтёр';
+    document.getElementById('dir-section').value = 'Ремонт';
+    await saveDirectory();
+  });
+  expect(inserted).not.toBe(null);
+  expect(inserted.category).toBe('contact');
+  expect(inserted.section).toBe('Ремонт');
+});
